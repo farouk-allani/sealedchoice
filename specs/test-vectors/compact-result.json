@@ -1,0 +1,13 @@
+{
+  "description": "Compact on-chain result (JCS). Contract stores it verbatim and checks tid/root/rubric against its own state. worst_case_length_8_bids shows headroom under the 900-byte limit.",
+  "input": {
+    "tender_id": "1",
+    "bids_root": "86877fd0152bc6fb2eee49e6809909230f65fc77135338a3f007e73164932577",
+    "rubric_hash": "16bd1b7837c3a6d95f0756cc0bad7f73fa20f6ccc5e0f00ec390cf8263de968b",
+    "bundle_hash": "aa9f93d00149377b6d1ec8d2e35cb6b67f13751e52f9cbccc0109972efa4bcc0",
+    "attempt": 1
+  },
+  "json": "{\"attempt\":1,\"bundle\":\"aa9f93d00149377b6d1ec8d2e35cb6b67f13751e52f9cbccc0109972efa4bcc0\",\"rk\":[[0,7466,0],[1,5955,0],[2,5700,24]],\"root\":\"86877fd0152bc6fb2eee49e6809909230f65fc77135338a3f007e73164932577\",\"rubric\":\"16bd1b7837c3a6d95f0756cc0bad7f73fa20f6ccc5e0f00ec390cf8263de968b\",\"status\":\"ok\",\"tid\":\"1\",\"v\":1}",
+  "length": 310,
+  "worst_case_length_8_bids": 396
+}

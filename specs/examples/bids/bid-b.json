@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "tender_id": "1",
+  "bidder": "vendor-b.testnet",
+  "price_minor": "9000000000",
+  "delivery_days": 14,
+  "methodology": "We will review the code manually and run automated tools. Findings will be delivered in a PDF report at the end of the engagement.",
+  "track_record": "Our team has experience with smart contracts on several chains.",
+  "salt": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+}

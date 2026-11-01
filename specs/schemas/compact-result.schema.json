@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sealedchoice.com/schemas/compact-result.v1.json",
+  "title": "Compact on-chain evaluation result v1",
+  "description": "Printed by the evaluator WASM to stdout as JCS bytes, returned by OutLayer to the tender contract's callback, validated and stored verbatim. Must be <= 900 bytes. Contains no bid content and no prices. rk is the full ranking: eligible bids by (total desc, price asc, index asc), then ineligible bids by index with total 0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "tid", "root", "rubric", "bundle", "attempt", "status", "rk"],
+  "properties": {
+    "v": {"const": 1},
+    "tid": {"type": "string", "pattern": "^[0-9]{1,20}$"},
+    "root": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Bid-set Merkle root. Contract checks it equals the root it froze at close."},
+    "rubric": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Contract checks it equals the stored rubric_hash."},
+    "bundle": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "sha256 of the public evidence bundle (JCS)."},
+    "attempt": {"type": "integer", "minimum": 1, "maximum": 3, "description": "Contract checks it equals its own attempt counter."},
+    "status": {"enum": ["ok", "needs_committee", "no_eligible_bids"]},
+    "rk": {
+      "type": "array", "minItems": 1, "maxItems": 8,
+      "items": {
+        "type": "array", "minItems": 3, "maxItems": 3,
+        "prefixItems": [
+          {"type": "integer", "minimum": 0, "description": "bid index"},
+          {"type": "integer", "minimum": 0, "maximum": 10000, "description": "total score in basis points"},
+          {"type": "integer", "minimum": 0, "maximum": 127, "description": "flags bitmap, see docs/04-evaluator.md"}
+        ]
+      }
+    }
+  }
+}

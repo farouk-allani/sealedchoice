@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sealedchoice.com/schemas/evidence-bundle.v1.json",
+  "title": "Public evidence bundle v1",
+  "description": "Uploaded by the evaluator to the bundle store, content-addressed by sha256(JCS(bundle)) which is in the compact result. Public: contains no bid plaintext, no prices, no per-criterion scores of other bidders. Private material is inside the encrypted envelopes (per-bidder debriefs, committee report). See docs/06-evidence-and-verification.md.",
+  "type": "object",
+  "required": ["v", "tender_id", "contract_id", "evaluator", "rubric_hash", "prompt_hash", "bids_root", "bids", "model_calls", "attestation", "result", "debriefs", "committee_report"],
+  "properties": {
+    "v": {"const": 1},
+    "tender_id": {"type": "string"},
+    "contract_id": {"type": "string"},
+    "evaluator": {
+      "type": "object", "required": ["wasm_sha256", "source_repo", "source_tag", "outlayer_request_id"],
+      "properties": {
+        "wasm_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_repo": {"type": "string"},
+        "source_tag": {"type": "string"},
+        "outlayer_request_id": {"type": ["string", "integer"]},
+        "near_block_height": {"type": "integer"},
+        "attempt": {"type": "integer"}
+      }
+    },
+    "rubric_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "prompt_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "bids_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "bids": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["index", "bidder", "leaf", "ciphertext_sha256", "eligible", "flags", "total_bp", "rank"],
+        "properties": {
+          "index": {"type": "integer"},
+          "bidder": {"type": "string"},
+          "leaf": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "ciphertext_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "eligible": {"type": "boolean"},
+          "ineligible_reasons": {"type": "array", "items": {"type": "string"}},
+          "flags": {"type": "integer"},
+          "total_bp": {"type": "integer"},
+          "rank": {"type": "integer"}
+        }
+      }
+    },
+    "model_calls": {
+      "type": "array",
+      "description": "One entry per (eligible bid, model). Hashes are of the exact request/response bytes, which are inside the bidder's debrief and the committee report.",
+      "items": {
+        "type": "object", "required": ["bid_index", "model", "chat_id", "request_sha256", "response_sha256", "signature"],
+        "properties": {
+          "bid_index": {"type": "integer"},
+          "model": {"type": "string"},
+          "chat_id": {"type": "string"},
+          "attempts": {"type": "integer"},
+          "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "response_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "signature": {
+            "type": "object",
+            "description": "Verbatim body of GET /v1/signature/{chat_id}. Verify fields at gate G3.",
+            "required": ["text", "signature", "signing_address", "signing_algo"],
+            "properties": {
+              "text": {"type": "string"},
+              "signature": {"type": "string"},
+              "signing_address": {"type": "string"},
+              "signing_algo": {"type": "string"},
+              "signature_kind": {"type": "string"}
+            }
+          },
+          "error": {"type": "string"}
+        }
+      }
+    },
+    "attestation": {
+      "type": "object",
+      "description": "NEAR AI attestation report(s) fetched by the evaluator at the start of the run with nonce = first 32 bytes of sha256(bids_root || attempt). Lets anyone check that signing addresses belong to attested TEEs.",
+      "required": ["nonce_hex", "reports"],
+      "properties": {
+        "nonce_hex": {"type": "string"},
+        "reports": {"type": "array"}
+      }
+    },
+    "result": {"type": "object", "description": "Exact copy of the compact result object minus the bundle field (avoids a hash cycle)."},
+    "debriefs": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["bid_index", "recipient_pubkey", "ecies_b64", "plaintext_sha256"],
+        "properties": {
+          "bid_index": {"type": "integer"},
+          "recipient_pubkey": {"type": "string"},
+          "ecies_b64": {"type": "string"},
+          "plaintext_sha256": {"type": "string"}
+        }
+      }
+    },
+    "committee_report": {
+      "type": "array",
+      "description": "Same report encrypted once per committee member.",
+      "items": {
+        "type": "object", "required": ["member", "recipient_pubkey", "ecies_b64", "plaintext_sha256"],
+        "properties": {
+          "member": {"type": "string"},
+          "recipient_pubkey": {"type": "string"},
+          "ecies_b64": {"type": "string"},
+          "plaintext_sha256": {"type": "string"}
+        }
+      }
+    }
+  }
+}

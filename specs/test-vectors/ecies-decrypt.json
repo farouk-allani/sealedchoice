@@ -1,0 +1,29 @@
+{
+  "description": "Decrypt each ciphertext with tender_key.sk_hex from hashes-and-keys.json (FAKE key) and check sha256(plaintext) == plaintext_jcs_sha256. Plaintext is the JCS bytes of the bid file. Wire format: ephemeral_pk_uncompressed(65)||nonce(16)||tag(16)||ciphertext.",
+  "library": "eciespy 0.4.7 default config",
+  "tender_sk_hex": "ab417968126584582fd82818a1e08cd69027162c8b5dbed95709a46f3891a7d9",
+  "tender_pk_compressed_hex": "025d5e87286036a92590889aca79acb0669aa30dc052c3b4c30b127911967b532f",
+  "cases": [
+    {
+      "bid_file": "examples/bids/bid-a.json",
+      "plaintext_jcs_sha256": "dc4bf08260a741463bb2c654c075ca40a54674965a14a5e321fe1e083dc247f1",
+      "ciphertext_b64": "BLxmDTrZQAVzxim2ARLhr3zrYDggOINjMzAbLMvJwfBLXfXUW4Tid9dRVCy6i8y5FauZd29YatjM2DFLPhQEuZN5uN4Uq/G9MTzyiiX+Qz8CfaZpulTPAQjxml1XIYPXREu9M+2MOPUFXrTRQtzn4/xbCa5aZSkUsgV2j04DOulHjGLtK810xiw+5XsiEFkP9XZKe9diWZNByWP1oLViFJj2aIhraRajoZdPRkwfp1S23ZlRp6XJNwcSp52xMVZYhrCqSvyPs+Hmy5E4bVA0vqtwqzV6y4kApz+vkHN+ZwnPrRcONr2jZ1L3vP4+RBoqlidOTK7TyjB6XJ5yWo6OOGGiBmr5J7NwKWCI7aN/EaPzpL2A/Wlpdz8VMVTrQOzaXbFo/k2HQ4H1NVYbp33XzXKR/fBYIw8+fBAOkQq+tpbbBJa8vnpkghzlvF9JxcfOsvqxh88KASxzYbm45fC8NdtZh6XAQBKgLs42e0pV/HAqIMFBIhcTMsN9TYU51iTr/5dhfMBd18aPa+825RjPywFo6Uebyo4A3XRXw9ry5/uYSqGVDmuxqSGaixeAAgskhbKdMfoqrTE70Rml/wyhD2UNS91zvIidXZV9I+wI4ZSptKIYf1xvTsk9bJe9dRl0fYt/ELAPOHRXFvoY4ejpunernMZZj4ckcZ2JstXZEk0oLTs8VejvEc/ZmyI5AaIORhS2atvnJa9CTc77IvEdpZ1aE6j/SxifrFwJYZIvBeNp1/0moStxp8b2qT+v40v6xieYA2cF9gYHOUYSPcU5t7jFDCdq9BJPvvMvMc8a1KBEKprPr4z7q8yllHpkNCSZgtNH47ls39AcOAmxep7LzlP0wsTE8dyIQCfWeJUs+UiZH5lQLKWSqUVIP6aaOkS3boAj8DU2Z7SsyAAh7OgEJsOFKtha7Y0W5ECfGSYRXtJAuW/IJv88pgFUgZPsYN07QGj9CjG61sKdk8ClGaZIrmeDoc1HVGzNMZkfyGMrVHyjCnhrKKm5hBm23VWdy5mIE1p5IZfCcpv+maPOP2cvkZtqrW89fBqdYZEChOJLAJI1/IhNgBLItm+QnY3u+isgoF4ua/LHdneJH6ORiOb9AUX6oiI/RXmbUq3og29FtwS/hXVGjtpcICt1cddhAJOlX9Ad+yGtHM/FAVDEN2GlvPjm+a5mMLgyKDruXp553sDRQJEfOQcGNhRO8KioMfC4TcwnM7QF0gcqFqPp9tLdt4sft0eJCyKmXvvb5YSHUSaShFLb6pVYxdlVvd/bMK+WnBj6DDPwsoy9Sp1wLpVw5kPp43MMjrC4TUsUKY/7puyWKVo3jEN+",
+      "ciphertext_sha256": "1de226c7c510285d5214d35007ae5379801b304c2f9d019a684512050ad77063",
+      "ciphertext_len": 999
+    },
+    {
+      "bid_file": "examples/bids/bid-b.json",
+      "plaintext_jcs_sha256": "f74c66b353f073e1f854b5d51ec1cc863f2919875155d66a2f7b309e209b727d",
+      "ciphertext_b64": "BJWKJn2b7n3rsKrpETsQQsXFvyaSrZ0QNwK/3B30RJNYr+RFpGdhmPS5NPK/6rgqqjzdUz0VPUOFUEs+slHb0WMgBxEdc89OJS9jbkUn9xGIb2V6Sp1m8YywtGTBc8+bQ5XqhZn6IjDYNkJQEU/akLnBxuz3G/3Aok0MuybvbXROBboAdErykpMkDpwEAYyssXMwSeCv5nBTV6yb3UD/+mWGBiPco2xr51GjTLFNk/+tWL+EJmQ8WkR3TqGpLS6JNcFYQvfl201h4+nXpOJUtVy9uuzspAacuE+AA0Nx7U2D5W5QI+morZClZzoOaZrVySEjiC0WamIhgSkUdJ92xX+rxQfc0t5amln+8ajjNfcavNQQ41g1TeRJtKfn2GlmWAEx3omXHl4czpKJrO29QCDGGPdr+oVGZVMpy/zipcD63jsb4WJoENQ5J7Fce6/Q7DSIgClp3nzdcSiUghmACPkbln8suWP46Dr5BlC+eNdfT2ghl0XYXFWsxY+MR429zVV3Gvd+bQ54rqbq1Zg7x9GAgQw3DJvjAjgLe6IcS+I2JE/RC8V7NftipCjbSNA+C7gYLSOQKy21ltVJhzAFqjxKc1/3nzCABJDmHO7NZPY=",
+      "ciphertext_sha256": "6e9e9f67d5ae9a59e9bd58462b26481086be6229593a8c4a473b49e897f8bdd5",
+      "ciphertext_len": 464
+    },
+    {
+      "bid_file": "examples/bids/bid-c-malicious.json",
+      "plaintext_jcs_sha256": "f7a50f63170a92fd6a04c918f06f9af9cd8fffd1e9477dc7e5fd5c35dd19f13d",
+      "ciphertext_b64": "BOyFn9JS056cqOLhaUN48mfoQgQAZacBo0Jmh9E4aWtFxnXM3ifyNHEgbGQhwYPYa3Ke5HBX4McDUm9hT5wzkroK+ITjlqFdAOEHyRm2EnRCDGocgeELd+VsdXnHqxfydkQCyYNpv6Jj4XpD1UVVlI2lyQYPz+6fkmIIhnurKxXHOqzE1r/uPU/6Cm8tZ+ej5uOLlBGqy9tVDkJPCok/bJi6Y74jr2R+vWkmdMhrtzUIe2e6bdi4NSKC1u5NRLI7Fj7L22I3N2tbOm6JgjmYL6P5t5yhKgVuDCc4c+fZmqznUpiJlCiKPQd+BrgLq75Mm2d0hsxT//SPcCi44pF3QPa4gMsAuwxTnw5W5tsLQdTL7HEMiigijZwwnxLbTx72bTdL6KmM06ltnFUx27yU66CBGQ73+V9UxrHpnF7VYLfuLJERnWrtrRDgSH/V73hkJtwRDOibjTW295NZL7So/t0npIwRBSLZtrw1GhZSxwb6R7/YR6NwQmWQ0zIXCMRlNsPmO/a66y6CBHBqDLLhWvnBFSRy8lIsMLhGX4JEygc8NDaUL8PzMtQYA8WfpF5pZATIVe+sMz5rNUHLxenYy8uMJdXozCrnW6BOOVpRWtBQL285vO1dpAqfuFidKrGdZ4AM/g==",
+      "ciphertext_sha256": "4a5c7cf9483bf13441047b83ff19b0609985c9291cec2f0da9b38e9c4ffb2a20",
+      "ciphertext_len": 484
+    }
+  ]
+}

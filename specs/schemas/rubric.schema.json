@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sealedchoice.com/schemas/rubric.v1.json",
+  "title": "SealedChoice rubric v1",
+  "description": "Published by the buyer at tender creation. rubric_hash = sha256(JCS(rubric)) is stored on-chain and can never change. Weights are basis points and must sum to 10000 (checked in code, not expressible here).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "title", "scope", "currency", "budget_cap_minor", "max_delivery_days", "criteria", "eligibility", "models", "aggregation", "tie_break", "award_policy"],
+  "properties": {
+    "v": {"const": 1},
+    "title": {"type": "string", "minLength": 3, "maxLength": 120},
+    "scope": {"type": "string", "minLength": 20, "maxLength": 1500},
+    "currency": {
+      "type": "object", "additionalProperties": false,
+      "required": ["asset", "decimals", "symbol"],
+      "properties": {
+        "asset": {"type": "string", "description": "NEP-141 token id prefixed with nep141:, e.g. nep141:usdc.fakes.testnet"},
+        "decimals": {"type": "integer", "minimum": 0, "maximum": 24},
+        "symbol": {"type": "string", "maxLength": 12}
+      }
+    },
+    "budget_cap_minor": {"type": "string", "pattern": "^[1-9][0-9]{0,29}$"},
+    "max_delivery_days": {"type": "integer", "minimum": 1, "maximum": 3650},
+    "criteria": {
+      "type": "array", "minItems": 1, "maxItems": 6,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "type", "weight_bp"],
+            "properties": {
+              "id": {"const": "price"},
+              "type": {"const": "price_lowest_ratio"},
+              "weight_bp": {"type": "integer", "minimum": 0, "maximum": 10000}
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "type", "weight_bp", "source_fields", "question", "anchors"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$"},
+              "type": {"const": "qualitative"},
+              "weight_bp": {"type": "integer", "minimum": 0, "maximum": 10000},
+              "source_fields": {"type": "array", "minItems": 1, "items": {"enum": ["methodology", "track_record"]}},
+              "question": {"type": "string", "minLength": 10, "maxLength": 300},
+              "anchors": {
+                "type": "object", "additionalProperties": false,
+                "required": ["0", "1", "2", "3", "4", "5"],
+                "patternProperties": {"^[0-5]$": {"type": "string", "minLength": 3, "maxLength": 300}}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "eligibility": {
+      "type": "object", "additionalProperties": false,
+      "required": ["require_price_lte_cap", "require_delivery_lte_max", "required_fields"],
+      "properties": {
+        "require_price_lte_cap": {"type": "boolean"},
+        "require_delivery_lte_max": {"type": "boolean"},
+        "required_fields": {"type": "array", "items": {"enum": ["price_minor", "delivery_days", "methodology", "track_record"]}}
+      }
+    },
+    "models": {
+      "type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "description": "Exact NEAR AI Cloud model ids, pinned at creation. Use three different model families."
+    },
+    "aggregation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["qualitative", "min_valid_outputs", "disagreement_threshold", "evidence_min_chars", "evidence_required_from_score", "evidence_clamp_score"],
+      "properties": {
+        "qualitative": {"const": "lower_median"},
+        "min_valid_outputs": {"type": "integer", "minimum": 2, "maximum": 3},
+        "disagreement_threshold": {"type": "integer", "minimum": 1, "maximum": 5},
+        "evidence_min_chars": {"type": "integer", "minimum": 8, "maximum": 100},
+        "evidence_required_from_score": {"type": "integer", "minimum": 1, "maximum": 5},
+        "evidence_clamp_score": {"type": "integer", "minimum": 0, "maximum": 4}
+      }
+    },
+    "tie_break": {"const": ["total_desc", "price_asc", "index_asc"]},
+    "award_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["approvals_required", "deviation_requires_rationale", "acceptance_window_hours"],
+      "properties": {
+        "approvals_required": {"type": "integer", "minimum": 1, "maximum": 5},
+        "deviation_requires_rationale": {"const": true},
+        "acceptance_window_hours": {"type": "integer", "minimum": 1, "maximum": 720}
+      }
+    }
+  }
+}

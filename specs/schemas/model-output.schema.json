@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sealedchoice.com/schemas/model-output.v1.json",
+  "title": "Model scoring output v1",
+  "description": "What each model must return for one bid (one call per bid per model). The evaluator validates per criterion: an invalid entry makes only that model's score for that criterion invalid. See specs/scoring-prompt.md.",
+  "type": "object",
+  "required": ["scores"],
+  "properties": {
+    "scores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["criterion_id", "score", "evidence"],
+        "properties": {
+          "criterion_id": {"type": "string"},
+          "score": {"type": "integer", "minimum": 0, "maximum": 5},
+          "evidence": {"type": "array", "maxItems": 3, "items": {"type": "string", "maxLength": 300}},
+          "missing": {"type": "array", "maxItems": 5, "items": {"type": "string", "maxLength": 200}},
+          "rationale": {"type": "string", "maxLength": 400}
+        }
+      }
+    }
+  }
+}

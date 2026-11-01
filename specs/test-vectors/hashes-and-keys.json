@@ -1,0 +1,29 @@
+{
+  "description": "Canonical JSON hash of the example rubric, HKDF-SHA256 -> secp256k1 key derivation with FAKE secrets (never use these keys), and the NEP-413 key-derivation message.",
+  "rubric_jcs_sha256": "16bd1b7837c3a6d95f0756cc0bad7f73fa20f6ccc5e0f00ec390cf8263de968b",
+  "rubric_jcs_length": 2253,
+  "tender_key": {
+    "master_secret_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "salt": "sealedchoice/tender-key/v1",
+    "info": "tenders.sealedchoice.testnet:1",
+    "sk_hex": "ab417968126584582fd82818a1e08cd69027162c8b5dbed95709a46f3891a7d9",
+    "pk_compressed_hex": "025d5e87286036a92590889aca79acb0669aa30dc052c3b4c30b127911967b532f"
+  },
+  "debrief_key": {
+    "signature_hex": "22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
+    "salt": "sealedchoice/debrief-key/v1",
+    "info": "tenders.sealedchoice.testnet:1:vendor-a.testnet",
+    "sk_hex": "c8ebeca53a103307d7af2bfa6f33ad1cab1834709f32bb6d0f4ff926194abb55",
+    "pk_compressed_hex": "03adefe04a227adaa3d1f788dd87cc56f7c91cc62308474da4cf8a76a3427cea21"
+  },
+  "committee_key": {
+    "signature_hex": "22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
+    "salt": "sealedchoice/committee-key/v1",
+    "info": "tenders.sealedchoice.testnet:1:buyer.testnet",
+    "sk_hex": "d6d1eb39b65c2bc4cfa9c5b3ec15829ef0ed54a31ccaf5dc8396d80ada6af486",
+    "pk_compressed_hex": "031a1480bb3a00c17630bead0bc2505ec3b2340707678b71908cdec331c5e0232e"
+  },
+  "nep413_message": "SealedChoice key derivation v1\nContract: tenders.sealedchoice.testnet\nTender: 1\nPurpose: debrief\nThis signature does not authorize any transaction.",
+  "nep413_nonce_hex": "3c475c88a814d6a8dd9c5fa013dbfb8c3b3d40523107efdf9a6b8cd93d66c9c7",
+  "nep413_recipient": "tenders.sealedchoice.testnet"
+}

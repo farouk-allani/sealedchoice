@@ -1,0 +1,164 @@
+{
+  "description": "leaf = sha256(0x00||u32le(len(bidder))||bidder||u64le(submitted_at_ns)||sha256(ciphertext)); parent = sha256(0x01||left||right); odd last node promoted; proof side = sibling position.",
+  "leaves_input": [
+    {
+      "bidder": "vendor-a.testnet",
+      "submitted_at_ns": 1762000000000000000,
+      "ciphertext_utf8": "ciphertext-A"
+    },
+    {
+      "bidder": "vendor-b.testnet",
+      "submitted_at_ns": 1762000060000000000,
+      "ciphertext_utf8": "ciphertext-B"
+    },
+    {
+      "bidder": "vendor-c.testnet",
+      "submitted_at_ns": 1762000120000000000,
+      "ciphertext_utf8": "ciphertext-C"
+    },
+    {
+      "bidder": "vendor-d.testnet",
+      "submitted_at_ns": 1762000180000000000,
+      "ciphertext_utf8": "ciphertext-D"
+    },
+    {
+      "bidder": "vendor-e.testnet",
+      "submitted_at_ns": 1762000240000000000,
+      "ciphertext_utf8": "ciphertext-E"
+    }
+  ],
+  "leaves": [
+    "71f56e01f2aa1b5abd5dda7832c23f6667a488103a24eac33def6068d4bb01af",
+    "dc67cce6dd688a391b9fdd4374fc65a60de6b9d73ddf67759183a297a8e92ae7",
+    "e35df20f43387f9718feb6111e4abf81813518e05bead40f00976711cadf4942",
+    "87cca8a86272139ae16cff9bb97b8d72703ece62e80ff3726b6fd5145f28f2de",
+    "ff79cd8cf161d2c5e55e85f3618dd9f6ba78c5c73ca2e080c634769d1a6df422"
+  ],
+  "trees": [
+    {
+      "n": 1,
+      "root": "71f56e01f2aa1b5abd5dda7832c23f6667a488103a24eac33def6068d4bb01af",
+      "proofs": {
+        "0": []
+      }
+    },
+    {
+      "n": 2,
+      "root": "32b625458fe6559bfbe8f1a499ce79142e65fc85e9a8cb563af54ecd8b376807",
+      "proofs": {
+        "0": [
+          {
+            "side": "R",
+            "hash": "dc67cce6dd688a391b9fdd4374fc65a60de6b9d73ddf67759183a297a8e92ae7"
+          }
+        ],
+        "1": [
+          {
+            "side": "L",
+            "hash": "71f56e01f2aa1b5abd5dda7832c23f6667a488103a24eac33def6068d4bb01af"
+          }
+        ]
+      }
+    },
+    {
+      "n": 3,
+      "root": "86877fd0152bc6fb2eee49e6809909230f65fc77135338a3f007e73164932577",
+      "proofs": {
+        "0": [
+          {
+            "side": "R",
+            "hash": "dc67cce6dd688a391b9fdd4374fc65a60de6b9d73ddf67759183a297a8e92ae7"
+          },
+          {
+            "side": "R",
+            "hash": "e35df20f43387f9718feb6111e4abf81813518e05bead40f00976711cadf4942"
+          }
+        ],
+        "1": [
+          {
+            "side": "L",
+            "hash": "71f56e01f2aa1b5abd5dda7832c23f6667a488103a24eac33def6068d4bb01af"
+          },
+          {
+            "side": "R",
+            "hash": "e35df20f43387f9718feb6111e4abf81813518e05bead40f00976711cadf4942"
+          }
+        ],
+        "2": [
+          {
+            "side": "L",
+            "hash": "32b625458fe6559bfbe8f1a499ce79142e65fc85e9a8cb563af54ecd8b376807"
+          }
+        ]
+      }
+    },
+    {
+      "n": 5,
+      "root": "9de2dcd3b221c9dfd8eee79872c32b1c79790412364cfcb9bc0c626c055e0387",
+      "proofs": {
+        "0": [
+          {
+            "side": "R",
+            "hash": "dc67cce6dd688a391b9fdd4374fc65a60de6b9d73ddf67759183a297a8e92ae7"
+          },
+          {
+            "side": "R",
+            "hash": "4835d8c2a3a9bfd4dfb8d767fdb8af26582373280991bedf2f07fdf3aa29e2f8"
+          },
+          {
+            "side": "R",
+            "hash": "ff79cd8cf161d2c5e55e85f3618dd9f6ba78c5c73ca2e080c634769d1a6df422"
+          }
+        ],
+        "1": [
+          {
+            "side": "L",
+            "hash": "71f56e01f2aa1b5abd5dda7832c23f6667a488103a24eac33def6068d4bb01af"
+          },
+          {
+            "side": "R",
+            "hash": "4835d8c2a3a9bfd4dfb8d767fdb8af26582373280991bedf2f07fdf3aa29e2f8"
+          },
+          {
+            "side": "R",
+            "hash": "ff79cd8cf161d2c5e55e85f3618dd9f6ba78c5c73ca2e080c634769d1a6df422"
+          }
+        ],
+        "2": [
+          {
+            "side": "R",
+            "hash": "87cca8a86272139ae16cff9bb97b8d72703ece62e80ff3726b6fd5145f28f2de"
+          },
+          {
+            "side": "L",
+            "hash": "32b625458fe6559bfbe8f1a499ce79142e65fc85e9a8cb563af54ecd8b376807"
+          },
+          {
+            "side": "R",
+            "hash": "ff79cd8cf161d2c5e55e85f3618dd9f6ba78c5c73ca2e080c634769d1a6df422"
+          }
+        ],
+        "3": [
+          {
+            "side": "L",
+            "hash": "e35df20f43387f9718feb6111e4abf81813518e05bead40f00976711cadf4942"
+          },
+          {
+            "side": "L",
+            "hash": "32b625458fe6559bfbe8f1a499ce79142e65fc85e9a8cb563af54ecd8b376807"
+          },
+          {
+            "side": "R",
+            "hash": "ff79cd8cf161d2c5e55e85f3618dd9f6ba78c5c73ca2e080c634769d1a6df422"
+          }
+        ],
+        "4": [
+          {
+            "side": "L",
+            "hash": "c3c7085f2ad9d3cf4e8297a5df93bf64faaf56440bdc517f9a5b900057919529"
+          }
+        ]
+      }
+    }
+  ]
+}

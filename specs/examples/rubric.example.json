@@ -1,0 +1,69 @@
+{
+  "v": 1,
+  "title": "Security review of a DAO treasury module (near-sdk, Rust)",
+  "scope": "Manual security review of about 1,200 lines of Rust (near-sdk 5.x): a treasury module with cross-contract withdrawals, allowances and callbacks. Deliverable: written report with severity ratings and one retest of fixes.",
+  "currency": {
+    "asset": "nep141:usdc.fakes.testnet",
+    "decimals": 6,
+    "symbol": "USDC"
+  },
+  "budget_cap_minor": "15000000000",
+  "max_delivery_days": 30,
+  "criteria": [
+    {
+      "id": "price",
+      "type": "price_lowest_ratio",
+      "weight_bp": 4000
+    },
+    {
+      "id": "methodology",
+      "type": "qualitative",
+      "weight_bp": 3500,
+      "source_fields": ["methodology"],
+      "question": "How credible and specific is the proposed review methodology for this scope?",
+      "anchors": {
+        "0": "No methodology given.",
+        "1": "Generic statements only, nothing tied to this scope.",
+        "2": "Some specific steps but major gaps, such as no testing or no threat model.",
+        "3": "Clear plan covering manual review and testing, few specifics on NEAR async risks.",
+        "4": "Specific plan covering manual review, tests or fuzzing, NEAR cross-contract and callback risks, and reporting.",
+        "5": "As 4, plus concrete deliverables, a timeline per phase, and a retest of fixes."
+      }
+    },
+    {
+      "id": "track_record",
+      "type": "qualitative",
+      "weight_bp": 2500,
+      "source_fields": ["track_record"],
+      "question": "How relevant and checkable is the vendor's prior experience for this scope?",
+      "anchors": {
+        "0": "No experience given.",
+        "1": "Unverifiable claims only.",
+        "2": "General smart-contract experience, nothing NEAR-specific or checkable.",
+        "3": "Some NEAR or Rust contract experience, partly checkable.",
+        "4": "Several relevant NEAR reviews with checkable public reports.",
+        "5": "As 4, plus directly comparable work such as DAO treasury or callback-heavy contracts."
+      }
+    }
+  ],
+  "eligibility": {
+    "require_price_lte_cap": true,
+    "require_delivery_lte_max": true,
+    "required_fields": ["price_minor", "delivery_days", "methodology", "track_record"]
+  },
+  "models": ["model-id-1", "model-id-2", "model-id-3"],
+  "aggregation": {
+    "qualitative": "lower_median",
+    "min_valid_outputs": 2,
+    "disagreement_threshold": 3,
+    "evidence_min_chars": 12,
+    "evidence_required_from_score": 2,
+    "evidence_clamp_score": 1
+  },
+  "tie_break": ["total_desc", "price_asc", "index_asc"],
+  "award_policy": {
+    "approvals_required": 1,
+    "deviation_requires_rationale": true,
+    "acceptance_window_hours": 72
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sealedchoice.com/schemas/debrief.v1.json",
+  "title": "Bidder debrief v1 (plaintext inside the ECIES envelope)",
+  "description": "Encrypted to the bidder's debrief public key (registered with the bid). Lets a bidder check their own score end to end: recompute their total, check the evidence quotes, hash the raw model request/response bytes and match them to the signed hashes in the public bundle. The committee report uses the same structure for every bid plus the decrypted proposals.",
+  "type": "object",
+  "required": ["v", "tender_id", "bid_index", "eligible", "flags", "criteria", "total_bp", "rank", "of", "raw_calls"],
+  "properties": {
+    "v": {"const": 1},
+    "tender_id": {"type": "string"},
+    "bid_index": {"type": "integer"},
+    "eligible": {"type": "boolean"},
+    "ineligible_reasons": {"type": "array", "items": {"type": "string"}},
+    "flags": {"type": "integer"},
+    "criteria": {"type": "object", "description": "Same shape as expected.bids[i].criteria in specs/test-vectors/scoring-*.json."},
+    "total_bp": {"type": "integer"},
+    "rank": {"type": "integer"},
+    "of": {"type": "integer", "description": "Number of bids."},
+    "raw_calls": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["model", "chat_id", "request_b64", "response_b64"],
+        "properties": {
+          "model": {"type": "string"},
+          "chat_id": {"type": "string"},
+          "request_b64": {"type": "string"},
+          "response_b64": {"type": "string"}
+        }
+      }
+    }
+  }
+}

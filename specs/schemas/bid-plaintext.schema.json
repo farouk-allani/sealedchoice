@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sealedchoice.com/schemas/bid-plaintext.v1.json",
+  "title": "SealedChoice bid plaintext v1",
+  "description": "Built and encrypted in the bidder's browser (ECIES to the tender public key). Only the evaluator inside the TEE ever decrypts it. The JCS bytes of this object are the ECIES plaintext. Byte limits are on UTF-8 length and are re-checked by the evaluator (bids over the limit are ineligible). The evaluator rejects schema violations as ineligible instead of failing the whole run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "tender_id", "bidder", "price_minor", "delivery_days", "methodology", "track_record", "salt"],
+  "properties": {
+    "v": {"const": 1},
+    "tender_id": {"type": "string", "pattern": "^[0-9]{1,20}$"},
+    "bidder": {"type": "string", "description": "Must equal the NEAR account that submitted the ciphertext, otherwise ACCOUNT_MISMATCH (blocks copying someone else's ciphertext)."},
+    "price_minor": {"type": "string", "pattern": "^[1-9][0-9]{0,29}$", "description": "Total price in the rubric currency's minor units (USDC: 6 decimals)."},
+    "delivery_days": {"type": "integer", "minimum": 1},
+    "methodology": {"type": "string", "minLength": 1, "description": "<= 2000 UTF-8 bytes"},
+    "track_record": {"type": "string", "minLength": 1, "description": "<= 1200 UTF-8 bytes"},
+    "salt": {"type": "string", "pattern": "^[0-9a-f]{32}$", "description": "16 random bytes, hex. Makes equal bids encrypt and hash differently."}
+  }
+}

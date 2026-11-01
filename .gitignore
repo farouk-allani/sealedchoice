@@ -1,0 +1,29 @@
+# secrets and personal data
+.env
+.env.*
+!.env.example
+submission/
+keys/
+*.pem
+**/credentials*.json
+.near-credentials/
+
+# scratch experiments
+scratch/
+
+# build output
+target/
+node_modules/
+.next/
+dist/
+out/
+coverage/
+*.tsbuildinfo
+.vercel/
+.turbo/
+
+# local tooling
+.local-tooling
+.DS_Store
+*.log
+__pycache__/
