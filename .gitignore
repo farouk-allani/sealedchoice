@@ -27,3 +27,6 @@ coverage/
 .DS_Store
 *.log
 __pycache__/
+
+# generated public repository (publish/publish-public.sh)
+publish/out/

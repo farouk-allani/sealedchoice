@@ -1,0 +1,7 @@
+# One line ending everywhere: cloud sessions run Linux, local work is Windows,
+# and specs/test-vectors must hash byte for byte on both.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.wasm binary
+*.mp4 binary
