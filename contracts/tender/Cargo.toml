@@ -1,0 +1,19 @@
+[package]
+name = "tender-contract"
+description = "Sealed tender contract: rubric, sealed bids, close, evaluation result, award, escrow"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = { workspace = true }
+
+[dev-dependencies]
+near-sdk = { workspace = true, features = ["unit-testing"] }
+
+[lints]
+workspace = true

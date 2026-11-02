@@ -1,0 +1,8 @@
+# Pinned at T00 (2026-11-02). cargo-near 0.22 lifts its rustc ceiling for near-sdk
+# releases that declare min_protocol_version >= 84; testnet runs protocol 88 and
+# mainnet 86 (RPC `status`, 2026-11-02). See docs/references.md.
+[toolchain]
+channel = "1.97.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown", "wasm32-wasip2"]
+profile = "minimal"
