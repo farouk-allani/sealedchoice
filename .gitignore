@@ -30,3 +30,6 @@ __pycache__/
 
 # generated public repository (publish/publish-public.sh)
 publish/out/
+
+# Next.js generated types
+next-env.d.ts
