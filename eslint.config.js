@@ -9,6 +9,10 @@ const testingOnly = {
   name: "@tender/crypto/testing",
   message: "Test-only: the real tender key exists only in the TEE.",
 };
+const testingOnlyRelative = {
+  regex: "(^|/)testing(\\.ts)?$",
+  message: "Test-only: the real tender key exists only in the TEE.",
+};
 
 export default tseslint.config(
   { ignores: ["**/node_modules/**", "**/dist/**", "**/coverage/**", "apps/**"] },
@@ -24,7 +28,7 @@ export default tseslint.config(
   {
     files: ["**/*.ts"],
     ignores: ["**/*.test.ts"],
-    rules: { "no-restricted-imports": ["error", { paths: [testingOnly] }] },
+    rules: { "no-restricted-imports": ["error", { paths: [testingOnly], patterns: [testingOnlyRelative] }] },
   },
   {
     // Code that runs in the browser (bid encryption, debrief decryption, the verify page).
@@ -41,7 +45,10 @@ export default tseslint.config(
               message: "Browser code: no Node built-ins (use @noble/* or Web APIs).",
             })),
           ],
-          patterns: [{ regex: "^node:", message: "Browser code: no Node built-ins (use @noble/* or Web APIs)." }],
+          patterns: [
+            testingOnlyRelative,
+            { regex: "^node:", message: "Browser code: no Node built-ins (use @noble/* or Web APIs)." },
+          ],
         },
       ],
       "no-restricted-globals": [
