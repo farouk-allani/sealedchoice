@@ -43,6 +43,11 @@ QUAL_BP_PER_POINT = BP // QUAL_MAX   # 2000 bp per point
 # specs/schemas/bid-plaintext.schema.json.
 LIMITS = {"methodology": 2000, "track_record": 1200}
 
+# Largest integer every implementation represents exactly (JS Number, Rust via
+# serde_json). Hashed JSON and plaintext integers stay within +-MAX_SAFE_INT
+# (docs/DECISIONS.md D-017).
+MAX_SAFE_INT = 2**53 - 1
+
 # ---------------------------------------------------------------- flags ----
 FLAGS = {
     "INELIGIBLE": 1 << 0,
@@ -73,6 +78,8 @@ def jcs(obj) -> bytes:
     def check(o):
         if isinstance(o, float):
             raise ValueError("floats are not allowed in hashed JSON")
+        if isinstance(o, int) and not isinstance(o, bool) and not -MAX_SAFE_INT <= o <= MAX_SAFE_INT:
+            raise ValueError("integers beyond 2^53-1 are not allowed in hashed JSON; use a string")
         if isinstance(o, dict):
             for k, v in o.items():
                 if not isinstance(k, str) or not k.isascii():
@@ -245,6 +252,18 @@ def injection_suspected(texts: list[str]) -> bool:
                for p in INJECTION_PATTERNS)
 
 
+def text_field(p: dict, f: str) -> str:
+    """A text field as scored: the string, or "" when absent (non-strings are
+    already ineligible as bad_<field>)."""
+    v = p.get(f)
+    return v if isinstance(v, str) else ""
+
+
+def is_int(v) -> bool:
+    """JSON integer within +-MAX_SAFE_INT. bool is not an int here, unlike Python."""
+    return isinstance(v, int) and not isinstance(v, bool) and -MAX_SAFE_INT <= v <= MAX_SAFE_INT
+
+
 def is_pos_int_str(s) -> bool:
     return isinstance(s, str) and re.fullmatch(r"[1-9][0-9]{0,29}", s) is not None
 
@@ -255,7 +274,7 @@ def check_eligibility(rubric: dict, tender_id: str, bid: dict) -> tuple[int, lis
         return FLAGS["INELIGIBLE"] | FLAGS["DECRYPT_FAILED"], ["decrypt_failed"]
     p = bid["plaintext"]
     reasons, flags = [], 0
-    if not isinstance(p, dict) or p.get("v") != 1:
+    if not isinstance(p, dict) or isinstance(p.get("v"), bool) or p.get("v") != 1:
         return FLAGS["INELIGIBLE"], ["bad_version"]
     if p.get("tender_id") != tender_id:
         reasons.append("wrong_tender")
@@ -269,10 +288,13 @@ def check_eligibility(rubric: dict, tender_id: str, bid: dict) -> tuple[int, lis
     if not is_pos_int_str(p.get("price_minor")):
         reasons.append("bad_price")
     dd = p.get("delivery_days")
-    if not (isinstance(dd, int) and not isinstance(dd, bool) and dd >= 1):
+    if not (is_int(dd) and dd >= 1):
         reasons.append("bad_delivery_days")
     for f, lim in LIMITS.items():
-        if isinstance(p.get(f), str) and len(p[f].encode("utf-8")) > lim:
+        v = p.get(f)
+        if v is not None and not isinstance(v, str):
+            reasons.append(f"bad_{f}")
+        elif isinstance(v, str) and len(v.encode("utf-8")) > lim:
             reasons.append(f"too_long_{f}")
     if not reasons:
         el = rubric["eligibility"]
@@ -304,7 +326,7 @@ def model_criterion(output, criterion_id: str):
 def score_qualitative(rubric: dict, crit: dict, plaintext: dict, outputs: list):
     """Returns (criterion_bp, median or None, per_model detail, flags)."""
     agg = rubric["aggregation"]
-    source = norm("\n".join(plaintext.get(f, "") for f in crit["source_fields"]))
+    source = norm("\n".join(text_field(plaintext, f) for f in crit["source_fields"]))
     detail, valid, flags = [], [], 0
     for m, out in enumerate(outputs):
         got = model_criterion(out, crit["id"])
@@ -358,7 +380,7 @@ def evaluate(rubric: dict, tender_id: str, bids: list[dict], model_outputs: dict
         if not p["eligible"]:
             continue
         pt = bids[p["index"]]["plaintext"]
-        if injection_suspected([pt.get(f, "") for c in rubric["criteria"]
+        if injection_suspected([text_field(pt, f) for c in rubric["criteria"]
                                 if c["type"] == "qualitative" for f in c["source_fields"]]):
             p["flags"] |= FLAGS["INJECTION_SUSPECTED"]
         acc = 0
@@ -513,6 +535,18 @@ def build_vectors() -> dict[str, dict]:
          [bids3[0], {"index": 1, "submitter": "vendor-x.testnet", "decrypt_ok": False, "plaintext": None}],
          {"0": mo3["0"]},
          "Garbage ciphertext: DECRYPT_FAILED|INELIGIBLE (3). Bond is forfeited (docs/03-contract.md).")
+    case("malformed_plaintext_types",
+         [bids3[0],
+          {"index": 1, "submitter": "vendor-x.testnet", "decrypt_ok": True,
+           "plaintext": dict(a, bidder="vendor-x.testnet", v=True)},
+          {"index": 2, "submitter": "vendor-y.testnet", "decrypt_ok": True,
+           "plaintext": dict(a, bidder="vendor-y.testnet", delivery_days=2**53)},
+          {"index": 3, "submitter": "vendor-z.testnet", "decrypt_ok": True,
+           "plaintext": dict(a, bidder="vendor-z.testnet", methodology=42)}],
+         {"0": mo3["0"]},
+         "Types every implementation reads the same way: v=true is not version 1 (bad_version), "
+         "delivery_days 2^53 is beyond the safe-integer range (bad_delivery_days), a non-string "
+         "methodology is bad_methodology. All three ineligible (1); A ranks first.")
     case("no_eligible_bids",
          [{"index": 0, "submitter": "vendor-x.testnet", "decrypt_ok": False, "plaintext": None}],
          {}, "Only an undecryptable bid: status no_eligible_bids.")
