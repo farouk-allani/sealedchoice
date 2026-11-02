@@ -46,9 +46,7 @@ jobs:
       - name: Tests
         run: cargo test --workspace
       - name: Sandbox integration tests (near-workspaces, mock OutLayer, test FT)
-        run: |
-          ulimit -n 65535 || true
-          cargo test -p tender-contract --features sandbox-tests --test sandbox -- --nocapture
+        run: scripts/sandbox/test.sh --nocapture
       - name: Evaluator wasm (wasm32-wasip2)
         run: |
           cargo build -p evaluator-wasm --target wasm32-wasip2 --release
