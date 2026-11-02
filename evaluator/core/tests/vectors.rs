@@ -430,13 +430,17 @@ fn clamp_never_raises_a_score() {
         .find(|c| c["name"] == "quote_not_in_proposal_is_clamped")
         .unwrap();
     let bids: Vec<BidInput> = serde_json::from_value(case["bids"].clone()).unwrap();
-    let outputs: BTreeMap<String, Vec<Value>> =
+    let mut outputs: BTreeMap<String, Vec<Value>> =
         serde_json::from_value(case["model_outputs"].clone()).unwrap();
+    // Model 0 claims 3 with a quote that is not in the proposal. The old rule (score = clamp)
+    // would raise it to 4; min(3, 4) keeps 3.
+    let m0 = &mut outputs.get_mut("0").unwrap()[0]["scores"][0];
+    assert_eq!(m0["criterion_id"], "methodology");
+    m0["score"] = 3.into();
     let ev = evaluate(&rubric, "1", &bids, &outputs).unwrap();
     let detail = serde_json::to_value(&ev.bids[0].criteria["methodology"]).unwrap();
-    // Model 0 claimed 4 without a valid quote: min(4, 4) = 4, flagged, never 5 or more.
-    assert_eq!(detail["models"][0]["raw"], 4);
-    assert_eq!(detail["models"][0]["score"], 4);
+    assert_eq!(detail["models"][0]["raw"], 3);
+    assert_eq!(detail["models"][0]["score"], 3);
     assert_eq!(detail["models"][0]["clamped"], true);
 }
 

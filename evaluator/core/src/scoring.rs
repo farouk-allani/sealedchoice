@@ -382,13 +382,10 @@ pub fn model_criterion<'a>(output: &'a Value, criterion_id: &str) -> Option<(u8,
         if e.get("criterion_id").and_then(Value::as_str) != Some(criterion_id) {
             continue;
         }
-        // Python's json.loads reads `-0` as the int 0 and so does JSON.parse; serde_json keeps
-        // it as a negative float zero, printed "-0.0".
+        // Integers only: a float (even 3.0) makes the entry invalid, as in reference.py.
+        // Model output text must go through `parse_model_output` so `-0` is the int 0.
         let score = match e.get("score") {
-            Some(Value::Number(n)) => n
-                .as_u64()
-                .or_else(|| (n.to_string() == "-0.0").then_some(0))
-                .filter(|s| *s <= u64::from(QUAL_MAX))?,
+            Some(Value::Number(n)) => n.as_u64().filter(|s| *s <= u64::from(QUAL_MAX))?,
             _ => return None,
         };
         let evidence = match e.get("evidence") {
@@ -402,6 +399,41 @@ pub fn model_criterion<'a>(output: &'a Value, criterion_id: &str) -> Option<(u8,
         return Some((u8::try_from(score).ok()?, evidence));
     }
     None
+}
+
+/// Parses a model's output text the way Python's `json.loads` reads numbers: the integer
+/// literal `-0` is the int 0, while `-0.0`, `-0e0`, … stay floats. serde_json turns all of them
+/// into the float -0.0, so standalone `-0` tokens outside strings are rewritten to `0` first.
+/// Unparseable text gives `Value::Null` (an invalid output for every criterion).
+pub fn parse_model_output(text: &str) -> Value {
+    serde_json::from_str(&normalize_negative_zero_ints(text)).unwrap_or(Value::Null)
+}
+
+fn normalize_negative_zero_ints(text: &str) -> String {
+    let b = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let (mut in_string, mut escaped, mut start) = (false, false, 0);
+    for (i, &c) in b.iter().enumerate() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if c == b'\\' {
+                escaped = true;
+            } else if c == b'"' {
+                in_string = false;
+            }
+        } else if c == b'"' {
+            in_string = true;
+        } else if c == b'-'
+            && b.get(i + 1) == Some(&b'0')
+            && !matches!(b.get(i + 2), Some(b'0'..=b'9' | b'.' | b'e' | b'E'))
+        {
+            out.push_str(&text[start..i]);
+            start = i + 1; // drop the '-'
+        }
+    }
+    out.push_str(&text[start..]);
+    out
 }
 
 pub struct QualitativeScore {
@@ -689,15 +721,25 @@ mod tests {
     }
 
     #[test]
-    fn negative_zero_score_is_zero_like_python() {
-        let out: Value =
-            serde_json::from_str(r#"{"scores":[{"criterion_id":"m","score":-0,"evidence":[]}]}"#)
-                .unwrap();
-        assert_eq!(model_criterion(&out, "m").map(|(s, _)| s), Some(0));
-        let out: Value =
-            serde_json::from_str(r#"{"scores":[{"criterion_id":"m","score":-1,"evidence":[]}]}"#)
-                .unwrap();
-        assert_eq!(model_criterion(&out, "m"), None);
+    fn model_output_numbers_read_like_python_json_loads() {
+        // python3 -c 'import json; print(type(json.loads("-0")), type(json.loads("-0.0")))' -> int, float
+        let score = |literal: &str| {
+            let text = format!(
+                r#"{{"scores":[{{"criterion_id":"m","score":{literal},"evidence":["-0 stays"]}}]}}"#
+            );
+            model_criterion(&parse_model_output(&text), "m").map(|(s, ev)| (s, ev[0].to_string()))
+        };
+        assert_eq!(score("-0"), Some((0, "-0 stays".into())));
+        for float_zero in ["-0.0", "-0e0", "-0.000", "-0E3", "0.0", "3.0"] {
+            assert_eq!(score(float_zero), None, "{float_zero}");
+        }
+        assert_eq!(score("-1"), None);
+        assert_eq!(score("3"), Some((3, "-0 stays".into())));
+        assert_eq!(parse_model_output("not json"), Value::Null);
+        assert_eq!(
+            normalize_negative_zero_ints(r#"["-0", -0, -0.5, -01, "a\"-0"]"#),
+            r#"["-0", 0, -0.5, -01, "a\"-0"]"#
+        );
     }
 
     #[test]
