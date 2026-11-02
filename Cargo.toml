@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "contracts/tender",
     "contracts/mock-outlayer",
+    "contracts/mock-ft",
     "evaluator/core",
     "evaluator/wasm",
 ]
