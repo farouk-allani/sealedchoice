@@ -700,3 +700,125 @@ async fn i12_outlayer_timeout_is_recorded() -> R {
     );
     Ok(())
 }
+
+// ------------------------------------------------------- diagnostic (temporary) ---
+
+/// TEMPORARY (T04 Blocked, PROGRESS.md): prints in one block every clock involved in the
+/// `E_DEADLINE_TOO_SOON` failure. Never fails on the outcome; deleted with the fix.
+#[tokio::test]
+async fn diag_sandbox_clocks() -> R {
+    let env = setup(&[]).await?;
+    let mut lines = Vec::new();
+    let s = |ns: u64| {
+        format!(
+            "{ns} ({}.{:03} s)",
+            ns / 1_000_000_000,
+            (ns / 1_000_000) % 1000
+        )
+    };
+    let diff = |a: u64, b: u64| {
+        let d = i128::from(a) - i128::from(b);
+        let sign = if d < 0 { "-" } else { "+" };
+        let ms = d.unsigned_abs() / 1_000_000;
+        format!("{sign}{}.{:03} s", ms / 1000, ms % 1000)
+    };
+
+    let genesis = env.worker.genesis_config().await?;
+    lines.push(format!(
+        "genesis_time {:?} (unix s {}), genesis_height {}",
+        genesis.genesis_time,
+        genesis.genesis_time.timestamp(),
+        genesis.genesis_height
+    ));
+    let config: Value = env.tender.view("get_config").await?.json()?;
+    lines.push(format!(
+        "contract min_deadline_delay_ns {}",
+        config["min_deadline_delay_ns"]
+    ));
+
+    // The same moment, three clocks. `view_block()` without a reference is optimistic finality
+    // (`BlockReference::latest`); near-workspaces 0.23 offers no finality on block queries, so the
+    // final block is the head's `last_final_block`, which is what RPC returns for `final`.
+    let opt = env.worker.view_block().await?;
+    let wall = wall_clock_ns();
+    let fin = env
+        .worker
+        .view_block()
+        .block_hash(*opt.header().last_final_block())
+        .await?;
+    lines.push(format!(
+        "final block      h={} ts={}",
+        fin.height(),
+        s(fin.timestamp())
+    ));
+    lines.push(format!(
+        "optimistic block h={} ts={}",
+        opt.height(),
+        s(opt.timestamp())
+    ));
+    lines.push(format!("runner wall clock   {}", s(wall)));
+
+    // Same deadline formula as the failing tests: max(latest block, wall clock) + 30 s.
+    let deadline = opt.timestamp().max(wall) + 30 * 1_000_000_000;
+    lines.push(format!("deadline sent       {}", s(deadline)));
+
+    let mut rubric: Value = serde_json::from_str(&specs("examples/rubric.example.json"))?;
+    rubric["currency"]["asset"] = json!(format!("nep141:{}", env.token.id()));
+    let rubric_json = String::from_utf8(jcs(&rubric).unwrap())?;
+    let r = env
+        .buyer
+        .call(env.tender.id(), "create_tender")
+        .args_json(json!({
+            "rubric_json": rubric_json,
+            "deadline_ns": deadline.to_string(),
+            "bond": BOND,
+            "committee": [
+                {"account": env.buyer.id(), "report_pubkey": pk("committee_key")},
+                {"account": env.reviewer.id(), "report_pubkey": pk("debrief_key")},
+            ],
+            "evaluator_index": 0,
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(300))
+        .transact()
+        .await?;
+    let wall_after = wall_clock_ns();
+    lines.push(format!(
+        "runner wall clock after the tx returned {}",
+        s(wall_after)
+    ));
+    lines.push(format!("create_tender success: {}", r.is_success()));
+    if !r.is_success() {
+        lines.push(format!("failure: {}", failure_text(&r)));
+    }
+
+    let mut outcomes = vec![("tx", r.outcome().block_hash)];
+    for o in r.receipt_outcomes() {
+        outcomes.push(("receipt", o.block_hash));
+    }
+    for o in r.failures() {
+        outcomes.push(("FAILED receipt", o.block_hash));
+    }
+    for (kind, hash) in outcomes {
+        let b = env.worker.view_block().block_hash(hash).await?;
+        lines.push(format!(
+            "{kind:15} block h={} ts={}  vs deadline {}  vs wall-before {}  vs wall-after {}  vs final {}  vs optimistic {}",
+            b.height(),
+            s(b.timestamp()),
+            diff(b.timestamp(), deadline),
+            diff(b.timestamp(), wall),
+            diff(b.timestamp(), wall_after),
+            diff(b.timestamp(), fin.timestamp()),
+            diff(b.timestamp(), opt.timestamp()),
+        ));
+    }
+    let opt2 = env.worker.view_block().await?;
+    lines.push(format!(
+        "optimistic block after h={} ts={}  vs wall-after {}",
+        opt2.height(),
+        s(opt2.timestamp()),
+        diff(opt2.timestamp(), wall_after)
+    ));
+    println!("\nDIAG sandbox clocks\nDIAG {}\n", lines.join("\nDIAG "));
+    Ok(())
+}
