@@ -435,9 +435,10 @@ async fn futures_balances(accounts: &[Account]) -> R<Vec<u128>> {
     Ok(out)
 }
 
-/// I5: after a result is accepted, no other result can be stored: the only way to deliver one is
-/// the contract's own promise, and a direct call from the contract account itself has no promise
-/// result to read, so it fails without changing state.
+/// I5, chain side: after a result is accepted there is no other way to deliver one. The answered
+/// request cannot be resumed again, a direct call from the contract account itself has no promise
+/// result to read, and retry is refused. (The contract's own stale-result check is pinned by the
+/// unit tests `i5_second_result_rejected` and `i12_failure_retry_success`.)
 #[tokio::test]
 async fn i5_second_result_rejected() -> R {
     let env = setup(&["vendor-a", "vendor-b"]).await?;
@@ -532,7 +533,6 @@ async fn i6_crafted_results_rejected_and_i12_three_failures_refund_everything() 
     ];
     let codes = ["E_RESULT_ROOT", "E_RESULT_RANKING", "E_RESULT_ATTEMPT"];
     let vendors_before = futures_balances(&env.vendors).await?;
-    let buyer_before = near_balance(&env.buyer).await?;
     for n in 1..=3u64 {
         if n > 1 {
             check(
@@ -551,13 +551,20 @@ async fn i6_crafted_results_rejected_and_i12_three_failures_refund_everything() 
             "same frozen input on retry"
         );
         if n == 3 {
-            let fee: u128 = tender_view(&env, 1).await?["eval_fee_remaining"]
-                .as_str()
-                .unwrap()
-                .parse()?;
+            let t3 = tender_view(&env, 1).await?;
+            let fee: u128 = t3["eval_fee_remaining"].as_str().unwrap().parse()?;
+            let deposit: u128 = t3["exec_deposit"].as_str().unwrap().parse()?;
+            let buyer_before = near_balance(&env.buyer).await?;
             check(resolve(&env, rid, Some(&crafted[2])).await?, "resolve 3");
             wait_status(&env, "Failed").await?;
-            wait_gain(std::slice::from_ref(&env.buyer), &[buyer_before], fee).await?; // fee back
+            // The remaining fee from the contract, plus the mock OutLayer's refund of this
+            // attempt's deposit to the payer (the buyer).
+            wait_gain(
+                std::slice::from_ref(&env.buyer),
+                &[buyer_before],
+                fee + deposit,
+            )
+            .await?;
         } else {
             check(
                 resolve(&env, rid, Some(&crafted[n as usize - 1])).await?,
@@ -658,5 +665,24 @@ async fn gas_close_and_evaluate_with_five_large_bids() -> R {
     );
     assert!(r.total_gas_burnt.as_tgas() < 300);
     assert_eq!(tender_view(&env, 1).await?["status"], "Evaluating");
+    Ok(())
+}
+
+/// A run OutLayer never answers: the yield times out (200 blocks), OutLayer's resume callback returns
+/// null, and the contract records a failed attempt instead of staying in `Evaluating`.
+#[tokio::test]
+async fn i12_outlayer_timeout_is_recorded() -> R {
+    let env = setup(&["vendor-a"]).await?;
+    let deadline = open_tender(&env, 20).await?;
+    check(submit(&env, &env.vendors[0], 1, 500).await?, "submit_bid");
+    wait_past(&env, deadline).await?;
+    check(close(&env, &env.root).await?, "close");
+    env.worker.fast_forward(250).await?;
+    wait_status(&env, "EvalFailed").await?;
+    let t = tender_view(&env, 1).await?;
+    assert_eq!(
+        t["attempts"][0]["outcome"]["Failed"]["reason"],
+        "E_EVAL_RUN_FAILED"
+    );
     Ok(())
 }
