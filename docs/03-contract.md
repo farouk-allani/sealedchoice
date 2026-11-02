@@ -1,6 +1,6 @@
 # 03 — Tender contract spec
 
-Crate: `contracts/tender`. near-sdk 5.x (pin the exact version at T00 from docs.near.org). Build with `cargo near build` (reproducible mode for the final deployment). All amounts are `U128` (JSON strings). All hashes are lowercase hex of 32 bytes. Time is `env::block_timestamp()` in nanoseconds.
+Crate: `contracts/tender`. near-sdk 5.29.1 (pinned at T00, D-015). Build with `cargo near build non-reproducible-wasm` (reproducible mode for the final deployment). Implementation choices and storage deviations: DECISIONS D-018; method list and error codes: `contracts/tender/README.md`. All amounts are `U128` (JSON strings). All hashes are lowercase hex of 32 bytes. Time is `env::block_timestamp()` in nanoseconds.
 
 ## Constants
 
@@ -116,8 +116,8 @@ Validation of the compact result (all must hold):
 
 | Id | Invariant | Test |
 |---|---|---|
-| I1 | No method changes `rubric_json`, `rubric_hash`, `evaluator`, `committee`, `deadline_ns` or `bond` after creation | unit: there is no setter; integration: `update_rubric` does not exist, call fails |
-| I2 | No bid accepted at or after the deadline | unit with mocked block timestamp |
+| I1 | No method changes `rubric_json`, `rubric_hash`, `evaluator`, `committee`, `deadline_ns` or `bond` after creation | unit: there is no setter; integration: `update_rubric` does not exist, call fails. T03: `i1_method_list_has_no_setter_for_immutable_fields`, `i1_no_method_changes_the_fixed_fields` |
+| I2 | No bid accepted at or after the deadline | unit with mocked block timestamp. T03: `i2_no_bid_at_or_after_the_deadline`, `i2_bid_exactly_at_deadline_panics_with_code` |
 | I3 | No evaluation before the deadline | unit |
 | I4 | Bid set frozen at close: no submit/withdraw after; leaves/root match reference vectors | unit + `merkle.json` vectors |
 | I5 | At most one accepted result per tender; a second callback is rejected | integration with mock-outlayer |
@@ -125,9 +125,9 @@ Validation of the compact result (all must hold):
 | I7 | Only the contract's own callback can deliver a result (`#[private]`) and only for the request it made | integration: direct call to `on_evaluate` fails |
 | I8 | Only committee members propose/approve; deviation needs rationale; ineligible or lapsed bids cannot be awarded | unit |
 | I9 | Payout only to the awarded bidder's declared target, only once, amount ≤ escrow; remainder back to buyer | integration with test FT |
-| I10 | Each bond is settled exactly once (refund or forfeit), never both | unit |
-| I11 | Escrow only accepted from the buyer, in the rubric token, for exactly the cap | unit |
-| I13 | A ciphertext hash can be submitted only once per tender | unit |
+| I10 | Each bond is settled exactly once (refund or forfeit), never both | unit. T03 (refund paths): `i10_withdraw_refunds_the_bond_exactly_once`, `cancel_refunds_everything_once`; forfeits at T04 |
+| I11 | Escrow only accepted from the buyer, in the rubric token, for exactly the cap | unit. T03: `i11_escrow_only_from_buyer_in_rubric_token_for_exact_cap`, `ft_on_transfer_refunds_bad_messages_and_late_funding` |
+| I13 | A ciphertext hash can be submitted only once per tender | unit. T03: `i13_duplicate_ciphertext_is_rejected`, `i13_withdrawn_ciphertext_cannot_be_resubmitted` |
 | I12 | `retry_evaluate` only after a failure and at most twice; every attempt recorded | integration |
 
 ## Testing
