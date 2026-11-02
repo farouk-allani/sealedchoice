@@ -1,0 +1,20 @@
+[package]
+name = "mock-ft"
+description = "Test NEP-141 token for sandbox tests (escrow funding and refunds)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = { workspace = true }
+near-contract-standards = "=5.29.1"
+
+[dev-dependencies]
+near-sdk = { workspace = true, features = ["unit-testing"] }
+
+[lints]
+workspace = true

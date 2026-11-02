@@ -14,6 +14,20 @@ near-sdk = { workspace = true }
 
 [dev-dependencies]
 near-sdk = { workspace = true, features = ["unit-testing"] }
+# Sandbox integration tests (tests/sandbox.rs). Versions checked 2026-11-02 (docs/references.md).
+near-workspaces = "=0.23.0"  # 0.24 needs nearcore 0.38 crates; near-sdk 5.29.1 uses 0.37 (D-020)
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "time"] }
+
+# Sandbox integration tests start a local neard, which needs an open-file hard limit of 65535
+# (fine on GitHub runners and Linux/macOS laptops, refused in Claude Code cloud containers).
+# Run them with: cargo test -p tender-contract --features sandbox-tests --test sandbox
+[features]
+sandbox-tests = []
+
+[[test]]
+name = "sandbox"
+path = "tests/sandbox.rs"
+required-features = ["sandbox-tests"]
 
 [lints]
 workspace = true

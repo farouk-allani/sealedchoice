@@ -35,18 +35,24 @@ jobs:
       - name: Toolchain from rust-toolchain.toml
         run: rustup toolchain install && rustc --version
       - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-near 0.22.0 (prebuilt)
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo clippy -p tender-contract --features sandbox-tests --all-targets -- -D warnings
       - name: Tests
         run: cargo test --workspace
+      - name: Sandbox integration tests (near-workspaces, mock OutLayer, test FT)
+        run: |
+          ulimit -n 65535 || true
+          cargo test -p tender-contract --features sandbox-tests --test sandbox -- --nocapture
       - name: Evaluator wasm (wasm32-wasip2)
         run: |
           cargo build -p evaluator-wasm --target wasm32-wasip2 --release
           sha256sum target/wasm32-wasip2/release/evaluator-wasm.wasm
-      - name: Install cargo-near 0.22.0 (prebuilt)
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
       - name: Contract wasm
         working-directory: contracts/tender
         run: |
