@@ -2,8 +2,8 @@
 
 fn main() {
     eprintln!(
-        "evaluator-wasm {} (scale {}): not implemented",
+        "evaluator-wasm {} (bp scale {}): not implemented",
         env!("CARGO_PKG_VERSION"),
-        evaluator_core::BPS_SCALE
+        evaluator_core::BP
     );
 }

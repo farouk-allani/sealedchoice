@@ -7,6 +7,14 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Same RustCrypto line as the `ecies` crate (0.2.14) the WASM will use at T05.
+sha2 = "0.11.1"
+hkdf = "0.13.0"
+k256 = { version = "0.14.0", default-features = false, features = ["arithmetic"] }
+regex = "1.13.1"
+unicode-normalization = "0.1.26"
 
 [lints]
 workspace = true
