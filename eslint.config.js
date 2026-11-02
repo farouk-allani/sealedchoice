@@ -3,6 +3,13 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
+// The real tender key exists only inside the TEE; the testing entry point derives it from a
+// published fake secret for the vectors, so nothing but tests may import it.
+const testingOnly = {
+  name: "@tender/crypto/testing",
+  message: "Test-only: the real tender key exists only in the TEE.",
+};
+
 export default tseslint.config(
   { ignores: ["**/node_modules/**", "**/dist/**", "**/coverage/**", "apps/**"] },
   js.configs.recommended,
@@ -15,6 +22,11 @@ export default tseslint.config(
     },
   },
   {
+    files: ["**/*.ts"],
+    ignores: ["**/*.test.ts"],
+    rules: { "no-restricted-imports": ["error", { paths: [testingOnly] }] },
+  },
+  {
     // Code that runs in the browser (bid encryption, debrief decryption, the verify page).
     files: ["packages/shared/src/**/*.ts", "packages/crypto/src/**/*.ts", "packages/verify/src/**/*.ts"],
     ignores: ["**/*.test.ts"],
@@ -22,10 +34,13 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
-          paths: ["fs", "crypto", "buffer", "path", "os", "url", "util", "stream"].map((name) => ({
-            name,
-            message: "Browser code: no Node built-ins (use @noble/* or Web APIs).",
-          })),
+          paths: [
+            testingOnly,
+            ...["fs", "crypto", "buffer", "path", "os", "url", "util", "stream"].map((name) => ({
+              name,
+              message: "Browser code: no Node built-ins (use @noble/* or Web APIs).",
+            })),
+          ],
           patterns: [{ regex: "^node:", message: "Browser code: no Node built-ins (use @noble/* or Web APIs)." }],
         },
       ],
