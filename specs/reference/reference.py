@@ -436,7 +436,7 @@ def compact_result(tender_id: str, bids_root: bytes, rubric_hash: bytes,
 
 # ------------------------------------------------------------ fixtures -----
 def load(p: str):
-    return json.loads((SPECS / p).read_text())
+    return json.loads((SPECS / p).read_text(encoding="utf-8"))
 
 
 def out(scores: list[tuple[str, int, list[str]]]) -> dict:
@@ -641,11 +641,12 @@ def main():
         text = json.dumps(obj, indent=2, ensure_ascii=False) + "\n"
         path = VECTORS / name
         if check:
-            if not path.exists() or path.read_text() != text:
+            if not path.exists() or path.read_text(encoding="utf-8") != text:
                 print(f"MISMATCH {name}")
                 bad = True
         else:
-            path.write_text(text)
+            # UTF-8 and LF on every OS (Windows would otherwise write cp1252 and CRLF).
+            path.write_text(text, encoding="utf-8", newline="\n")
             print(f"wrote {path.relative_to(ROOT)}")
     if check:
         print("vectors OK" if not bad else "vectors differ: run without --check and review the diff")

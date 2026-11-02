@@ -14,7 +14,11 @@ near-sdk = { workspace = true }
 
 [dev-dependencies]
 near-sdk = { workspace = true, features = ["unit-testing"] }
+
 # Sandbox integration tests (tests/sandbox.rs). Versions checked 2026-11-02 (docs/references.md).
+# Not on Windows: near-workspaces' build script installs a neard binary, and neard has no Windows build;
+# that broke `cargo test --workspace` there. The sandbox suite runs on Linux (CI) and macOS.
+[target.'cfg(not(windows))'.dev-dependencies]
 near-workspaces = "=0.23.0"  # 0.24 needs nearcore 0.38 crates; near-sdk 5.29.1 uses 0.37 (D-020)
 tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "time"] }
 
