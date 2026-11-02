@@ -14,4 +14,27 @@ export default tseslint.config(
       "@typescript-eslint/consistent-type-imports": "error",
     },
   },
+  {
+    // Code that runs in the browser (bid encryption, debrief decryption, the verify page).
+    files: ["packages/shared/src/**/*.ts", "packages/crypto/src/**/*.ts", "packages/verify/src/**/*.ts"],
+    ignores: ["**/*.test.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: ["fs", "crypto", "buffer", "path", "os", "url", "util", "stream"].map((name) => ({
+            name,
+            message: "Browser code: no Node built-ins (use @noble/* or Web APIs).",
+          })),
+          patterns: [{ regex: "^node:", message: "Browser code: no Node built-ins (use @noble/* or Web APIs)." }],
+        },
+      ],
+      "no-restricted-globals": [
+        "error",
+        { name: "Buffer", message: "Browser code: use Uint8Array." },
+        { name: "process", message: "Browser code: no process; pass configuration in." },
+        { name: "require", message: "ESM only." },
+      ],
+    },
+  },
 );
