@@ -67,6 +67,8 @@ Text score in basis points = median × 2,000.
 
 Flags inform humans; only stages 2, 5 and 6 change numbers, by fixed rules.
 
+INJECTION_SUSPECTED patterns run on the NFKD ASCII fold of the proposal text with ASCII regex rules, so invisible or fullwidth characters cannot hide a phrase and every implementation (Rust, TS, the Python reference) flags the same bids (DECISIONS D-019). The stage 5 clamp is `min(score, clamp)`: it never raises a score.
+
 ### Stage 8 — total and ranking
 
 `total_bp = floor(Σ weight_bp × criterion_bp / 10000)`, computed as one integer sum then one division. Ranking: total descending, then lower price, then earlier submission. Ineligible bids follow, by index, with 0.

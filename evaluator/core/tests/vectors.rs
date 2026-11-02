@@ -104,6 +104,10 @@ edge_case!(
 );
 edge_case!(edge_decrypt_failed, "decrypt_failed");
 edge_case!(edge_malformed_plaintext_types, "malformed_plaintext_types");
+edge_case!(
+    edge_injection_hidden_with_invisible_characters,
+    "injection_hidden_with_invisible_characters"
+);
 edge_case!(edge_no_eligible_bids, "no_eligible_bids");
 
 #[test]
@@ -125,6 +129,7 @@ fn every_edge_case_has_a_test() {
             "copied_ciphertext_account_mismatch",
             "decrypt_failed",
             "malformed_plaintext_types",
+            "injection_hidden_with_invisible_characters",
             "no_eligible_bids",
         ]
     );
@@ -407,5 +412,97 @@ fn hkdf_matches_rfc5869_case_1() {
     assert_eq!(
         hex(&okm),
         "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf"
+    );
+}
+
+#[test]
+fn clamp_never_raises_a_score() {
+    // D-019: a rubric may set evidence_clamp_score above evidence_required_from_score; a quote-less
+    // score must still not go up.
+    let v = load("test-vectors/scoring-edge-cases.json");
+    let mut rubric_json = load(v["rubric_ref"].as_str().unwrap());
+    rubric_json["aggregation"]["evidence_clamp_score"] = 4.into();
+    let rubric: Rubric = serde_json::from_value(rubric_json).unwrap();
+    let case = v["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "quote_not_in_proposal_is_clamped")
+        .unwrap();
+    let bids: Vec<BidInput> = serde_json::from_value(case["bids"].clone()).unwrap();
+    let outputs: BTreeMap<String, Vec<Value>> =
+        serde_json::from_value(case["model_outputs"].clone()).unwrap();
+    let ev = evaluate(&rubric, "1", &bids, &outputs).unwrap();
+    let detail = serde_json::to_value(&ev.bids[0].criteria["methodology"]).unwrap();
+    // Model 0 claimed 4 without a valid quote: min(4, 4) = 4, flagged, never 5 or more.
+    assert_eq!(detail["models"][0]["raw"], 4);
+    assert_eq!(detail["models"][0]["score"], 4);
+    assert_eq!(detail["models"][0]["clamped"], true);
+}
+
+#[test]
+fn eligibility_reasons_keep_reference_order() {
+    // Expected values from reference.py check_eligibility (python3 -I, specs/reference on sys.path).
+    let rubric: Rubric = serde_json::from_value(load("examples/rubric.example.json")).unwrap();
+    let check = |plaintext: Value| {
+        let bid = BidInput {
+            index: 0,
+            submitter: "vendor-a.testnet".into(),
+            decrypt_ok: true,
+            plaintext: Some(plaintext),
+        };
+        evaluator_core::scoring::check_eligibility(&rubric, "1", &bid).unwrap()
+    };
+    let all_bad = serde_json::json!({"v": 1, "tender_id": "9", "bidder": "someone-else.testnet", "price_minor": "0",
+        "delivery_days": 0, "methodology": 42, "track_record": "x".repeat(1201), "salt": "00".repeat(16)});
+    assert_eq!(
+        check(all_bad),
+        (
+            5,
+            vec![
+                "wrong_tender".to_string(),
+                "account_mismatch".into(),
+                "bad_price".into(),
+                "bad_delivery_days".into(),
+                "bad_methodology".into(),
+                "too_long_track_record".into(),
+            ]
+        )
+    );
+    let missing = serde_json::json!({"v": 1, "tender_id": "1", "bidder": "vendor-a.testnet",
+        "price_minor": "16000000000", "delivery_days": 31, "methodology": "  \n", "track_record": null});
+    assert_eq!(
+        check(missing),
+        (
+            1,
+            vec![
+                "missing_methodology".to_string(),
+                "missing_track_record".into()
+            ]
+        )
+    );
+    let over = serde_json::json!({"v": 1, "tender_id": "1", "bidder": "vendor-a.testnet",
+        "price_minor": "16000000000", "delivery_days": 31, "methodology": "m", "track_record": "t"});
+    assert_eq!(
+        check(over),
+        (
+            1,
+            vec!["over_budget_cap".to_string(), "over_max_delivery".into()]
+        )
+    );
+}
+
+#[test]
+fn huge_weights_are_refused_not_overflowed() {
+    let v = load("test-vectors/scoring-2-bids.json");
+    let mut rubric_json = v["rubric"].clone();
+    rubric_json["criteria"][0]["weight_bp"] = u64::MAX.into();
+    let rubric: Rubric = serde_json::from_value(rubric_json).unwrap();
+    let bids: Vec<BidInput> = serde_json::from_value(v["bids"].clone()).unwrap();
+    let outputs: BTreeMap<String, Vec<Value>> =
+        serde_json::from_value(v["model_outputs"].clone()).unwrap();
+    assert_eq!(
+        evaluate(&rubric, "1", &bids, &outputs).unwrap_err().code(),
+        "E_WEIGHTS"
     );
 }
