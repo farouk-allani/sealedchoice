@@ -1,0 +1,72 @@
+# Runs the same checks as the run-checks list, on every push and pull request.
+# No secrets: nothing here signs, deploys or calls a paid API.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spec:
+    name: spec vectors + secret scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Spec vectors unchanged
+        run: python3 specs/reference/reference.py --check
+      - name: Secret scan of tracked files
+        run: sh scripts/git-hooks/pre-commit --all
+
+  rust:
+    name: rust (fmt, clippy, test, wasm builds)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Toolchain from rust-toolchain.toml
+        run: rustup toolchain install && rustc --version
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --workspace
+      - name: Evaluator wasm (wasm32-wasip2)
+        run: |
+          cargo build -p evaluator-wasm --target wasm32-wasip2 --release
+          sha256sum target/wasm32-wasip2/release/evaluator-wasm.wasm
+      - name: Install cargo-near 0.22.0 (prebuilt)
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
+      - name: Contract wasm
+        working-directory: contracts/tender
+        run: |
+          cargo near build non-reproducible-wasm
+          sha256sum ../../target/near/tender_contract/tender_contract.wasm
+
+  ts:
+    name: ts (lint, typecheck, test, web build)
+    runs-on: ubuntu-24.04
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r lint
+      - run: pnpm -r typecheck
+      - run: pnpm -r test
+      - run: pnpm --filter web build
