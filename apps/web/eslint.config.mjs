@@ -17,6 +17,12 @@ const config = [
               message: "Test-only: the real tender key exists only in the TEE.",
             },
           ],
+          patterns: [
+            {
+              regex: "(^|/)testing(\\.[cm]?[jt]s)?$",
+              message: "Test-only: the real tender key exists only in the TEE.",
+            },
+          ],
         },
       ],
     },
