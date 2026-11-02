@@ -2,14 +2,13 @@
 //! serializer that proves `rubric_json` is canonical, so `rubric_hash = sha256(rubric_json)`
 //! equals sha256(JCS(rubric)) as every other implementation computes it.
 
+use crate::MAX_RUBRIC_BYTES;
 use near_sdk::serde::Deserialize;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, env};
 
 pub const BP: u64 = 10_000;
 pub const MAX_SAFE_INT: u64 = (1 << 53) - 1;
-/// Rubric JSON size limit (it travels in every OutLayer evaluate input).
-pub const MAX_RUBRIC_BYTES: usize = 16 * 1024;
 
 /// What the contract keeps from the rubric; the rest is only hashed and passed on.
 #[derive(Debug, Clone, PartialEq, Eq)]

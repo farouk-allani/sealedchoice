@@ -351,7 +351,7 @@ fn rubric_must_be_canonical_json() {
     let float = rubric_json().replace("\"max_delivery_days\":30", "\"max_delivery_days\":30.0");
     assert_eq!(parse_rubric(&float, 2), Err("E_RUBRIC_NOT_CANONICAL"));
     assert_eq!(parse_rubric("{not json", 2), Err("E_RUBRIC_JSON"));
-    let huge = format!("{{\"pad\":\"{}\"}}", "x".repeat(rubric::MAX_RUBRIC_BYTES));
+    let huge = format!("{{\"pad\":\"{}\"}}", "x".repeat(MAX_RUBRIC_BYTES));
     assert_eq!(parse_rubric(&huge, 2), Err("E_RUBRIC_TOO_LARGE"));
 }
 

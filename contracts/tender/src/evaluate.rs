@@ -17,10 +17,6 @@ pub const FLAG_DECRYPT_FAILED: u64 = 2;
 pub const FLAG_ACCOUNT_MISMATCH: u64 = 4;
 pub const FLAG_EVAL_INCOMPLETE: u64 = 64;
 pub const FLAGS_MAX: u64 = 127;
-/// Compact result size limit (OutLayer stdout).
-pub const MAX_RESULT_BYTES: usize = 900;
-/// Failure reasons are stored truncated to this many characters.
-pub const MAX_REASON_CHARS: usize = 200;
 
 /// The compact result as the evaluator prints it (specs/schemas/compact-result.schema.json).
 #[derive(Deserialize)]

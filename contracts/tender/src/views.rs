@@ -5,9 +5,6 @@ use near_sdk::base64::Engine;
 use near_sdk::base64::engine::general_purpose::STANDARD;
 use near_sdk::json_types::U64;
 
-/// Page size cap for list views.
-const MAX_PAGE: u64 = 50;
-
 #[near]
 impl Contract {
     pub fn version(&self) -> String {
