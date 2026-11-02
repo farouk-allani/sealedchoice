@@ -182,8 +182,23 @@ async fn setup(vendor_names: &[&str]) -> R<Env> {
     })
 }
 
+fn wall_clock_ns() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0)
+}
+
+/// "Now" for deadlines. The sandbox does not produce empty blocks, so the latest block can be
+/// many seconds old while the next transaction lands in a fresh block at wall-clock time: take the
+/// later of the two.
 async fn now(env: &Env) -> R<u64> {
-    Ok(env.worker.view_block().await?.timestamp())
+    Ok(env
+        .worker
+        .view_block()
+        .await?
+        .timestamp()
+        .max(wall_clock_ns()))
 }
 
 async fn tender_view(env: &Env, id: u64) -> R<Value> {
@@ -272,14 +287,13 @@ async fn submit(env: &Env, vendor: &Account, seed: u8, size: usize) -> R<Executi
         .await?)
 }
 
-async fn wait_past(env: &Env, deadline: u64) -> R {
-    for _ in 0..120 {
-        if now(env).await? >= deadline {
-            return Ok(());
-        }
-        env.worker.fast_forward(5).await?;
+/// Waits in real time until the next block is certain to be past `deadline` (new blocks take the
+/// wall-clock time; fast-forwarding would not move a stale chain head reliably).
+async fn wait_past(_env: &Env, deadline: u64) -> R {
+    while wall_clock_ns() < deadline + 2_000_000_000 {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
-    Err("deadline never reached".into())
+    Ok(())
 }
 
 async fn close(env: &Env, caller: &Account) -> R<ExecutionFinalResult> {
