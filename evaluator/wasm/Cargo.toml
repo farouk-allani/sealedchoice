@@ -1,0 +1,17 @@
+[package]
+name = "evaluator-wasm"
+description = "OutLayer entry point (wasm32-wasip2): reads stdin, decrypts, calls models, prints the compact result"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "evaluator-wasm"
+path = "src/main.rs"
+
+[dependencies]
+evaluator-core = { path = "../core" }
+
+[lints]
+workspace = true

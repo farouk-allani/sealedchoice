@@ -1,0 +1,37 @@
+[workspace]
+resolver = "3"
+members = [
+    "contracts/tender",
+    "contracts/mock-outlayer",
+    "evaluator/core",
+    "evaluator/wasm",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+# Versions checked on crates.io on 2026-11-02 (docs/references.md).
+[workspace.dependencies]
+near-sdk = "=5.29.1"  # min_protocol_version 84: runs on testnet (88) and mainnet (86). 5.30.0 needs 88 (D-015)
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+float_arithmetic = "deny"
+
+# Same profile as the `cargo near new` template: small, deterministic contract wasm.
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true

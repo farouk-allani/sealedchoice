@@ -1,0 +1,12 @@
+[package]
+name = "evaluator-core"
+description = "Pure scoring library: eligibility, price, aggregation, flags, ranking. No I/O, no floats."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
