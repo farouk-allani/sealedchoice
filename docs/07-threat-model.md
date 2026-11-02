@@ -34,6 +34,7 @@ Format: attacker → what they try → what stops it → what is left (honest re
 | Anyone | Redirect the payout | Only the awarded bidder can set the payout target; contract pays only that target; 1Click quote must echo recipient and amount | Trust in the 1Click service for cross-chain delivery | ✅ `accept_award` from another account rejected |
 | Buyer | Withdraw escrow after bidding | Escrow can only go to the winner or back to the buyer through cancel (before deadline), no-award decision (committee) or remainder after payout | — | — |
 | Bidder | Spam bids | Bond + storage per bid, `MAX_BIDS` | A rich spammer can fill slots; raise bond per tender | — |
+| Bidder | Hold the 5 slots and withdraw just before the deadline, so others cannot bid | Each held slot costs its storage (not refunded on withdrawal) and the bond is locked until withdrawal | `withdraw_bid` refunds the whole bond, so five accounts can block a tender for the cost of storage. Partial forfeit on withdrawal or more slots after G1/G3 are possible fixes; not done | — |
 
 ## Things outside the system
 
