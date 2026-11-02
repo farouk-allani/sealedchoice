@@ -50,6 +50,10 @@ impl Contract {
             );
         }
         let parsed = parse_rubric(&rubric_json, committee.len()).unwrap_or_else(|code| fail(code));
+        require(
+            worst_eval_input_bytes(&rubric_json, &committee) <= MAX_EVAL_INPUT_BYTES,
+            "E_RUBRIC_TOO_LARGE",
+        );
         let min_deadline = now_ns().saturating_add(self.min_deadline_delay_ns);
         require(deadline_ns.0 >= min_deadline, "E_DEADLINE_TOO_SOON");
         let evaluator = self
@@ -89,7 +93,9 @@ impl Contract {
             },
         );
         self.tenders.flush();
-        let storage = Self::storage_cost(env::storage_usage().saturating_sub(storage_before));
+        // The tender's own bytes now, plus a reserve for what close and evaluation add (D-020).
+        let added = env::storage_usage().saturating_sub(storage_before) + STORAGE_RESERVE_BYTES;
+        let storage = Self::storage_cost(added);
         let attached = env::attached_deposit();
         let eval_fee = attached
             .checked_sub(storage)
@@ -398,4 +404,23 @@ fn parse_pubkey_result(
         return Err("E_BAD_PUBKEY");
     }
     Ok(out.pk)
+}
+
+/// Upper bound of the evaluate input this tender can produce (5 maximum-size bids), so a tender
+/// whose evaluation could not be requested within the gas limit is refused at creation (D-020).
+pub fn worst_eval_input_bytes(rubric_json: &str, committee: &[CommitteeMember]) -> usize {
+    let rubric_escaped = serde_json::to_string(rubric_json)
+        .map(|s| s.len())
+        .unwrap_or(usize::MAX);
+    let committee_json: Vec<serde_json::Value> = committee
+        .iter()
+        .map(|m| json!({"account": m.account, "pubkey": m.report_pubkey}))
+        .collect();
+    let committee_len = serde_json::to_string(&committee_json)
+        .map(|s| s.len())
+        .unwrap_or(usize::MAX);
+    EVAL_INPUT_OVERHEAD_BYTES
+        .saturating_add(MAX_BIDS * MAX_BID_ENTRY_BYTES)
+        .saturating_add(rubric_escaped)
+        .saturating_add(committee_len)
 }

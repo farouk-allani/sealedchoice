@@ -5,7 +5,9 @@
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
 mod bids;
+pub mod evaluate;
 mod events;
+pub mod merkle;
 pub mod rubric;
 mod tender;
 pub mod types;
@@ -36,11 +38,33 @@ pub const EXECUTIONS_BUDGETED: u128 = 2 * MAX_ATTEMPTS as u128;
 pub const MAX_CALLBACK_BYTES: usize = 4096;
 
 /// OutLayer `request_execution` and our callback (docs/03: start 150 + 50 Tgas; G1 measures).
-pub const GAS_REQUEST_EXECUTION: Gas = Gas::from_tgas(150);
+pub const GAS_REQUEST_EXECUTION: Gas = Gas::from_tgas(100);
 pub const GAS_ON_PUBKEY: Gas = Gas::from_tgas(30);
 pub const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
 pub const GAS_ON_ESCROW_REFUND: Gas = Gas::from_tgas(10);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
+
+/// Callback for an evaluate request: validation, bond transfers, escrow refund on final failure.
+pub const GAS_ON_EVALUATE: Gas = Gas::from_tgas(50);
+/// OutLayer: `input_data` bytes without extra deposit and extra resume gas, and the resume gas it
+/// reserves per byte beyond that (contract source, references.md).
+pub const OUTLAYER_INPUT_FREE_BYTES: usize = 32 * 1024;
+pub const OUTLAYER_CALLBACK_GAS_PER_INPUT_BYTE: u64 = 25_000_000;
+/// Largest evaluate input the contract will ever send: 100 Tgas request + 50 Tgas callback + the
+/// close itself must fit in 300 Tgas with 25 Mgas per byte over 32 KiB (D-020).
+pub const MAX_EVAL_INPUT_BYTES: usize = 37_000;
+/// Upper bound of one bid entry in the evaluate input (64-char account, 4500-byte ciphertext).
+pub const MAX_BID_ENTRY_BYTES: usize = 6_250;
+/// Upper bound of the evaluate input outside bids, rubric and committee.
+pub const EVAL_INPUT_OVERHEAD_BYTES: usize = 400;
+/// Storage the buyer pays at creation for what the tender adds later: frozen set, attempts,
+/// result (D-020).
+pub const STORAGE_RESERVE_BYTES: u64 = 2_500;
+
+/// Resource limits for the evaluate execution (⚠️ tune at G1/G3; OutLayer caps 500 B / 4096 MB / 180 s).
+pub const EVAL_MAX_INSTRUCTIONS: u64 = 200_000_000_000;
+pub const EVAL_MAX_MEMORY_MB: u32 = 512;
+pub const EVAL_MAX_SECONDS: u64 = 180;
 
 /// Resource limits for the derive_pubkey execution (⚠️ tune at G1).
 pub const DERIVE_MAX_INSTRUCTIONS: u64 = 10_000_000_000;

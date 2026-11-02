@@ -1034,7 +1034,7 @@ fn evaluator_hash_must_be_sha256_hex() {
 
 /// The full public method list. A new method must be added here and to README.md, and must
 /// not change rubric_json, rubric_hash, evaluator, committee, deadline_ns or bond (I1).
-const METHODS: [&str; 26] = [
+const METHODS: [&str; 29] = [
     "new",
     "add_evaluator",
     "create_tender",
@@ -1048,6 +1048,9 @@ const METHODS: [&str; 26] = [
     "withdraw_balance",
     "submit_bid",
     "withdraw_bid",
+    "close_and_evaluate",
+    "retry_evaluate",
+    "on_evaluate",
     "version",
     "get_config",
     "get_evaluators",
@@ -1068,6 +1071,7 @@ fn public_methods() -> Vec<String> {
         include_str!("lib.rs"),
         include_str!("tender.rs"),
         include_str!("bids.rs"),
+        include_str!("evaluate.rs"),
         include_str!("views.rs"),
     ];
     files
@@ -1179,3 +1183,6 @@ fn views_page_tenders_and_carry_ns_as_strings() {
     assert_eq!(c.get_evaluators(), vec![evaluator()]);
     assert!(c.get_tender(99).is_none());
 }
+
+#[path = "tests_evaluate.rs"]
+mod evaluate_tests;
