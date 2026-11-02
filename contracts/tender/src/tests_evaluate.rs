@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::evaluate::{Expected, request_gas_for_input, validate_result};
-use crate::tender::worst_eval_input_bytes;
+use crate::tender::{outlayer_input_storage, worst_eval_input_bytes};
 
 /// Closes `id` at the deadline and returns the frozen set.
 fn close(c: &mut Contract, id: u64) -> Frozen {
@@ -263,7 +263,7 @@ fn evaluate_input_has_the_docs_04_shape() {
 }
 
 #[test]
-fn worst_case_input_fits_the_gas_budget() {
+fn large_inputs_get_resume_gas_and_fit_the_storage_deposit() {
     let mut c = setup();
     let id = open(&mut c);
     let long: Vec<String> = (0..MAX_BIDS)
@@ -278,25 +278,69 @@ fn worst_case_input_fits_the_gas_budget() {
             pk("debrief_key"),
         );
     }
-    close(&mut c, id);
-    let input = c.evaluate_input(id, 3);
+    call(VENDORS[6], NearToken::from_yoctonear(0), DEADLINE);
+    c.close_and_evaluate(id);
+    let req = get_created_receipts()
+        .into_iter()
+        .flat_map(|r| r.actions)
+        .find_map(|a| match a {
+            MockAction::FunctionCallWeight {
+                method_name,
+                args,
+                prepaid_gas,
+                attached_deposit,
+                ..
+            } if method_name == b"request_execution" => Some((
+                serde_json::from_slice::<Value>(&args).unwrap(),
+                prepaid_gas,
+                attached_deposit,
+            )),
+            _ => None,
+        })
+        .unwrap();
+    let input = req.0["input_data"].as_str().unwrap().to_string();
+    // Over 32 KiB: OutLayer reserves extra resume gas, which the request must carry.
+    assert!(input.len() > OUTLAYER_INPUT_FREE_BYTES, "{}", input.len());
+    let over = (input.len() - OUTLAYER_INPUT_FREE_BYTES) as u64;
+    assert_eq!(
+        req.1.as_gas(),
+        GAS_REQUEST_EXECUTION.as_gas() + over * OUTLAYER_CALLBACK_GAS_PER_INPUT_BYTE
+    );
+    assert_eq!(req.1, request_gas_for_input(input.len()));
+    // The bound used at creation really bounds the input, and the deposit covers its storage.
     let bound = worst_eval_input_bytes(&rubric_json(), &committee());
     assert!(input.len() <= bound, "{} > bound {bound}", input.len());
-    assert!(bound <= MAX_EVAL_INPUT_BYTES);
-    // request + callback + the close itself stay under the 300 Tgas transaction limit.
-    let total = request_gas_for_input(MAX_EVAL_INPUT_BYTES).as_gas()
-        + GAS_ON_EVALUATE.as_gas()
-        + Gas::from_tgas(30).as_gas();
-    assert!(total <= Gas::from_tgas(300).as_gas(), "{total}");
+    assert!(req.2.as_yoctonear() >= outlayer_input_storage(input.len()));
+    assert_eq!(
+        outlayer_input_storage(OUTLAYER_INPUT_FREE_BYTES + 10),
+        10 * OUTLAYER_STORAGE_PRICE_PER_BYTE
+    );
 }
 
 #[test]
-#[should_panic(expected = "E_RUBRIC_TOO_LARGE")]
-fn rubric_too_large_for_the_evaluate_input_is_refused() {
-    let mut c = setup();
+fn eval_deposit_must_cover_outlayer_input_storage() {
+    // A large rubric makes the worst-case evaluate input ~10 KB over 32 KiB: each deposit must
+    // hold ~0.1 NEAR for OutLayer's input storage.
     let mut v = rubric_value();
-    v["scope"] = json!("s".repeat(5_000));
-    create_with(&mut c, canonical(&v), committee(), DEADLINE);
+    v["scope"] = json!("s".repeat(1500));
+    for c in v["criteria"].as_array_mut().unwrap().iter_mut().skip(1) {
+        for k in ["0", "1", "2", "3", "4", "5"] {
+            c["anchors"][k] = json!("a".repeat(300));
+        }
+        c["question"] = json!("q".repeat(300));
+    }
+    let rubric = canonical(&v);
+    let floor = outlayer_input_storage(worst_eval_input_bytes(&rubric, &committee()));
+    assert!(floor > milli(50).as_yoctonear(), "{floor}");
+
+    let mut c = setup();
+    call(BUYER, milli(300), NOW);
+    assert_fails("E_EVAL_FEE_LOW", || {
+        c.create_tender(rubric.clone(), U64(DEADLINE), milli(100), committee(), 0);
+    });
+    call(BUYER, near(2), NOW);
+    let id = c.create_tender(rubric, U64(DEADLINE), milli(100), committee(), 0);
+    assert!(c.get_tender(id).unwrap().exec_deposit.as_yoctonear() >= floor);
 }
 
 // ------------------------------------------------------ result validation ---

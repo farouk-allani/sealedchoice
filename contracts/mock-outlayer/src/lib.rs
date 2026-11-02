@@ -17,6 +17,12 @@ const DATA_ID_REGISTER: u64 = 37;
 const MIN_RESPONSE_GAS: Gas = Gas::from_tgas(50);
 const INPUT_DATA_FREE_BYTES: usize = 32 * 1024;
 const CALLBACK_GAS_PER_INPUT_BYTE: u64 = 25_000_000;
+const STORAGE_PRICE_PER_BYTE: u128 = 10_000_000_000_000_000_000;
+
+/// OutLayer's `input_storage_deposit`: held for input bytes beyond 32 KiB.
+fn input_storage_deposit(len: usize) -> u128 {
+    (len.saturating_sub(INPUT_DATA_FREE_BYTES) as u128).saturating_mul(STORAGE_PRICE_PER_BYTE)
+}
 
 #[derive(BorshStorageKey)]
 #[near]
@@ -89,6 +95,11 @@ impl MockOutlayer {
         let request_id = self.next_id;
         self.next_id += 1;
         let input_len = input_data.as_ref().map_or(0, String::len);
+        // Same rule as OutLayer for the storage part of the payment (compute cost is not modelled).
+        require!(
+            env::attached_deposit().as_yoctonear() >= input_storage_deposit(input_len),
+            "Insufficient payment: input_data storage deposit not covered"
+        );
         let promise = env::promise_yield_create(
             "on_execution_response",
             json!({"request_id": request_id}).to_string(),
@@ -148,6 +159,14 @@ impl MockOutlayer {
             None => b"null".to_vec(),
         };
         env::log_str(&format!("mock: request {request_id} answered"));
+        // OutLayer refunds `payment - cost` to the payer; the mock charges nothing.
+        if let Some(req) = self.requests.get(&request_id)
+            && req.deposit.0 > 0
+        {
+            near_sdk::Promise::new(req.payer_account_id.clone())
+                .transfer(near_sdk::NearToken::from_yoctonear(req.deposit.0))
+                .detach();
+        }
         env::value_return(&out);
     }
 

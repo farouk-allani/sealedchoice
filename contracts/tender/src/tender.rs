@@ -50,10 +50,7 @@ impl Contract {
             );
         }
         let parsed = parse_rubric(&rubric_json, committee.len()).unwrap_or_else(|code| fail(code));
-        require(
-            worst_eval_input_bytes(&rubric_json, &committee) <= MAX_EVAL_INPUT_BYTES,
-            "E_RUBRIC_TOO_LARGE",
-        );
+        let worst_input = worst_eval_input_bytes(&rubric_json, &committee);
         let min_deadline = now_ns().saturating_add(self.min_deadline_delay_ns);
         require(deadline_ns.0 >= min_deadline, "E_DEADLINE_TOO_SOON");
         let evaluator = self
@@ -102,6 +99,13 @@ impl Contract {
             .unwrap_or_else(|| fail("E_INSUFFICIENT_DEPOSIT"));
         let exec_deposit = NearToken::from_yoctonear(eval_fee.as_yoctonear() / EXECUTIONS_BUDGETED);
         require(!exec_deposit.is_zero(), "E_EVAL_FEE_LOW");
+        // Each OutLayer deposit must at least cover the input-storage deposit OutLayer holds for
+        // the largest evaluate input this tender can produce, or large bids would fail every
+        // attempt (D-020). The compute part is the client's estimate (estimate_execution_cost).
+        require(
+            exec_deposit.as_yoctonear() >= outlayer_input_storage(worst_input),
+            "E_EVAL_FEE_LOW",
+        );
         {
             let t = self.tender_mut(id);
             t.eval_fee_remaining = eval_fee;
@@ -414,8 +418,8 @@ fn parse_pubkey_result(
     Ok(out.pk)
 }
 
-/// Upper bound of the evaluate input this tender can produce (5 maximum-size bids), so a tender
-/// whose evaluation could not be requested within the gas limit is refused at creation (D-020).
+/// Upper bound of the evaluate input this tender can produce (5 maximum-size bids); its OutLayer
+/// storage deposit must fit in each eval deposit (D-020).
 pub fn worst_eval_input_bytes(rubric_json: &str, committee: &[CommitteeMember]) -> usize {
     let rubric_escaped = serde_json::to_string(rubric_json)
         .map(|s| s.len())
@@ -431,4 +435,10 @@ pub fn worst_eval_input_bytes(rubric_json: &str, committee: &[CommitteeMember]) 
         .saturating_add(MAX_BIDS * MAX_BID_ENTRY_BYTES)
         .saturating_add(rubric_escaped)
         .saturating_add(committee_len)
+}
+
+/// Deposit OutLayer holds for `input_len` bytes of `input_data` (its `input_storage_deposit`).
+pub fn outlayer_input_storage(input_len: usize) -> u128 {
+    (input_len.saturating_sub(OUTLAYER_INPUT_FREE_BYTES) as u128)
+        .saturating_mul(OUTLAYER_STORAGE_PRICE_PER_BYTE)
 }

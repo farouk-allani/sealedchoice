@@ -19,7 +19,7 @@ Status: create, tender key, escrow funding, deposits, bids, withdrawals, cancell
 
 | Method | What |
 |---|---|
-| `create_tender` | Payable. `rubric_json` (canonical JCS, checked), `deadline_ns` (string, ≥ now + min delay), `bond` (yoctoNEAR string, per bid), `committee` (`[{account, report_pubkey}]`, 1–10, unique, compressed secp256k1 hex), `evaluator_index`. Refused if 5 maximum-size bids plus this rubric and committee would make an evaluate input over 37,000 bytes. Attached NEAR pays the tender's storage plus a 2,500-byte reserve for what close and evaluation add; the rest is the eval fee, split in 6 equal OutLayer deposits (derive_pubkey and evaluate, up to 3 attempts each). Starts the OutLayer `derive_pubkey` request and returns the tender id. Status `PendingKey`. |
+| `create_tender` | Payable. `rubric_json` (canonical JCS, checked), `deadline_ns` (string, ≥ now + min delay), `bond` (yoctoNEAR string, per bid), `committee` (`[{account, report_pubkey}]`, 1–10, unique, compressed secp256k1 hex), `evaluator_index`. Attached NEAR pays the tender's storage plus a 2,500-byte reserve for what close and evaluation add; the rest is the eval fee, split in 6 equal OutLayer deposits (derive_pubkey and evaluate, up to 3 attempts each); each must cover OutLayer's storage deposit for the largest evaluate input this tender can produce (5 maximum-size bids). Starts the OutLayer `derive_pubkey` request and returns the tender id. Status `PendingKey`. |
 | `retry_pubkey` | Buyer, in `PendingKey`, only while the fee still covers 3 evaluation attempts after this request (so at most 2 retries). |
 | `on_pubkey` | `#[private]` callback. Reads OutLayer's result (the evaluator's stdout as a JSON string, `null` on failure), expects `{"v":1,"tid":"<id>","pk":"02…"}`. Success: key stored, status `AwaitingFunds`. Anything else: logged, status unchanged. |
 | `ft_on_transfer` | NEP-141 receiver, `msg = {"fund_tender":"<id>"}`. Accepted only from the rubric token, from the buyer, in `AwaitingFunds`, before the deadline, for exactly the budget cap; otherwise every token is returned. Status `Open`. |
@@ -40,7 +40,7 @@ Status: create, tender key, escrow funding, deposits, bids, withdrawals, cancell
 
 | Method | What |
 |---|---|
-| `close_and_evaluate` | At or after the deadline, in `Open` (I3). No active bids: `NoBids`, escrow and fee back to the buyer. Otherwise freezes the bid set: active slots by (submitted_at_ns, slot) become indices 0..n−1, leaves and root as `specs/reference/reference.py` (I4); pushes attempt 1 and sends the evaluate request (input per docs/04 §6, `Text` response, buyer as payer, gas 100 Tgas + 25 Mgas per input byte over 32 KiB). Status `Evaluating`. Attach 300 Tgas for 5 large bids. |
+| `close_and_evaluate` | At or after the deadline, in `Open` (I3). No active bids: `NoBids`, escrow and fee back to the buyer. Otherwise freezes the bid set: active slots by (submitted_at_ns, slot) become indices 0..n−1, leaves and root as `specs/reference/reference.py` (I4); pushes attempt 1 and sends the evaluate request (input per docs/04 §6, `Text` response, buyer as payer, gas 100 Tgas + 25 Mgas per input byte over 32 KiB). Status `Evaluating`. |
 | `retry_evaluate` | In `EvalFailed`, fewer than 3 attempts (I12). Same frozen input, next attempt number. |
 | `on_evaluate` | `#[private]` callback, bound to `(tender_id, attempt)` (I7). Accepts one result per tender, only for the attempt in flight (I5), only if every rule holds (I6): canonical JCS, ≤ 900 bytes, exact fields; `tid`, `root`, `rubric`, `attempt` echo the tender; `rk` holds each index once, totals ≤ 10000, flags ≤ 127, flags 2/4 only with flag 1, ineligible entries total 0; eligible first by total descending, then ineligible by index; `status` matches the flags. Accepted: result stored verbatim, status `Evaluated`, bonds settled once (forfeited to the buyer for flags 2 or 4, refunded otherwise; I10). Rejected or failed run: the attempt records the code; below 3 attempts status `EvalFailed`, at 3 status `Failed` and escrow, bonds and fee go back. Never panics. |
 
@@ -72,7 +72,7 @@ All nanosecond times are JSON strings (`U64`): they exceed JavaScript's safe int
 | `E_DEADLINE_PASSED` | At or after the deadline |
 | `E_DEADLINE_TOO_SOON` | Deadline earlier than now + `min_deadline_delay_ns` |
 | `E_DUPLICATE_CIPHERTEXT` | This ciphertext hash was already submitted to this tender (withdrawn bids included) |
-| `E_EVAL_FEE_LOW` | Eval fee too small to split, or a key retry would leave less than 3 evaluation deposits |
+| `E_EVAL_FEE_LOW` | Eval fee too small to split, each deposit below OutLayer's storage deposit for the worst-case evaluate input, or a key retry that would leave less than 3 evaluation deposits |
 | `E_EVAL_PROMISE_FAILED` | The evaluate request failed, or its result was over 4096 bytes (recorded as the attempt's reason) |
 | `E_EVAL_RUN_FAILED` | OutLayer returned `null`: the run failed or timed out (recorded) |
 | `E_INSUFFICIENT_DEPOSIT` | Attached (plus balance) does not cover storage (and bond) |
@@ -113,7 +113,7 @@ All nanosecond times are JSON strings (`U64`): they exceed JavaScript's safe int
 | `E_RUBRIC_MODELS` | Not exactly 3 different, non-empty model ids |
 | `E_RUBRIC_NOT_CANONICAL` | Rubric is not its own JCS form (whitespace, key order, floats, integers beyond 2^53 − 1) |
 | `E_RUBRIC_TOKEN` | `currency.asset` is not `nep141:<account id>` |
-| `E_RUBRIC_TOO_LARGE` | Rubric over 16 KiB, or rubric + committee too large for the evaluate input (37,000 bytes with 5 maximum-size bids) |
+| `E_RUBRIC_TOO_LARGE` | Rubric over 16 KiB |
 | `E_RUBRIC_VERSION` | Rubric `v` is not 1 |
 | `E_RUBRIC_WEIGHTS` | Criteria weights do not sum to 10000 |
 | `E_RUBRIC_WINDOW` | `acceptance_window_hours` outside 1–720 |
