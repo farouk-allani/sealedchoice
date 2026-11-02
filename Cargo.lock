@@ -2476,7 +2476,6 @@ dependencies = [
  "libc",
  "near-abi-client",
  "near-account-id",
- "near-chain-configs",
  "near-crypto",
  "near-gas",
  "near-jsonrpc-client",

@@ -19,7 +19,7 @@ near-sdk = { workspace = true, features = ["unit-testing"] }
 # Not on Windows: near-workspaces' build script installs a neard binary, and neard has no Windows build;
 # that broke `cargo test --workspace` there. The sandbox suite runs on Linux (CI) and macOS.
 [target.'cfg(not(windows))'.dev-dependencies]
-near-workspaces = { version = "=0.23.0", features = ["experimental"] }  # experimental: TEMPORARY, genesis_config for diag_sandbox_clocks; 0.24 needs nearcore 0.38 crates; near-sdk 5.29.1 uses 0.37 (D-020)
+near-workspaces = "=0.23.0"  # 0.24 needs nearcore 0.38 crates; near-sdk 5.29.1 uses 0.37 (D-020)
 tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "time"] }
 
 # Sandbox integration tests start a local neard, which needs an open-file hard limit of 65535

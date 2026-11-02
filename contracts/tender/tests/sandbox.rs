@@ -3,23 +3,37 @@
 //! sandbox. The three wasms are built once with `cargo near build` (cargo-near 0.22 must be
 //! installed) into target/sandbox-wasm, a separate target dir so the nested build does not wait
 //! on the lock held by `cargo test`.
+//!
+//! Two sandbox rules shape these tests (measured on CI and locally, PROGRESS.md T04):
+//! - A call that makes an OutLayer request (`create_tender`, `close_and_evaluate`,
+//!   `retry_evaluate`) yields until the mock is resolved. `.transact()` waits for every receipt
+//!   of the transaction, so it would block until the yield times out; neard's RPC gives up after
+//!   10 s and near-workspaces re-sends the call with a new nonce. Such calls go out with
+//!   `transact_async` (`start`); the test resolves the request, then awaits the transaction.
+//! - Deadlines sit `DEADLINE_MARGIN_S` after the chain clock (the clock the contract reads) and are
+//!   crossed with `fast_forward` (about 0.3 s of chain time per block), not by waiting.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use near_sdk::base64::Engine;
 use near_sdk::base64::engine::general_purpose::STANDARD;
 use near_sdk::serde_json::{self, Value, json};
 use near_workspaces::network::Sandbox;
+use near_workspaces::operations::{CallTransaction, TransactionStatus};
 use near_workspaces::result::ExecutionFinalResult;
 use near_workspaces::types::{Gas, NearToken};
 use near_workspaces::{Account, Contract, Worker};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
+use std::task::Poll;
 use tender_contract::rubric::jcs;
 
 type R<T = ()> = Result<T, Box<dyn std::error::Error>>;
 
 const CAP: u128 = 15_000_000_000;
 const BOND: NearToken = NearToken::from_millinear(100);
+/// Deadline distance from the chain clock: far above the few seconds of transactions every test
+/// sends before it (CI took ~41 s for one call only because of the blocking described above).
+const DEADLINE_MARGIN_S: u64 = 300;
 
 // ------------------------------------------------------------------ wasm ---
 
@@ -182,23 +196,48 @@ async fn setup(vendor_names: &[&str]) -> R<Env> {
     })
 }
 
-fn wall_clock_ns() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(0)
+/// The chain clock the contract reads (`env::block_timestamp`): the latest block's timestamp.
+async fn chain_now(env: &Env) -> R<u64> {
+    Ok(env.worker.view_block().await?.timestamp())
 }
 
-/// "Now" for deadlines. The sandbox does not produce empty blocks, so the latest block can be
-/// many seconds old while the next transaction lands in a fresh block at wall-clock time: take the
-/// later of the two.
-async fn now(env: &Env) -> R<u64> {
-    Ok(env
-        .worker
-        .view_block()
-        .await?
-        .timestamp()
-        .max(wall_clock_ns()))
+/// Moves the chain clock past `deadline` with `fast_forward`, so the next block is after it.
+async fn cross_deadline(env: &Env, deadline: u64) -> R {
+    for _ in 0..40 {
+        let now = chain_now(env).await?;
+        if now > deadline {
+            return Ok(());
+        }
+        // ~0.3 s of chain time per fast-forwarded block; aim a little past the deadline.
+        let blocks = ((deadline - now) / 300_000_000 + 20).min(2_000);
+        env.worker.fast_forward(blocks).await?;
+    }
+    Err("the chain clock did not pass the deadline".into())
+}
+
+/// Sends a call that makes an OutLayer request without waiting for its yielded callback.
+async fn start(tx: CallTransaction) -> R<TransactionStatus> {
+    Ok(tx.transact_async().await?)
+}
+
+/// Waits for request number `known` in the mock. If the call finishes without making it (it
+/// failed), returns the call's failures as the error.
+async fn new_request(env: &Env, call: &TransactionStatus, known: usize) -> R<Value> {
+    for _ in 0..300 {
+        let reqs = requests(env).await?;
+        if let Some(r) = reqs.get(known) {
+            return Ok(r.clone());
+        }
+        if let Poll::Ready(r) = call.status().await? {
+            return Err(format!(
+                "call finished without an OutLayer request: {}",
+                failure_text(&r)
+            )
+            .into());
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    Err(format!("no OutLayer request number {known}").into())
 }
 
 async fn tender_view(env: &Env, id: u64) -> R<Value> {
@@ -224,39 +263,40 @@ async fn resolve(env: &Env, request_id: u64, output: Option<&str>) -> R<Executio
         .await?)
 }
 
-/// Creates tender 1 with a deadline `secs` from now, sets its key, funds it. Returns the deadline.
-async fn open_tender(env: &Env, secs: u64) -> R<u64> {
+/// Creates tender 1 with a deadline DEADLINE_MARGIN_S after the chain clock, sets its key, funds
+/// it. Returns the deadline.
+async fn open_tender(env: &Env) -> R<u64> {
     let mut rubric: Value = serde_json::from_str(&specs("examples/rubric.example.json"))?;
     rubric["currency"]["asset"] = json!(format!("nep141:{}", env.token.id()));
     let rubric_json = String::from_utf8(jcs(&rubric).unwrap())?;
-    let deadline = now(env).await? + secs * 1_000_000_000;
-    let r = env
-        .buyer
-        .call(env.tender.id(), "create_tender")
-        .args_json(json!({
-            "rubric_json": rubric_json,
-            "deadline_ns": deadline.to_string(),
-            "bond": BOND,
-            "committee": [
-                {"account": env.buyer.id(), "report_pubkey": pk("committee_key")},
-                {"account": env.reviewer.id(), "report_pubkey": pk("debrief_key")},
-            ],
-            "evaluator_index": 0,
-        }))
-        .deposit(NearToken::from_near(1))
-        .gas(Gas::from_tgas(300))
-        .transact()
-        .await?;
-    assert_eq!(ok(r, "create_tender").json::<u64>()?, 1);
+    let deadline = chain_now(env).await? + DEADLINE_MARGIN_S * 1_000_000_000;
+    let pending = start(
+        env.buyer
+            .call(env.tender.id(), "create_tender")
+            .args_json(json!({
+                "rubric_json": rubric_json,
+                "deadline_ns": deadline.to_string(),
+                "bond": BOND,
+                "committee": [
+                    {"account": env.buyer.id(), "report_pubkey": pk("committee_key")},
+                    {"account": env.reviewer.id(), "report_pubkey": pk("debrief_key")},
+                ],
+                "evaluator_index": 0,
+            }))
+            .deposit(NearToken::from_near(1))
+            .gas(Gas::from_tgas(300)),
+    )
+    .await?;
 
     // OutLayer (the mock) received derive_pubkey; the "TEE" answers.
-    let reqs = requests(env).await?;
-    let input: Value = serde_json::from_str(reqs[0]["input_data"].as_str().unwrap())?;
+    let req = new_request(env, &pending, 0).await?;
+    let input: Value = serde_json::from_str(req["input_data"].as_str().unwrap())?;
     assert_eq!(input["action"], "derive_pubkey");
-    assert_eq!(reqs[0]["response_format"], "Text");
-    assert_eq!(reqs[0]["payer_account_id"], env.buyer.id().as_str());
+    assert_eq!(req["response_format"], "Text");
+    assert_eq!(req["payer_account_id"], env.buyer.id().as_str());
     let key = json!({"v": 1, "tid": "1", "pk": pk("tender_key")}).to_string();
     check(resolve(env, 0, Some(&key)).await?, "resolve key");
+    assert_eq!(ok(pending.await?, "create_tender").json::<u64>()?, 1);
     wait_status(env, "AwaitingFunds").await?;
 
     check(
@@ -287,15 +327,7 @@ async fn submit(env: &Env, vendor: &Account, seed: u8, size: usize) -> R<Executi
         .await?)
 }
 
-/// Waits in real time until the next block is certain to be past `deadline` (new blocks take the
-/// wall-clock time; fast-forwarding would not move a stale chain head reliably).
-async fn wait_past(_env: &Env, deadline: u64) -> R {
-    while wall_clock_ns() < deadline + 2_000_000_000 {
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    }
-    Ok(())
-}
-
+/// `close_and_evaluate` expected to fail before making a request (e.g. before the deadline).
 async fn close(env: &Env, caller: &Account) -> R<ExecutionFinalResult> {
     Ok(caller
         .call(env.tender.id(), "close_and_evaluate")
@@ -305,15 +337,25 @@ async fn close(env: &Env, caller: &Account) -> R<ExecutionFinalResult> {
         .await?)
 }
 
-/// The evaluate request for `attempt` (mock request id) and its parsed input.
-async fn eval_request(env: &Env, attempt: u64) -> R<(u64, Value)> {
-    for r in requests(env).await? {
-        let input: Value = serde_json::from_str(r["input_data"].as_str().unwrap())?;
-        if input["action"] == "evaluate" && input["attempt"] == attempt {
-            return Ok((r["request_id"].as_u64().unwrap(), input));
-        }
-    }
-    Err(format!("no evaluate request for attempt {attempt}").into())
+/// `close_and_evaluate` or `retry_evaluate` that makes an evaluate request: returns the pending
+/// call, the mock's request id and the parsed evaluate input.
+async fn start_eval(
+    env: &Env,
+    caller: &Account,
+    method: &str,
+) -> R<(TransactionStatus, u64, Value)> {
+    let known = requests(env).await?.len();
+    let pending = start(
+        caller
+            .call(env.tender.id(), method)
+            .args_json(json!({"tender_id": 1}))
+            .gas(Gas::from_tgas(300)),
+    )
+    .await?;
+    let req = new_request(env, &pending, known).await?;
+    let input: Value = serde_json::from_str(req["input_data"].as_str().unwrap())?;
+    assert_eq!(input["action"], "evaluate");
+    Ok((pending, req["request_id"].as_u64().unwrap(), input))
 }
 
 /// A canonical compact result echoing the tender.
@@ -383,7 +425,7 @@ async fn ft_balance(env: &Env, a: &Account) -> R<u128> {
 #[tokio::test]
 async fn i3_i4_happy_path_with_the_three_bid_vector() -> R {
     let env = setup(&["vendor-a", "vendor-b", "vendor-c"]).await?;
-    let deadline = open_tender(&env, 30).await?;
+    let deadline = open_tender(&env).await?;
     for (i, v) in env.vendors.iter().enumerate() {
         check(submit(&env, v, i as u8 + 1, 800).await?, "submit_bid");
     }
@@ -394,10 +436,15 @@ async fn i3_i4_happy_path_with_the_three_bid_vector() -> R {
         "I3"
     );
 
-    wait_past(&env, deadline).await?;
+    cross_deadline(&env, deadline).await?;
     let late = submit(&env, &env.reviewer, 9, 800).await?;
-    assert!(!late.is_success(), "I2: no bid after the deadline");
-    check(close(&env, &env.vendors[0]).await?, "close");
+    assert!(
+        !late.is_success() && failure_text(&late).contains("E_DEADLINE_PASSED"),
+        "I2: no bid after the deadline"
+    );
+    // Anyone may close; not a bidder here, so the close call's prepaid gas (refunded when its
+    // yielded callback finishes) does not mix with the bond refunds measured below.
+    let (closing, rid, input) = start_eval(&env, &env.reviewer, "close_and_evaluate").await?;
     let t = tender_view(&env, 1).await?;
     assert_eq!(t["status"], "Evaluating");
     assert_eq!(t["frozen"]["slots"], json!([0, 1, 2]));
@@ -407,7 +454,7 @@ async fn i3_i4_happy_path_with_the_three_bid_vector() -> R {
         "I4"
     );
 
-    let (rid, input) = eval_request(&env, 1).await?;
+    assert_eq!(input["attempt"], 1);
     assert_eq!(input["contract_id"], env.tender.id().as_str());
     assert_eq!(input["tender_id"], "1");
     assert_eq!(input["bids_root"], t["frozen"]["root"]);
@@ -429,6 +476,7 @@ async fn i3_i4_happy_path_with_the_three_bid_vector() -> R {
     )
     .await?;
     check(resolve(&env, rid, Some(&text)).await?, "resolve result");
+    check(closing.await?, "close");
     wait_status(&env, "Evaluated").await?;
     let stored: Option<String> = env
         .tender
@@ -456,15 +504,15 @@ async fn futures_balances(accounts: &[Account]) -> R<Vec<u128>> {
 #[tokio::test]
 async fn i5_second_result_rejected() -> R {
     let env = setup(&["vendor-a", "vendor-b"]).await?;
-    let deadline = open_tender(&env, 20).await?;
+    let deadline = open_tender(&env).await?;
     for (i, v) in env.vendors.iter().enumerate() {
         check(submit(&env, v, i as u8 + 1, 500).await?, "submit_bid");
     }
-    wait_past(&env, deadline).await?;
-    check(close(&env, &env.root).await?, "close");
-    let (rid, _) = eval_request(&env, 1).await?;
+    cross_deadline(&env, deadline).await?;
+    let (closing, rid, _) = start_eval(&env, &env.root, "close_and_evaluate").await?;
     let first = result(&env, 1, json!([[0, 7800, 0], [1, 6400, 0]]), "ok").await?;
     check(resolve(&env, rid, Some(&first)).await?, "first result");
+    check(closing.await?, "close");
     wait_status(&env, "Evaluated").await?;
 
     let again = resolve(&env, rid, Some(&first)).await?;
@@ -501,10 +549,11 @@ async fn i5_second_result_rejected() -> R {
 #[tokio::test]
 async fn i7_direct_on_evaluate_from_another_account_fails() -> R {
     let env = setup(&["vendor-a"]).await?;
-    let deadline = open_tender(&env, 20).await?;
+    let deadline = open_tender(&env).await?;
     check(submit(&env, &env.vendors[0], 1, 500).await?, "submit_bid");
-    wait_past(&env, deadline).await?;
-    check(close(&env, &env.root).await?, "close");
+    cross_deadline(&env, deadline).await?;
+    // The evaluate request stays unanswered: only the attackers' calls run against it.
+    let (_closing, _, _) = start_eval(&env, &env.root, "close_and_evaluate").await?;
     for attacker in [&env.vendors[0], &env.buyer, &env.root] {
         let r = attacker
             .call(env.tender.id(), "on_evaluate")
@@ -525,51 +574,43 @@ async fn i7_direct_on_evaluate_from_another_account_fails() -> R {
 async fn i6_crafted_results_rejected_and_i12_three_failures_refund_everything() -> R {
     let env = setup(&["vendor-a", "vendor-b"]).await?;
     let ft_before = ft_balance(&env, &env.buyer).await?;
-    let deadline = open_tender(&env, 20).await?;
+    let deadline = open_tender(&env).await?;
     for (i, v) in env.vendors.iter().enumerate() {
         check(submit(&env, v, i as u8 + 1, 500).await?, "submit_bid");
     }
     assert_eq!(ft_balance(&env, &env.buyer).await?, ft_before - CAP);
-    wait_past(&env, deadline).await?;
-    check(close(&env, &env.root).await?, "close");
+    cross_deadline(&env, deadline).await?;
 
-    let t = tender_view(&env, 1).await?;
-    let mut wrong_root = json!({"v": 1, "tid": "1", "root": "ee".repeat(32), "rubric": t["rubric_hash"],
-        "bundle": "cd".repeat(32), "attempt": 1, "status": "ok", "rk": [[0, 7800, 0], [1, 6400, 0]]});
-    let crafted = [
-        String::from_utf8(jcs(&wrong_root).unwrap())?,
-        result(&env, 2, json!([[0, 7800, 0]]), "ok").await?,
-        {
-            wrong_root["root"] = t["frozen"]["root"].clone();
-            wrong_root["attempt"] = json!(1); // attempt 3 is in flight
-            String::from_utf8(jcs(&wrong_root).unwrap())?
-        },
-    ];
     let codes = ["E_RESULT_ROOT", "E_RESULT_RANKING", "E_RESULT_ATTEMPT"];
     let vendors_before = futures_balances(&env.vendors).await?;
     for n in 1..=3u64 {
-        if n > 1 {
-            check(
-                env.root
-                    .call(env.tender.id(), "retry_evaluate")
-                    .args_json(json!({"tender_id": 1}))
-                    .gas(Gas::from_tgas(300))
-                    .transact()
-                    .await?,
-                "retry",
-            );
-        }
-        let (rid, input) = eval_request(&env, n).await?;
+        let method = if n == 1 {
+            "close_and_evaluate"
+        } else {
+            "retry_evaluate"
+        };
+        let (pending, rid, input) = start_eval(&env, &env.root, method).await?;
+        let t = tender_view(&env, 1).await?;
+        assert_eq!(input["attempt"], n);
         assert_eq!(
             input["bids_root"], t["frozen"]["root"],
             "same frozen input on retry"
         );
+        let crafted = match n {
+            1 => {
+                let wrong_root = json!({"v": 1, "tid": "1", "root": "ee".repeat(32), "rubric": t["rubric_hash"],
+                    "bundle": "cd".repeat(32), "attempt": 1, "status": "ok", "rk": [[0, 7800, 0], [1, 6400, 0]]});
+                String::from_utf8(jcs(&wrong_root).unwrap())?
+            }
+            2 => result(&env, 2, json!([[0, 7800, 0]]), "ok").await?,
+            _ => result(&env, 1, json!([[0, 7800, 0], [1, 6400, 0]]), "ok").await?, // attempt 3 in flight
+        };
         if n == 3 {
-            let t3 = tender_view(&env, 1).await?;
-            let fee: u128 = t3["eval_fee_remaining"].as_str().unwrap().parse()?;
-            let deposit: u128 = t3["exec_deposit"].as_str().unwrap().parse()?;
+            let fee: u128 = t["eval_fee_remaining"].as_str().unwrap().parse()?;
+            let deposit: u128 = t["exec_deposit"].as_str().unwrap().parse()?;
             let buyer_before = near_balance(&env.buyer).await?;
-            check(resolve(&env, rid, Some(&crafted[2])).await?, "resolve 3");
+            check(resolve(&env, rid, Some(&crafted)).await?, "resolve 3");
+            check(pending.await?, "retry 3");
             wait_status(&env, "Failed").await?;
             // The remaining fee from the contract, plus the mock OutLayer's refund of this
             // attempt's deposit to the payer (the buyer).
@@ -580,10 +621,8 @@ async fn i6_crafted_results_rejected_and_i12_three_failures_refund_everything() 
             )
             .await?;
         } else {
-            check(
-                resolve(&env, rid, Some(&crafted[n as usize - 1])).await?,
-                "resolve",
-            );
+            check(resolve(&env, rid, Some(&crafted)).await?, "resolve");
+            check(pending.await?, method);
             wait_status(&env, "EvalFailed").await?;
         }
     }
@@ -624,28 +663,21 @@ async fn i6_crafted_results_rejected_and_i12_three_failures_refund_everything() 
 #[tokio::test]
 async fn i12_failure_retry_success() -> R {
     let env = setup(&["vendor-a", "vendor-b"]).await?;
-    let deadline = open_tender(&env, 20).await?;
+    let deadline = open_tender(&env).await?;
     for (i, v) in env.vendors.iter().enumerate() {
         check(submit(&env, v, i as u8 + 1, 500).await?, "submit_bid");
     }
-    wait_past(&env, deadline).await?;
-    check(close(&env, &env.root).await?, "close");
-    let (rid, _) = eval_request(&env, 1).await?;
+    cross_deadline(&env, deadline).await?;
+    let (closing, rid, first_input) = start_eval(&env, &env.root, "close_and_evaluate").await?;
     check(resolve(&env, rid, None).await?, "failed run");
+    check(closing.await?, "close");
     wait_status(&env, "EvalFailed").await?;
-    check(
-        env.vendors[1]
-            .call(env.tender.id(), "retry_evaluate")
-            .args_json(json!({"tender_id": 1}))
-            .gas(Gas::from_tgas(300))
-            .transact()
-            .await?,
-        "retry",
-    );
-    let (rid2, input) = eval_request(&env, 2).await?;
+    let (retrying, rid2, input) = start_eval(&env, &env.vendors[1], "retry_evaluate").await?;
     assert_eq!(input["attempt"], 2);
+    assert_eq!(input["bids"], first_input["bids"], "same frozen bids");
     let text = result(&env, 2, json!([[1, 7000, 0], [0, 6000, 0]]), "ok").await?;
     check(resolve(&env, rid2, Some(&text)).await?, "result");
+    check(retrying.await?, "retry");
     wait_status(&env, "Evaluated").await?;
     let t = tender_view(&env, 1).await?;
     assert_eq!(
@@ -657,28 +689,45 @@ async fn i12_failure_retry_success() -> R {
 }
 
 /// Gas for close_and_evaluate with 5 maximum-size bids from 64-character accounts (the worst
-/// case D-020 budgets for). Printed for PROGRESS.md; must fit in 300 Tgas.
+/// case D-020 budgets for), answered with an accepted 5-entry result (5 bond refunds). Printed for
+/// PROGRESS.md; every receipt must fit in 300 Tgas.
 #[tokio::test]
 async fn gas_close_and_evaluate_with_five_large_bids() -> R {
     let names: Vec<String> = (0..5).map(|i| format!("{}{i}", "v".repeat(53))).collect();
     let refs: Vec<&str> = names.iter().map(String::as_str).collect();
     let env = setup(&refs).await?;
-    let deadline = open_tender(&env, 30).await?;
+    let deadline = open_tender(&env).await?;
     for (i, v) in env.vendors.iter().enumerate() {
         assert_eq!(v.id().as_str().len(), 64);
         check(submit(&env, v, i as u8 + 1, 4500).await?, "submit_bid");
     }
-    wait_past(&env, deadline).await?;
-    let r = ok(close(&env, &env.root).await?, "close with 5 large bids");
-    let (_, input) = eval_request(&env, 1).await?;
+    cross_deadline(&env, deadline).await?;
+    let (closing, rid, input) = start_eval(&env, &env.root, "close_and_evaluate").await?;
     let input_len = input.to_string().len();
+    let rk = json!([
+        [0, 9000, 0],
+        [1, 8000, 0],
+        [2, 7000, 0],
+        [3, 6000, 0],
+        [4, 5000, 0]
+    ]);
+    let text = result(&env, 1, rk, "ok").await?;
+    check(resolve(&env, rid, Some(&text)).await?, "resolve");
+    let r = ok(closing.await?, "close with 5 large bids");
+    let max_receipt = r
+        .receipt_outcomes()
+        .iter()
+        .map(|o| o.gas_burnt.as_tgas())
+        .max()
+        .unwrap_or(0);
     eprintln!(
-        "GAS close_and_evaluate (5 bids x 4500 B, 64-char accounts): total burnt {} Tgas; evaluate input {} bytes",
+        "GAS close_and_evaluate (5 bids x 4500 B, 64-char accounts, accepted result): tx total {} Tgas, largest receipt {} Tgas; evaluate input {} bytes",
         r.total_gas_burnt.as_tgas(),
+        max_receipt,
         input_len
     );
-    assert!(r.total_gas_burnt.as_tgas() < 300);
-    assert_eq!(tender_view(&env, 1).await?["status"], "Evaluating");
+    assert!(max_receipt < 300);
+    wait_status(&env, "Evaluated").await?;
     Ok(())
 }
 
@@ -687,138 +736,17 @@ async fn gas_close_and_evaluate_with_five_large_bids() -> R {
 #[tokio::test]
 async fn i12_outlayer_timeout_is_recorded() -> R {
     let env = setup(&["vendor-a"]).await?;
-    let deadline = open_tender(&env, 20).await?;
+    let deadline = open_tender(&env).await?;
     check(submit(&env, &env.vendors[0], 1, 500).await?, "submit_bid");
-    wait_past(&env, deadline).await?;
-    check(close(&env, &env.root).await?, "close");
+    cross_deadline(&env, deadline).await?;
+    let (closing, _, _) = start_eval(&env, &env.root, "close_and_evaluate").await?;
     env.worker.fast_forward(250).await?;
+    check(closing.await?, "close");
     wait_status(&env, "EvalFailed").await?;
     let t = tender_view(&env, 1).await?;
     assert_eq!(
         t["attempts"][0]["outcome"]["Failed"]["reason"],
         "E_EVAL_RUN_FAILED"
     );
-    Ok(())
-}
-
-// ------------------------------------------------------- diagnostic (temporary) ---
-
-/// TEMPORARY (T04 Blocked, PROGRESS.md): prints in one block every clock involved in the
-/// `E_DEADLINE_TOO_SOON` failure. Never fails on the outcome; deleted with the fix.
-#[tokio::test]
-async fn diag_sandbox_clocks() -> R {
-    let env = setup(&[]).await?;
-    let mut lines = Vec::new();
-    let s = |ns: u64| {
-        format!(
-            "{ns} ({}.{:03} s)",
-            ns / 1_000_000_000,
-            (ns / 1_000_000) % 1000
-        )
-    };
-    let diff = |a: u64, b: u64| {
-        let d = i128::from(a) - i128::from(b);
-        let sign = if d < 0 { "-" } else { "+" };
-        let ms = d.unsigned_abs() / 1_000_000;
-        format!("{sign}{}.{:03} s", ms / 1000, ms % 1000)
-    };
-
-    let genesis = env.worker.genesis_config().await?;
-    lines.push(format!(
-        "genesis_time {:?} (unix s {}), genesis_height {}",
-        genesis.genesis_time,
-        genesis.genesis_time.timestamp(),
-        genesis.genesis_height
-    ));
-    let config: Value = env.tender.view("get_config").await?.json()?;
-    lines.push(format!(
-        "contract min_deadline_delay_ns {}",
-        config["min_deadline_delay_ns"]
-    ));
-
-    // The same moment, three clocks. `view_block()` without a reference is optimistic finality
-    // (`BlockReference::latest`); near-workspaces 0.23 offers no finality on block queries, so the
-    // final block is the head's `last_final_block`, which is what RPC returns for `final`.
-    let opt = env.worker.view_block().await?;
-    let wall = wall_clock_ns();
-    let fin = env
-        .worker
-        .view_block()
-        .block_hash(*opt.header().last_final_block())
-        .await?;
-    lines.push(format!(
-        "final block      h={} ts={}",
-        fin.height(),
-        s(fin.timestamp())
-    ));
-    lines.push(format!(
-        "optimistic block h={} ts={}",
-        opt.height(),
-        s(opt.timestamp())
-    ));
-    lines.push(format!("runner wall clock   {}", s(wall)));
-
-    // Same deadline formula as the failing tests: max(latest block, wall clock) + 30 s.
-    let deadline = opt.timestamp().max(wall) + 30 * 1_000_000_000;
-    lines.push(format!("deadline sent       {}", s(deadline)));
-
-    let mut rubric: Value = serde_json::from_str(&specs("examples/rubric.example.json"))?;
-    rubric["currency"]["asset"] = json!(format!("nep141:{}", env.token.id()));
-    let rubric_json = String::from_utf8(jcs(&rubric).unwrap())?;
-    let r = env
-        .buyer
-        .call(env.tender.id(), "create_tender")
-        .args_json(json!({
-            "rubric_json": rubric_json,
-            "deadline_ns": deadline.to_string(),
-            "bond": BOND,
-            "committee": [
-                {"account": env.buyer.id(), "report_pubkey": pk("committee_key")},
-                {"account": env.reviewer.id(), "report_pubkey": pk("debrief_key")},
-            ],
-            "evaluator_index": 0,
-        }))
-        .deposit(NearToken::from_near(1))
-        .gas(Gas::from_tgas(300))
-        .transact()
-        .await?;
-    let wall_after = wall_clock_ns();
-    lines.push(format!(
-        "runner wall clock after the tx returned {}",
-        s(wall_after)
-    ));
-    lines.push(format!("create_tender success: {}", r.is_success()));
-    if !r.is_success() {
-        lines.push(format!("failure: {}", failure_text(&r)));
-    }
-
-    let mut outcomes = vec![("tx", r.outcome().block_hash)];
-    for o in r.receipt_outcomes() {
-        outcomes.push(("receipt", o.block_hash));
-    }
-    for o in r.failures() {
-        outcomes.push(("FAILED receipt", o.block_hash));
-    }
-    for (kind, hash) in outcomes {
-        let b = env.worker.view_block().block_hash(hash).await?;
-        lines.push(format!(
-            "{kind:15} block h={} ts={}  vs deadline {}  vs wall-before {}  vs wall-after {}  vs final {}  vs optimistic {}",
-            b.height(),
-            s(b.timestamp()),
-            diff(b.timestamp(), deadline),
-            diff(b.timestamp(), wall),
-            diff(b.timestamp(), wall_after),
-            diff(b.timestamp(), fin.timestamp()),
-            diff(b.timestamp(), opt.timestamp()),
-        ));
-    }
-    let opt2 = env.worker.view_block().await?;
-    lines.push(format!(
-        "optimistic block after h={} ts={}  vs wall-after {}",
-        opt2.height(),
-        s(opt2.timestamp()),
-        diff(opt2.timestamp(), wall_after)
-    ));
-    println!("\nDIAG sandbox clocks\nDIAG {}\n", lines.join("\nDIAG "));
     Ok(())
 }
