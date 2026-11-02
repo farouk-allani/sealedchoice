@@ -1,20 +1,38 @@
 # 03 — Tender contract spec
 
-Crate: `contracts/tender`. near-sdk 5.29.1 (pinned at T00, D-015). Build with `cargo near build non-reproducible-wasm` (reproducible mode for the final deployment). Implementation choices and storage deviations: DECISIONS D-018; method list and error codes: `contracts/tender/README.md`. All amounts are `U128` (JSON strings). All hashes are lowercase hex of 32 bytes. Time is `env::block_timestamp()` in nanoseconds.
+Crate: `contracts/tender`. near-sdk 5.29.1 (pinned at T00, D-015). Build with `cargo near build non-reproducible-wasm` (reproducible mode for the final deployment). Implementation choices and storage deviations: DECISIONS D-018 and D-020; method list and error codes: `contracts/tender/README.md`. All amounts are `U128` (JSON strings). All hashes are lowercase hex of 32 bytes. Time is `env::block_timestamp()` in nanoseconds.
 
 ## Constants
 
+All of them live in `contracts/tender/src/constants.rs`. ⚠️ = provisional until gate G1 (G3 where noted) measures it on testnet; G1 retuning is a change to that file only.
+
 | Name | Value | Why |
 |---|---|---|
-| `MAX_BIDS` | 5 | OutLayer `input_data` ≤ 32 KB without extra deposit and the 180 s time budget (see 04-evaluator §7). Raise only after G1/G3 numbers allow it |
+| `MAX_BIDS` ⚠️ G1/G3 | 5 | 180 s time budget and AI latency (04-evaluator §7). Raise only after G1/G3 numbers allow it |
 | `MAX_CIPHERTEXT_BYTES` | 4500 | plaintext limits (2000 + 1200 bytes text + fields) + ECIES overhead (97 bytes) |
-| `MAX_ATTEMPTS` | 3 | first run + 2 retries |
-| `MAX_RATIONALE_CHARS` | 1000 | |
+| `MAX_ATTEMPTS` | 3 | first run + 2 retries; also the derive_pubkey budget |
+| `MAX_RATIONALE_CHARS` | 1000 | cancel reason, award rationale |
 | `MIN_DEVIATION_RATIONALE_CHARS` | 20 | |
-| `MIN_DEADLINE_DELAY_NS` | 5 minutes (testnet), 1 hour (mainnet) | config at init |
-| Prepaid gas for request_execution + callback | 100 Tgas + 25 Mgas per input byte over 32 KiB; callbacks 30 Tgas (`on_pubkey`), 50 Tgas (`on_evaluate`); measure at G1 | D-018, D-020 |
+| `MAX_COMMITTEE` | 10 | |
+| `MAX_RUBRIC_BYTES` | 16 KiB | the rubric travels in every evaluate input |
+| `MAX_RESULT_BYTES` | 900 | compact result (OutLayer stdout) |
+| `MAX_REASON_CHARS` | 200 | failure reason stored per attempt |
+| `MAX_CALLBACK_BYTES` | 4096 | largest OutLayer callback payload read |
+| `MIN_DEADLINE_DELAY_NS` | 5 minutes (testnet), 1 hour (mainnet) | `min_deadline_delay_ns` at init |
+| `EXECUTIONS_BUDGETED` | 6 | eval fee split: derive_pubkey and evaluate, up to 3 attempts each |
+| `STORAGE_RESERVE_BYTES` ⚠️ G1 | 2,500 | charged at creation for what close and evaluation add (key, frozen set, attempts, result) |
+| `GAS_REQUEST_EXECUTION` ⚠️ G1 | 100 Tgas, + 25 Mgas per evaluate input byte over 32 KiB | OutLayer keeps ≥ 50 Tgas of it for its resume callback |
+| `GAS_ON_PUBKEY` / `GAS_ON_EVALUATE` ⚠️ G1 | 30 / 50 Tgas | callbacks; `on_evaluate` validates and settles bonds |
+| `GAS_FT_TRANSFER` / `GAS_ON_ESCROW_REFUND` ⚠️ G1 | 15 / 10 Tgas | escrow refund and its callback |
+| `OUTLAYER_INPUT_FREE_BYTES`, `OUTLAYER_CALLBACK_GAS_PER_INPUT_BYTE`, `OUTLAYER_STORAGE_PRICE_PER_BYTE` ⚠️ G1 | 32 KiB, 25 Mgas, 10^19 yocto | read in OutLayer's contract source (references.md); `contracts/mock-outlayer` copies them |
+| `MAX_BID_ENTRY_BYTES`, `EVAL_INPUT_OVERHEAD_BYTES` | 6,250, 400 | upper bounds used to size the worst evaluate input (unit-tested against a real 5-bid input) |
+| `EVAL_MAX_*` ⚠️ G1/G3 | 200 B instructions, 512 MB, 180 s | evaluate resource limits (OutLayer caps 500 B / 4096 MB / 180 s) |
+| `DERIVE_MAX_*` ⚠️ G1 | 10 B instructions, 128 MB, 30 s | derive_pubkey resource limits |
+| `MAX_PAGE` | 50 | `list_tenders` page |
 
 ## Storage
+
+As implemented (DECISIONS D-018 lists every change from the first sketch). Every `*_ns` field is `U64`: borsh-identical to `u64`, a string in JSON views (nanosecond times exceed JavaScript's safe integers).
 
 ```rust
 pub struct Contract {
@@ -22,9 +40,10 @@ pub struct Contract {
     outlayer: AccountId,               // outlayer.testnet / outlayer.near
     evaluators: Vector<EvaluatorRef>,  // append-only list of allowed evaluator builds
     secrets_ref: SecretsRef,           // {profile, account_id} of the OutLayer secrets
-    tenders: IterableMap<u64, Tender>, // or LookupMap + counter
+    tenders: IterableMap<u64, Tender>,
     bids: LookupMap<(u64, u32), Bid>,  // (tender_id, slot)
     balances: LookupMap<(u64, AccountId), NearToken>, // pre-deposited bond+storage for function-call-key bidders
+    ciphertext_hashes: LookupSet<(u64, String)>,      // every ciphertext sha256 ever submitted per tender (I13)
     next_tender_id: u64,
     min_deadline_delay_ns: u64,
 }
@@ -34,67 +53,80 @@ pub struct EvaluatorRef { wasm_url: String, wasm_sha256: String, build_target: S
 pub struct Tender {
     id: u64,
     buyer: AccountId,
-    rubric_json: String,               // exact JCS string
+    rubric_json: String,               // exact JCS string (checked canonical at creation)
     rubric_hash: String,               // sha256(rubric_json bytes), computed by the contract
     currency_token: AccountId,         // parsed from rubric.currency.asset ("nep141:" prefix stripped)
     budget_cap: U128,                  // parsed from rubric
     approvals_required: u8,            // parsed from rubric.award_policy
-    acceptance_window_ns: u64,         // parsed from rubric.award_policy
-    deadline_ns: u64,
+    acceptance_window_ns: U64,         // parsed from rubric.award_policy
+    deadline_ns: U64,
     bond: NearToken,
     committee: Vec<CommitteeMember>,   // {account, report_pubkey}
     evaluator: EvaluatorRef,           // copied at creation, never changes
-    tender_pubkey: Option<String>,     // set by derive_pubkey callback
+    tender_pubkey: Option<String>,     // set by the derive_pubkey callback
     escrowed: U128,
-    eval_fee_remaining: NearToken,     // NEAR attached by buyer to pay OutLayer
+    eval_fee_remaining: NearToken,     // NEAR left for OutLayer executions, refunded when the tender ends
+    exec_deposit: NearToken,           // deposit attached to each OutLayer request = eval fee / 6
     status: Status,
-    bid_slots: u32,                    // slots ever used
-    active_bids: u32,
+    bid_slots: u32,                    // slots ever used (withdrawn ones included)
+    active_slots: Vec<u32>,            // slots of bids not withdrawn, ≤ MAX_BIDS
     frozen: Option<Frozen>,            // set at close: ordered slot list, leaves, root
     attempts: Vec<Attempt>,            // every evaluation attempt with outcome
     result_json: Option<String>,       // accepted compact result, verbatim
-    award: Option<Award>,
+    award: Option<Award>,              // T08
 }
 
-pub struct Bid { bidder: AccountId, submitted_at_ns: u64, ciphertext: Vec<u8>, ciphertext_sha256: String,
+pub enum Status { PendingKey, AwaitingFunds, Open, Cancelled, NoBids, Evaluating, Evaluated,
+                  EvalFailed, Failed, Awarded, PayingOut, Paid, ClosedNoAward }
+pub struct Bid { bidder: AccountId, submitted_at_ns: U64, ciphertext: Vec<u8>, ciphertext_sha256: String,
                  debrief_pubkey: String, bond: NearToken, withdrawn: bool, bond_settled: bool }
 pub struct Frozen { slots: Vec<u32>, leaves: Vec<String>, root: String }
-pub struct Attempt { n: u8, started_at_ns: u64, outcome: AttemptOutcome } // Pending | Accepted | Failed{reason}
-pub struct Award { bid_index: u32, amount: U128, rationale: String, deviation: bool,
-                   approvals: Vec<AccountId>, approved_at_ns: Option<u64>, accept_by_ns: Option<u64>,
-                   lapsed: Vec<u32>, payout: Option<PayoutTarget>, payout_state: PayoutState }
+pub struct Attempt { n: u8, started_at_ns: U64, outcome: AttemptOutcome } // Pending | Accepted | Failed{reason}
+pub struct Award { bid_index: Option<u32> /* None = close without award */, amount: U128, rationale: String,
+                   deviation: bool, approvals: Vec<AccountId>, approved_at_ns: Option<U64>,
+                   accept_by_ns: Option<U64>, lapsed: Vec<u32>, payout: Option<PayoutTarget>,
+                   payout_state: PayoutState }
 ```
 
-Parse the rubric with serde_json into a minimal struct (only the fields the contract needs) and also validate: `v == 1`, weights sum to 10000, `budget_cap_minor` positive integer string, models has 3 entries, `approvals_required ≤ committee.len()`. Reject on any error.
+`Award` stays `None` on every tender until T08, so T08 can still reshape it.
+
+Parse the rubric with serde_json into a minimal struct (only the fields the contract needs) and also validate: size ≤ 16 KiB, `rubric_json` is its own JCS form (so `rubric_hash` = sha256(JCS(rubric)) everywhere), `v == 1`, weights sum to 10000, `budget_cap_minor` positive integer string of at most 30 digits, `currency.asset` is `nep141:<account>`, 3 different non-empty model ids, `1 ≤ approvals_required ≤ min(5, committee.len())`, acceptance window 1–720 hours. Reject on any error (`E_RUBRIC_*`).
 
 ## Methods
 
 ### Admin
-- `new(owner, outlayer, secrets_ref, min_deadline_delay_ns)` — init.
+- `new(owner, outlayer, secrets_ref, min_deadline_delay_ns)` — `#[init] #[private]`: deploy and init in one transaction from the contract account.
 - `add_evaluator(EvaluatorRef)` — owner only. Append-only. Existing tenders keep their pinned copy.
 
 ### Buyer
-- `create_tender(rubric_json, deadline_ns, bond, committee, evaluator_index) -> u64` — payable. Attached NEAR must cover storage + `eval_fee` (estimate with OutLayer `estimate_execution_cost` view for 2 executions × 3 attempts worst case; refund the rest at the end). Status `PendingKey`. Immediately calls OutLayer `request_execution` with `{"action":"derive_pubkey","contract_id","tender_id"}` and callback `on_pubkey`.
-- `on_pubkey(tender_id)` — `#[private]`. Parse `{"v":1,"tid","pk"}`; check `tid`; check `pk` is a 33-byte compressed secp256k1 point (hex 66 chars, prefix 02/03). Status `AwaitingFunds`. On failure: status stays `PendingKey`, `retry_pubkey` allowed (buyer).
-- `ft_on_transfer(sender_id, amount, msg)` — NEP-141 receiver. `msg = {"fund_tender": "<id>"}`. Accept only from `currency_token`, only from the buyer, only in `AwaitingFunds`, only `amount == budget_cap`; otherwise return the full amount (refund). Status `Open`.
-- `cancel_tender(tender_id, reason)` — buyer, only in `Open`/`AwaitingFunds`/`PendingKey` and before the deadline. Refund escrow, all bonds, remaining eval fee. Status `Cancelled`.
+- `create_tender(rubric_json, deadline_ns, bond, committee, evaluator_index) -> u64` — payable. Committee 1–10 members, unique, compressed secp256k1 report keys; `deadline_ns ≥ now + min_deadline_delay_ns` (`E_DEADLINE_TOO_SOON`). Attached NEAR pays:
+  1. storage: the tender's own bytes plus `STORAGE_RESERVE_BYTES` (2,500) for what close and evaluation add later. Not refunded.
+  2. the eval fee = the rest, split into `EXECUTIONS_BUDGETED` = 6 equal OutLayer deposits (`exec_deposit`: derive_pubkey and evaluate, up to 3 attempts each). Each deposit must be > 0 and cover OutLayer's input storage deposit (10^19 yocto per byte over 32 KiB) for the largest evaluate input this tender can produce: 5 maximum-size bids, this rubric, this committee (`E_EVAL_FEE_LOW`). The compute part is the client's job: it attaches 6 × `estimate_execution_cost` for the evaluate limits and that worst input length. Whatever is not spent goes back to the buyer when the tender ends; OutLayer refunds the unused part of each deposit to the buyer directly (`payer_account_id`).
+
+  Status `PendingKey`. Immediately calls OutLayer `request_execution` with `{"action":"derive_pubkey","contract_id","tender_id"}`, the derive limits, `response_format: "Text"`, `payer_account_id: buyer`, one `exec_deposit` and callback `on_pubkey`.
+- `retry_pubkey(tender_id)` — buyer, in `PendingKey`, before the deadline, only while `eval_fee_remaining ≥ 4 × exec_deposit` (this request plus 3 evaluation attempts; so at most 2 retries).
+- `on_pubkey(tender_id)` — `#[private]`. Reads `promise_result_checked(0, 4096)`: OutLayer passes the evaluator's stdout as a JSON string (`null` when the run failed or timed out). Parse `{"v":1,"tid","pk"}`; check `tid`; check `pk` is a 33-byte compressed secp256k1 point (hex 66 chars, prefix 02/03). Success: key stored, status `AwaitingFunds`. Anything else: logged (`E_KEY_*`), never a panic, status stays `PendingKey`.
+- `ft_on_transfer(sender_id, amount, msg)` — NEP-141 receiver. `msg = {"fund_tender": "<id>"}`. Accept only from `currency_token`, only from the buyer, only in `AwaitingFunds`, only before the deadline, only `amount == budget_cap`; otherwise return the full amount (never panics). Status `Open`.
+- `cancel_tender(tender_id, reason)` — buyer, in `PendingKey`/`AwaitingFunds`/`Open`. Before the deadline in every one of those states; after it only in `PendingKey`/`AwaitingFunds` (no bid or escrow can exist then, and the fee must not stay locked). Refunds every active bond, the remaining eval fee and the escrow. Status `Cancelled`.
+- `retry_escrow_refund(tender_id)` / `on_escrow_refund(tender_id, amount)` — the escrow refund is an `ft_transfer` with a `#[private]` callback; only a failed receipt books the amount back as escrowed, and anyone can then send it again (in `Cancelled`/`NoBids`/`Failed`/`ClosedNoAward`).
 
 ### Bidder
-- `deposit(tender_id)` — payable. Credits `balances[(tender_id, caller)]`. For bidders using a function-call key (cannot attach deposits).
-- `submit_bid(tender_id, ciphertext_b64, debrief_pubkey)` — payable (or uses balance). Requires `Open`, `now < deadline`, caller has no active bid, `active_bids < MAX_BIDS`, ciphertext decodes and `≤ MAX_CIPHERTEXT_BYTES`, `debrief_pubkey` valid compressed point, `ciphertext_sha256` never seen before in this tender (including withdrawn bids: `E_DUPLICATE_CIPHERTEXT`), attached + balance ≥ `bond + storage_cost`. Stores bid, emits `bid_submitted {tender_id, slot, bidder, ciphertext_sha256, submitted_at_ns}`. Returns the receipt `{slot, ciphertext_sha256, submitted_at_ns}`.
-- `withdraw_bid(tender_id)` — before deadline only. Refunds bond, frees the slot (marks withdrawn).
+- `deposit(tender_id)` — payable. Credits `balances[(tender_id, caller)]`. For bidders using a function-call key (cannot attach deposits). Storage of a new balance entry is paid from the deposit.
+- `withdraw_balance(tender_id)` — returns the caller's whole balance.
+- `submit_bid(tender_id, ciphertext_b64, debrief_pubkey)` — payable (or uses balance). Requires `Open`, `now < deadline`, caller has no active bid, `active_slots.len() < MAX_BIDS`, ciphertext decodes and `≤ MAX_CIPHERTEXT_BYTES`, `debrief_pubkey` valid compressed point, `ciphertext_sha256` never seen before in this tender (including withdrawn bids: `E_DUPLICATE_CIPHERTEXT`), attached + balance ≥ `bond + storage_cost`. Excess attached deposit is refunded. Stores bid, records the hash in `ciphertext_hashes`, emits `bid_submitted {tender_id, slot, bidder, ciphertext_sha256, submitted_at_ns}`. Returns the receipt `{slot, ciphertext_sha256, submitted_at_ns}`.
+- `withdraw_bid(tender_id)` — before deadline only. Refunds the bond once, frees the slot (marks withdrawn); the bid record and its ciphertext hash stay.
 
 ### Anyone
-- `close_and_evaluate(tender_id)` — requires `Open` and `now ≥ deadline`. If no active bids: refund escrow and fee, status `NoBids`. Otherwise freeze: ordered list of active slots by `submitted_at_ns` (ties by slot), indices 0..n-1, leaves and root exactly as `specs/reference/reference.py` (`merkle_leaf`, `merkle_root`) computed with `env::sha256`. Push `Attempt{n:1}`, status `Evaluating`, call `request_execution` with the input in 04-evaluator §6 and callback `on_evaluate(tender_id, attempt)`.
+- `close_and_evaluate(tender_id)` — requires `Open` and `now ≥ deadline`. If no active bids: refund escrow and fee, status `NoBids`. Otherwise freeze: active slots ordered by `submitted_at_ns` (ties by slot), indices 0..n-1, leaves and root exactly as `specs/reference/reference.py` (`merkle_leaf`, `merkle_root`) computed with `env::sha256`. Push `Attempt{n:1}`, status `Evaluating`, call `request_execution` with the input in 04-evaluator §6, the evaluate limits, `response_format: "Text"`, `payer_account_id: buyer`, one `exec_deposit`, gas `100 Tgas + 25 Mgas × (input bytes − 32 KiB)` and callback `on_evaluate(tender_id, attempt)` (50 Tgas). If the fee cannot pay another deposit, the tender fails instead (below).
 - `retry_evaluate(tender_id)` — requires `EvalFailed` and `attempts.len() < MAX_ATTEMPTS`. Same frozen input with `attempt = n+1`.
-- `on_evaluate(tender_id, attempt)` — `#[private]`. If the promise failed or the output is invalid: record `Failed{reason}` (truncate to 200 chars), status `EvalFailed`, or `Failed` if this was attempt 3 (then refund everything). If valid: store `result_json` verbatim, mark attempt `Accepted`, status `Evaluated`, settle bonds (refund all, except bids flagged DECRYPT_FAILED or ACCOUNT_MISMATCH: those bonds go to the buyer). A result for a tender that is not `Evaluating` with the same attempt number is rejected.
+- `on_evaluate(tender_id, attempt)` — `#[private]`, never panics. A result for a tender that is not `Evaluating` that same attempt is ignored and logged (`E_STALE_RESULT`). If the promise failed (`E_EVAL_PROMISE_FAILED`), OutLayer returned `null` (`E_EVAL_RUN_FAILED`) or the output breaks a rule below (`E_RESULT_*`): record `Failed{reason}` (truncated to 200 chars); status `EvalFailed` if fewer than 3 attempts were made and the fee pays another deposit, else `Failed`: escrow, every unsettled bond and the remaining fee go back. If valid: store `result_json` verbatim, mark the attempt `Accepted`, status `Evaluated`, settle each bond once (I10): forfeited to the buyer for bids flagged DECRYPT_FAILED (2) or ACCOUNT_MISMATCH (4), refunded otherwise.
 
-Validation of the compact result (all must hold):
-1. Valid JSON matching `specs/schemas/compact-result.schema.json` (check by hand in Rust, no schema lib).
+Validation of the compact result (all must hold; each failure has its own `E_RESULT_*` code, listed in the crate README):
+1. ≤ 900 bytes; its own JCS form; JSON with exactly the fields of `specs/schemas/compact-result.schema.json` (checked by hand in Rust, no schema lib); `v == 1`; `bundle` is 64 lowercase hex.
 2. `tid == tender_id`, `root == frozen.root`, `rubric == rubric_hash`, `attempt == current attempt`.
-3. `rk` contains each index 0..n-1 exactly once; totals ≤ 10000; flags ≤ 127.
-4. Eligible entries come before ineligible ones and are sorted by total descending (the contract cannot check the price tie-break, the verifier does).
-5. `status` consistent: `no_eligible_bids` iff every entry has flag bit 0; `needs_committee` iff some eligible entry has bit 6.
+3. `rk` contains each index 0..n-1 exactly once; totals ≤ 10000; flags ≤ 127; flags 2 and 4 only together with flag 1; ineligible entries total 0.
+4. Eligible entries come first, sorted by total descending (the contract cannot check the price tie-break, the verifier does); ineligible entries follow by index.
+5. `status` consistent: `no_eligible_bids` iff every entry has flag bit 0; else `needs_committee` iff some eligible entry has bit 6; else `ok`.
 
 ### Committee
 - `propose_award(tender_id, bid_index, amount, rationale)` — member only; status `Evaluated`; bid eligible per stored result; not lapsed; `0 < amount ≤ budget_cap`; `deviation = bid_index != first eligible index in rk`; if deviation, `rationale.len() ≥ MIN_DEVIATION_RATIONALE_CHARS`. Replaces any pending proposal (resets approvals). Proposer counts as first approval. If approvals reach `approvals_required`, status `Awarded`, `accept_by_ns = now + acceptance_window_ns`. Emits `award_proposed` / `award_approved`.
@@ -106,11 +138,11 @@ Validation of the compact result (all must hold):
 - `lapse_award(tender_id)` — anyone, after `accept_by_ns`. Marks bid lapsed, status back to `Evaluated` so the committee can award the next one.
 
 ### Views
-`get_tender(id)`, `list_tenders(from, limit)`, `get_bids(id)` (no ciphertext: bidder, slot, submitted_at, ciphertext_sha256, debrief_pubkey, withdrawn), `get_bid_ciphertext(id, slot)`, `get_frozen(id)` (slots, leaves, root), `get_attempts(id)`, `get_result(id)` (verbatim JSON string), `get_award(id)`, `get_balance(id, account)`, `get_evaluators()`.
+`version()`, `get_config()`, `get_evaluators()`, `get_tender(id)`, `list_tenders(from, limit ≤ 50)`, `get_bids(id)` (no ciphertext: slot, bidder, submitted_at_ns, ciphertext_sha256, ciphertext_len, debrief_pubkey, bond, withdrawn, bond_settled), `get_bid_ciphertext(id, slot)`, `get_frozen(id)` (slots, leaves, root), `get_attempts(id)`, `get_result(id)` (verbatim JSON string), `get_award(id)`, `get_balance(id, account)`, `is_ciphertext_used(id, sha256)`.
 
 ## Events (NEP-297)
 
-`EVENT_JSON:{"standard":"sealedchoice","version":"1.0.0","event":"<name>","data":[{...}]}` for: `tender_created`, `tender_key_set`, `tender_funded`, `tender_cancelled`, `bid_submitted`, `bid_withdrawn`, `tender_closed` (root, n), `evaluation_requested` (attempt), `evaluation_failed` (attempt, reason), `evaluation_accepted` (attempt, bundle hash, status), `bonds_settled`, `award_proposed`, `award_approved`, `award_accepted`, `award_lapsed`, `payout_started`, `payout_completed`, `payout_failed`, `closed_without_award`.
+`EVENT_JSON:{"standard":"sealedchoice","version":"1.0.0","event":"<name>","data":[{...}]}` for: `evaluator_added`, `tender_created`, `key_requested`, `tender_key_set`, `tender_funded`, `tender_cancelled`, `escrow_refund_failed`, `deposited`, `balance_withdrawn`, `bid_submitted`, `bid_withdrawn`, `tender_closed` (root, n), `evaluation_requested` (attempt, deposit, input bytes), `evaluation_failed` (attempt, reason, final), `evaluation_accepted` (attempt, bundle hash, status), `tender_failed`, `bonds_settled`; T08 adds `award_proposed`, `award_approved`, `award_accepted`, `award_lapsed`, `payout_started`, `payout_completed`, `payout_failed`, `closed_without_award`.
 
 ## Invariants (each one is a named test; the attack page in the demo calls the same methods)
 

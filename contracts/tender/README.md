@@ -2,7 +2,7 @@
 
 Rust near-sdk 5.29.1 contract. Design: [`docs/03-contract.md`](../../docs/03-contract.md). This file lists what is implemented, every public method and every error code. A unit test (`i1_method_list_has_no_setter_for_immutable_fields`) fails if a public method is missing here.
 
-Build: `cargo near build non-reproducible-wasm` (in this folder) → `target/near/tender_contract/tender_contract.wasm`. Tests: `cargo test -p tender-contract`.
+Build: `cargo near build non-reproducible-wasm` (in this folder) → `target/near/tender_contract/tender_contract.wasm`. Tests: `cargo test -p tender-contract`. Every limit, gas amount and OutLayer number is in `src/constants.rs` (⚠️ = provisional until G1).
 
 Status: create, tender key, escrow funding, deposits, bids, withdrawals, cancellation and views (T03); close, freeze, evaluation request, result validation and retries (T04). Award and payout come at T08.
 
@@ -23,7 +23,7 @@ Status: create, tender key, escrow funding, deposits, bids, withdrawals, cancell
 | `retry_pubkey` | Buyer, in `PendingKey`, only while the fee still covers 3 evaluation attempts after this request (so at most 2 retries). |
 | `on_pubkey` | `#[private]` callback. Reads OutLayer's result (the evaluator's stdout as a JSON string, `null` on failure), expects `{"v":1,"tid":"<id>","pk":"02…"}`. Success: key stored, status `AwaitingFunds`. Anything else: logged, status unchanged. |
 | `ft_on_transfer` | NEP-141 receiver, `msg = {"fund_tender":"<id>"}`. Accepted only from the rubric token, from the buyer, in `AwaitingFunds`, before the deadline, for exactly the budget cap; otherwise every token is returned. Status `Open`. |
-| `cancel_tender` | Buyer, before the deadline, in `PendingKey`/`AwaitingFunds`/`Open`. Refunds every active bond, the remaining eval fee and the escrow (ft_transfer). Status `Cancelled`. |
+| `cancel_tender` | Buyer, in `PendingKey`/`AwaitingFunds`/`Open`: before the deadline in any of them, after it only in `PendingKey`/`AwaitingFunds` (no bid or escrow can exist, so the fee is never locked). Refunds every active bond, the remaining eval fee and the escrow (ft_transfer). Status `Cancelled`. |
 | `retry_escrow_refund` | Anyone. If an escrow refund failed (booked back by `on_escrow_refund`), sends it again. Only in `Cancelled`/`NoBids`/`Failed`/`ClosedNoAward`. |
 | `on_escrow_refund` | `#[private]` callback of the escrow ft_transfer. On a failed receipt, books the amount back as escrowed. |
 

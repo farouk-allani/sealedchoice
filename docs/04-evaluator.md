@@ -136,7 +136,15 @@ Input (`input_data`, built by the contract, never by a person):
 
 Secrets (released by OutLayer only to this WASM hash, only when the caller is the tender contract): `MASTER_SECRET` (generated inside the TEE, never seen by anyone), `NEARAI_API_KEY`, `BUNDLE_STORE_TOKEN`.
 
+How the contract sends it (`close_and_evaluate`, `retry_evaluate`; docs/03 has the details, `contracts/tender/src/constants.rs` the numbers, ⚠️ = provisional until G1):
+
+- `request_execution` with the pinned `WasmUrl` source, resource limits 200 B instructions / 512 MB / 180 s ⚠️ (derive_pubkey: 10 B / 128 MB / 30 s ⚠️), `response_format: "Text"` (the callback receives stdout verbatim as a JSON string, `null` when the run failed or timed out), `payer_account_id` = the buyer (OutLayer refunds the unused deposit there) and one eval deposit = eval fee / 6.
+- Size: five maximum-size bids take ~31 KB (6,000 bytes of base64 each, plus fields), the rubric up to 16 KiB, so the input can pass 32 KiB. For every byte beyond 32 KiB OutLayer holds a storage deposit of 10^19 yocto (0.01 NEAR per KB) and reserves 25 Mgas of resume gas ⚠️. The contract attaches 100 Tgas + 25 Mgas per byte over 32 KiB ⚠️, and `create_tender` refuses a fee whose per-execution deposit could not cover the storage deposit of the largest input that tender can produce (`E_EVAL_FEE_LOW`). The compute cost is estimated by the client (`estimate_execution_cost`).
+- Same frozen input on every attempt; only `attempt` changes.
+
 Output: stdout = compact result JCS, ≤ 900 bytes (`specs/schemas/compact-result.schema.json`, example in `specs/test-vectors/compact-result.json`, 310 bytes for 3 bids, 396 bytes worst case for 8). Side effect: the public bundle (`specs/schemas/evidence-bundle.schema.json`) uploaded to the bundle store under its sha256.
+
+What the contract accepts (docs/03 "Validation of the compact result"; anything else is recorded as a failed attempt with its `E_RESULT_*` code): ≤ 900 bytes, its own JCS form, exactly the schema's fields, `v` 1, `bundle` 64 lowercase hex; `tid`, `root`, `rubric`, `attempt` echo the request; `rk` holds each index once, totals ≤ 10000, flags ≤ 127, flags 2 and 4 only with flag 1, ineligible entries total 0; eligible entries first by total descending, ineligible ones after by index; `status` matches the flags. The first accepted result is stored verbatim and settles the bonds (forfeited for flags 2 or 4, refunded otherwise). After 3 failed attempts, or when the fee cannot pay another, the tender is `Failed` and escrow, bonds and fee go back.
 
 ## 7. Time budget
 

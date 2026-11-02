@@ -5,6 +5,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
 mod bids;
+pub mod constants;
 pub mod evaluate;
 mod events;
 pub mod merkle;
@@ -16,64 +17,10 @@ mod views;
 #[cfg(test)]
 mod tests;
 
+pub use constants::*;
 use near_sdk::store::{IterableMap, LookupMap, LookupSet, Vector};
 use near_sdk::{AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, env, near};
 pub use types::*;
-
-// ------------------------------------------------------------- constants ---
-
-/// Bids per tender (D-007).
-pub const MAX_BIDS: usize = 5;
-/// Decoded ciphertext bytes.
-pub const MAX_CIPHERTEXT_BYTES: usize = 4500;
-/// First run plus two retries (D-004); also the key-request budget.
-pub const MAX_ATTEMPTS: u8 = 3;
-pub const MAX_RATIONALE_CHARS: usize = 1000;
-pub const MIN_DEVIATION_RATIONALE_CHARS: usize = 20;
-pub const MAX_COMMITTEE: usize = 10;
-/// The eval fee is split into this many equal OutLayer deposits: derive_pubkey and evaluate,
-/// up to MAX_ATTEMPTS each.
-pub const EXECUTIONS_BUDGETED: u128 = 2 * MAX_ATTEMPTS as u128;
-/// Largest OutLayer callback payload read (compact result ≤ 900 bytes, JSON-string escaped).
-pub const MAX_CALLBACK_BYTES: usize = 4096;
-
-/// OutLayer `request_execution` (it reserves ≥ 50 Tgas of this for its resume callback, plus
-/// OUTLAYER_CALLBACK_GAS_PER_INPUT_BYTE for large inputs) and our callbacks. ⚠️ G1 measures.
-pub const GAS_REQUEST_EXECUTION: Gas = Gas::from_tgas(100);
-pub const GAS_ON_PUBKEY: Gas = Gas::from_tgas(30);
-pub const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
-pub const GAS_ON_ESCROW_REFUND: Gas = Gas::from_tgas(10);
-pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
-
-/// Callback for an evaluate request: validation, bond transfers, escrow refund on final failure.
-pub const GAS_ON_EVALUATE: Gas = Gas::from_tgas(50);
-/// OutLayer (contract source, references.md): `input_data` bytes free of extra deposit and gas;
-/// beyond them it reserves 25 Mgas of resume gas per byte (0.025 Tgas per KB: never the limit) and
-/// holds a storage deposit of 10^19 yocto per byte, which the request's deposit must cover (D-020).
-pub const OUTLAYER_INPUT_FREE_BYTES: usize = 32 * 1024;
-pub const OUTLAYER_CALLBACK_GAS_PER_INPUT_BYTE: u64 = 25_000_000;
-pub const OUTLAYER_STORAGE_PRICE_PER_BYTE: u128 = 10_000_000_000_000_000_000;
-/// Upper bound of one bid entry in the evaluate input (64-char account, 4500-byte ciphertext).
-pub const MAX_BID_ENTRY_BYTES: usize = 6_250;
-/// Upper bound of the evaluate input outside bids, rubric and committee.
-pub const EVAL_INPUT_OVERHEAD_BYTES: usize = 400;
-/// Storage the buyer pays at creation for what the tender adds later: frozen set, attempts,
-/// result (D-020).
-pub const STORAGE_RESERVE_BYTES: u64 = 2_500;
-
-/// Resource limits for the evaluate execution (⚠️ tune at G1/G3; OutLayer caps 500 B / 4096 MB / 180 s).
-pub const EVAL_MAX_INSTRUCTIONS: u64 = 200_000_000_000;
-pub const EVAL_MAX_MEMORY_MB: u32 = 512;
-pub const EVAL_MAX_SECONDS: u64 = 180;
-
-/// Resource limits for the derive_pubkey execution (⚠️ tune at G1).
-pub const DERIVE_MAX_INSTRUCTIONS: u64 = 10_000_000_000;
-pub const DERIVE_MAX_MEMORY_MB: u32 = 128;
-pub const DERIVE_MAX_SECONDS: u64 = 30;
-
-/// Event standard name (docs/03-contract.md "Events").
-pub const EVENT_STANDARD: &str = "sealedchoice";
-pub const EVENT_VERSION: &str = "1.0.0";
 
 // ----------------------------------------------------------------- state ---
 
