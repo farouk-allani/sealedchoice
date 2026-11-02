@@ -118,20 +118,20 @@ Validation of the compact result (all must hold):
 |---|---|---|
 | I1 | No method changes `rubric_json`, `rubric_hash`, `evaluator`, `committee`, `deadline_ns` or `bond` after creation | unit: there is no setter; integration: `update_rubric` does not exist, call fails. T03: `i1_method_list_has_no_setter_for_immutable_fields`, `i1_no_method_changes_the_fixed_fields` |
 | I2 | No bid accepted at or after the deadline | unit with mocked block timestamp. T03: `i2_no_bid_at_or_after_the_deadline`, `i2_bid_exactly_at_deadline_panics_with_code` |
-| I3 | No evaluation before the deadline | unit |
-| I4 | Bid set frozen at close: no submit/withdraw after; leaves/root match reference vectors | unit + `merkle.json` vectors |
-| I5 | At most one accepted result per tender; a second callback is rejected | integration with mock-outlayer |
-| I6 | Result with wrong tid/root/rubric/attempt or incomplete ranking is rejected | unit with crafted JSON |
-| I7 | Only the contract's own callback can deliver a result (`#[private]`) and only for the request it made | integration: direct call to `on_evaluate` fails |
+| I3 | No evaluation before the deadline | unit. T04: `i3_no_evaluation_before_the_deadline`, `i3_close_at_the_deadline_requests_attempt_one`; sandbox `i3_i4_happy_path_with_the_three_bid_vector` |
+| I4 | Bid set frozen at close: no submit/withdraw after; leaves/root match reference vectors | unit + `merkle.json` vectors. T04: `i4_merkle_leaves_and_roots_match_vectors`, `i4_bid_set_is_frozen_at_close`; sandbox `i3_i4_happy_path_with_the_three_bid_vector` |
+| I5 | At most one accepted result per tender; a second callback is rejected | integration with mock-outlayer. T04: unit `i5_second_result_rejected`, `i12_failure_retry_success` (stale attempt); sandbox `i5_second_result_rejected` |
+| I6 | Result with wrong tid/root/rubric/attempt or incomplete ranking is rejected | unit with crafted JSON. T04: `i6_crafted_results_are_rejected` (26 crafted results), `compact_result_vector_validates`; sandbox `i6_crafted_results_rejected_and_i12_three_failures_refund_everything` |
+| I7 | Only the contract's own callback can deliver a result (`#[private]`) and only for the request it made | integration: direct call to `on_evaluate` fails. T04: sandbox `i7_direct_on_evaluate_from_another_account_fails` |
 | I8 | Only committee members propose/approve; deviation needs rationale; ineligible or lapsed bids cannot be awarded | unit |
 | I9 | Payout only to the awarded bidder's declared target, only once, amount ≤ escrow; remainder back to buyer | integration with test FT |
-| I10 | Each bond is settled exactly once (refund or forfeit), never both | unit. T03 (refund paths): `i10_withdraw_refunds_the_bond_exactly_once`, `cancel_refunds_everything_once`; forfeits at T04 |
+| I10 | Each bond is settled exactly once (refund or forfeit), never both | unit. T03 (refund paths): `i10_withdraw_refunds_the_bond_exactly_once`, `cancel_refunds_everything_once`, `i10_settle_bond_settles_a_slot_once`; T04: `i10_bonds_settled_once_across_withdraw_failure_and_retry`, `bonds_of_unreadable_or_copied_bids_go_to_the_buyer`, `accepted_result_is_stored_verbatim_and_bonds_refunded` |
 | I11 | Escrow only accepted from the buyer, in the rubric token, for exactly the cap | unit. T03: `i11_escrow_only_from_buyer_in_rubric_token_for_exact_cap`, `ft_on_transfer_refunds_bad_messages_and_late_funding` |
 | I13 | A ciphertext hash can be submitted only once per tender | unit. T03: `i13_duplicate_ciphertext_is_rejected`, `i13_withdrawn_ciphertext_cannot_be_resubmitted` |
-| I12 | `retry_evaluate` only after a failure and at most twice; every attempt recorded | integration |
+| I12 | `retry_evaluate` only after a failure and at most twice; every attempt recorded | integration. T04: unit `i12_failure_retry_success`, `i12_three_failures_fail_the_tender_and_refund_everything`, `eval_budget_survives_two_key_retries`; sandbox `i12_failure_retry_success`, `i6_crafted_results_rejected_and_i12_three_failures_refund_everything` |
 
 ## Testing
 
 - Unit tests: `cargo test` in `contracts/tender` with `near_sdk::test_utils::VMContextBuilder`.
-- Integration: `near-workspaces` (Rust) sandbox with `contracts/mock-outlayer`, which records `request_execution` calls and exposes `resolve(request_id, output)` so tests can deliver chosen outputs to the callback. Verify at T04 how OutLayer actually returns results (yield/resume vs plain promise return) and make the mock behave the same way.
+- Integration: `near-workspaces` 0.23 (Rust) sandbox with `contracts/mock-outlayer`, which records `request_execution` calls and exposes `resolve(request_id, output)` so tests can deliver chosen outputs to the callback. OutLayer returns results by yield/resume (read in its source, D-018); the mock does the same, with the same resume gas. `contracts/mock-ft` is the test token. Run: `cargo test -p tender-contract --features sandbox-tests --test sandbox` (needs an open-file hard limit ≥ 65535: CI and Linux/macOS, not cloud sessions).
 - Testnet e2e: `scripts/e2e-testnet.ts` against real OutLayer (T07).
