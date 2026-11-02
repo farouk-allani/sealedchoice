@@ -676,3 +676,44 @@ fn i10_bonds_settled_once_across_withdraw_failure_and_retry() {
     assert_eq!(got, vec![(BUYER.into(), bond), (VENDORS[1].into(), bond)]);
     assert!(c.get_bids(id).iter().all(|b| b.bond_settled));
 }
+
+// ------------------------------------------------- I1 over the T04 methods ---
+
+#[test]
+fn i1_fixed_fields_survive_close_failure_retry_and_acceptance() {
+    let mut c = setup();
+    let id = with_bids(&mut c, 2);
+    let t = c.get_tender(id).unwrap();
+    let before = (
+        t.rubric_json,
+        t.rubric_hash,
+        t.evaluator,
+        t.committee,
+        t.deadline_ns,
+        t.bond,
+    );
+    let check = |c: &Contract| {
+        let t = c.get_tender(id).unwrap();
+        assert_eq!(
+            (
+                t.rubric_json,
+                t.rubric_hash,
+                t.evaluator,
+                t.committee,
+                t.deadline_ns,
+                t.bond
+            ),
+            before
+        );
+    };
+    close(&mut c, id);
+    check(&c);
+    let bad = result(&c, id, 1, json!([[0, 7800, 0]]), "ok");
+    deliver(&mut c, id, 1, &bad);
+    check(&c);
+    retry(&mut c, id);
+    check(&c);
+    let ok = result(&c, id, 2, json!([[0, 7800, 0], [1, 6400, 0]]), "ok");
+    assert!(deliver(&mut c, id, 2, &ok));
+    check(&c);
+}

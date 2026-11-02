@@ -109,7 +109,10 @@ pub struct Contract {
 
 #[near]
 impl Contract {
+    /// `#[private]`: only the contract account itself can initialize (deploy and init in one
+    /// transaction), so nobody can front-run init and pick the owner or a fake OutLayer.
     #[init]
+    #[private]
     pub fn new(
         owner: AccountId,
         outlayer: AccountId,

@@ -1066,20 +1066,40 @@ const METHODS: [&str; 29] = [
     "is_ciphertext_used",
 ];
 
+/// Files holding `#[near] impl` blocks, in the order METHODS lists their methods.
+const CONTRACT_FILES: [&str; 5] = ["lib.rs", "tender.rs", "bids.rs", "evaluate.rs", "views.rs"];
+
 fn public_methods() -> Vec<String> {
-    let files = [
-        include_str!("lib.rs"),
-        include_str!("tender.rs"),
-        include_str!("bids.rs"),
-        include_str!("evaluate.rs"),
-        include_str!("views.rs"),
-    ];
-    files
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    // Every source file with a #[near] impl must be scanned: a new one fails here.
+    let mut with_impl: Vec<String> = std::fs::read_dir(&src)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .filter(|f| f.ends_with(".rs") && !f.starts_with("tests"))
+        .filter(|f| {
+            std::fs::read_to_string(src.join(f))
+                .unwrap()
+                .contains("#[near]\nimpl")
+        })
+        .collect();
+    with_impl.sort();
+    let mut known: Vec<String> = CONTRACT_FILES.iter().map(|f| f.to_string()).collect();
+    known.sort();
+    assert_eq!(
+        with_impl, known,
+        "a #[near] impl block lives in a file the I1 scan does not read"
+    );
+    CONTRACT_FILES
         .iter()
-        .flat_map(|src| src.lines())
-        .filter_map(|l| l.strip_prefix("    pub fn "))
-        .filter_map(|rest| rest.split('(').next())
-        .map(str::to_string)
+        .flat_map(|f| {
+            std::fs::read_to_string(src.join(f))
+                .unwrap()
+                .lines()
+                .filter_map(|l| l.strip_prefix("    pub fn "))
+                .filter_map(|rest| rest.split('(').next())
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
         .collect()
 }
 
@@ -1158,6 +1178,80 @@ fn i1_no_method_changes_the_fixed_fields() {
         c.get_tender(id).unwrap().evaluator.source_tag,
         "evaluator-v1.0.0"
     );
+}
+
+#[test]
+fn i1_fixed_fields_survive_key_retry_refused_funding_and_escrow_refund_retry() {
+    let mut c = setup();
+    let id = create(&mut c);
+    let before = immutable(&c, id);
+    call(BUYER, NearToken::from_yoctonear(0), NOW + 1);
+    c.retry_pubkey(id);
+    assert_eq!(immutable(&c, id), before);
+    set_key(&mut c, id);
+    assert_eq!(
+        try_fund(&mut c, id, TOKEN, VENDORS[0], CAP, NOW + 2),
+        U128(CAP)
+    );
+    assert_eq!(immutable(&c, id), before);
+    fund(&mut c, id);
+    call(BUYER, NearToken::from_yoctonear(0), NOW + 3);
+    c.cancel_tender(id, "x".into());
+    callback(NOW + 4, PromiseResult::Failed);
+    c.on_escrow_refund(id, U128(CAP));
+    assert_eq!(immutable(&c, id), before);
+    call(VENDORS[1], NearToken::from_yoctonear(0), NOW + 5);
+    c.retry_escrow_refund(id);
+    assert_eq!(immutable(&c, id), before);
+}
+
+// ------------------------------------------- bonds: the settle guard itself ---
+
+#[test]
+fn i10_settle_bond_settles_a_slot_once() {
+    let mut c = setup();
+    let id = open(&mut c);
+    bid(&mut c, id, VENDORS[0], 1, NOW + 10);
+    call(VENDORS[0], NearToken::from_yoctonear(0), NOW + 11);
+    assert_eq!(c.settle_bond(id, 0), Some((acc(VENDORS[0]), milli(100))));
+    assert_eq!(c.settle_bond(id, 0), None);
+    assert_eq!(c.settle_bond(id, 7), None);
+}
+
+// ----------------------------------------------- cancel after the deadline ---
+
+#[test]
+fn late_cancel_frees_the_fee_of_a_tender_that_never_opened() {
+    for funded_key in [false, true] {
+        let mut c = setup();
+        let id = create(&mut c);
+        if funded_key {
+            set_key(&mut c, id);
+        }
+        let fee = c.get_tender(id).unwrap().eval_fee_remaining;
+        call(BUYER, NearToken::from_yoctonear(0), DEADLINE + HOUR);
+        c.cancel_tender(id, "never opened".into());
+        assert_eq!(c.get_tender(id).unwrap().status, Status::Cancelled);
+        assert_eq!(transfers(), vec![(BUYER.to_string(), fee.as_yoctonear())]);
+    }
+}
+
+#[test]
+#[should_panic(expected = "E_DEADLINE_PASSED")]
+fn open_tender_cannot_be_cancelled_after_the_deadline() {
+    let mut c = setup();
+    let id = open(&mut c);
+    call(BUYER, NearToken::from_yoctonear(0), DEADLINE);
+    c.cancel_tender(id, "x".into());
+}
+
+#[test]
+#[should_panic(expected = "E_DEADLINE_PASSED")]
+fn no_key_retry_after_the_deadline() {
+    let mut c = setup();
+    let id = create(&mut c);
+    call(BUYER, NearToken::from_yoctonear(0), DEADLINE);
+    c.retry_pubkey(id);
 }
 
 // ------------------------------------------------------------------- views ---

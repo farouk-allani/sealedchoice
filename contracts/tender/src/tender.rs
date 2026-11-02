@@ -132,6 +132,7 @@ impl Contract {
         let t = self.tender(tender_id);
         require(env::predecessor_account_id() == t.buyer, "E_NOT_BUYER");
         require(t.status == Status::PendingKey, "E_BAD_STATUS");
+        require(now_ns() < t.deadline_ns.0, "E_DEADLINE_PASSED");
         let reserve = t.exec_deposit.saturating_mul(u128::from(MAX_ATTEMPTS) + 1);
         require(t.eval_fee_remaining >= reserve, "E_EVAL_FEE_LOW");
         self.request_key(tender_id);
@@ -214,7 +215,8 @@ impl Contract {
         PromiseOrValue::Value(U128(0))
     }
 
-    /// Buyer only, before the deadline, in PendingKey / AwaitingFunds / Open. Refunds escrow,
+    /// Buyer only, in PendingKey / AwaitingFunds / Open, before the deadline (or after it while the
+    /// tender never opened). Refunds escrow,
     /// every active bond and the remaining eval fee, once.
     pub fn cancel_tender(&mut self, tender_id: u64, reason: String) {
         require(
@@ -230,7 +232,13 @@ impl Contract {
             ),
             "E_BAD_STATUS",
         );
-        require(now_ns() < t.deadline_ns.0, "E_DEADLINE_PASSED");
+        // Before the deadline in every state; after it only while no bid or escrow can exist
+        // (key missing or never funded), so the buyer's fee is never stuck (D-020).
+        require(
+            now_ns() < t.deadline_ns.0
+                || matches!(t.status, Status::PendingKey | Status::AwaitingFunds),
+            "E_DEADLINE_PASSED",
+        );
         let slots = t.active_slots.clone();
 
         let mut refunded = Vec::new();
