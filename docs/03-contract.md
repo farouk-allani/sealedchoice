@@ -12,7 +12,7 @@ Crate: `contracts/tender`. near-sdk 5.29.1 (pinned at T00, D-015). Build with `c
 | `MAX_RATIONALE_CHARS` | 1000 | |
 | `MIN_DEVIATION_RATIONALE_CHARS` | 20 | |
 | `MIN_DEADLINE_DELAY_NS` | 5 minutes (testnet), 1 hour (mainnet) | config at init |
-| Prepaid gas for request_execution + callback | measure at G1; start at 150 Tgas + 50 Tgas callback | |
+| Prepaid gas for request_execution + callback | 100 Tgas + 25 Mgas per input byte over 32 KiB; callbacks 30 Tgas (`on_pubkey`), 50 Tgas (`on_evaluate`); measure at G1 | D-018, D-020 |
 
 ## Storage
 
@@ -120,7 +120,7 @@ Validation of the compact result (all must hold):
 | I2 | No bid accepted at or after the deadline | unit with mocked block timestamp. T03: `i2_no_bid_at_or_after_the_deadline`, `i2_bid_exactly_at_deadline_panics_with_code` |
 | I3 | No evaluation before the deadline | unit. T04: `i3_no_evaluation_before_the_deadline`, `i3_close_at_the_deadline_requests_attempt_one`; sandbox `i3_i4_happy_path_with_the_three_bid_vector` |
 | I4 | Bid set frozen at close: no submit/withdraw after; leaves/root match reference vectors | unit + `merkle.json` vectors. T04: `i4_merkle_leaves_and_roots_match_vectors`, `i4_bid_set_is_frozen_at_close`; sandbox `i3_i4_happy_path_with_the_three_bid_vector` |
-| I5 | At most one accepted result per tender; a second callback is rejected | integration with mock-outlayer. T04: unit `i5_second_result_rejected`, `i12_failure_retry_success` (stale attempt); sandbox `i5_second_result_rejected` |
+| I5 | At most one accepted result per tender; a second callback is rejected | integration with mock-outlayer. T04: unit `i5_second_result_rejected`, `i12_failure_retry_success` (stale attempt); sandbox `i5_second_result_rejected` (no other delivery path exists on chain) |
 | I6 | Result with wrong tid/root/rubric/attempt or incomplete ranking is rejected | unit with crafted JSON. T04: `i6_crafted_results_are_rejected` (26 crafted results), `compact_result_vector_validates`; sandbox `i6_crafted_results_rejected_and_i12_three_failures_refund_everything` |
 | I7 | Only the contract's own callback can deliver a result (`#[private]`) and only for the request it made | integration: direct call to `on_evaluate` fails. T04: sandbox `i7_direct_on_evaluate_from_another_account_fails` |
 | I8 | Only committee members propose/approve; deviation needs rationale; ineligible or lapsed bids cannot be awarded | unit |
