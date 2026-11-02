@@ -10,7 +10,7 @@ const testingOnly = {
   message: "Test-only: the real tender key exists only in the TEE.",
 };
 const testingOnlyRelative = {
-  regex: "(^|/)testing(\\.ts)?$",
+  regex: "(^|/)testing(\\.[cm]?[jt]s)?$",
   message: "Test-only: the real tender key exists only in the TEE.",
 };
 
