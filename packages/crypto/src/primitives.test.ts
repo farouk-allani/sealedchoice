@@ -126,6 +126,17 @@ describe("buildBidPlaintext", () => {
     );
   });
 
+  it("refuses text within the byte limits whose JSON escaping overflows the ciphertext limit", () => {
+    // 2000 newlines are 2000 bytes of text but 4000 bytes of JCS ("\\n" each).
+    expect(() =>
+      buildBidPlaintext({
+        ...input,
+        methodology: "\n".repeat(TEXT_LIMITS_BYTES.methodology),
+        track_record: "x".repeat(TEXT_LIMITS_BYTES.track_record),
+      }),
+    ).toThrow(/encrypted bid would be \d+ bytes \(max 4500\)/);
+  });
+
   it("fits the largest valid bid under the contract's ciphertext limit", () => {
     const built = buildBidPlaintext({
       ...input,

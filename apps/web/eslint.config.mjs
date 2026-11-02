@@ -8,6 +8,17 @@ const config = [
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@tender/crypto/testing",
+              message: "Test-only: the real tender key exists only in the TEE.",
+            },
+          ],
+        },
+      ],
     },
   },
 ];
