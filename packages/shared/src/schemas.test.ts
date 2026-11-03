@@ -168,12 +168,27 @@ const minimalBundle = {
   attestation: { nonce_hex: "00", reports: [] },
   result: {},
   debriefs: [{ bid_index: 0, recipient_pubkey: "02", ecies_b64: "", plaintext_sha256: h }],
-  committee_report: [{ member: "buyer.testnet", recipient_pubkey: "02", ecies_b64: "", plaintext_sha256: h }],
+  committee_report: {
+    cipher: "aes-256-gcm",
+    body_b64: "",
+    plaintext_sha256: h,
+    keys: [{ member: "buyer.testnet", recipient_pubkey: "02", ecies_b64: "" }],
+  },
 };
 crossCheck("evidence-bundle", evidenceBundleSchema, [
   { name: "a minimal bundle", value: minimalBundle, valid: true },
   { name: "a bundle with a short wasm hash", value: { ...minimalBundle, evaluator: { ...minimalBundle.evaluator, wasm_sha256: "ab" } }, valid: false },
   { name: "a bundle without attestation", value: { ...minimalBundle, attestation: undefined }, valid: false },
+  {
+    name: "a bundle with the old per-member committee report",
+    value: { ...minimalBundle, committee_report: [{ member: "buyer.testnet", recipient_pubkey: "02", ecies_b64: "", plaintext_sha256: h }] },
+    valid: false,
+  },
+  {
+    name: "a committee report with another cipher",
+    value: { ...minimalBundle, committee_report: { ...minimalBundle.committee_report, cipher: "aes-128-gcm" } },
+    valid: false,
+  },
 ]);
 
 describe("utf8Length", () => {

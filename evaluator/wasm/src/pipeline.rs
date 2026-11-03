@@ -15,7 +15,7 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use evaluator_core::keys::{SecretKey, tender_key};
 use evaluator_core::merkle::{Hash, hex, merkle_leaf, merkle_root, parse_hash, sha256};
-use evaluator_core::scoring::{BidInput, check_eligibility, parse_model_output};
+use evaluator_core::scoring::{BidInput, check_eligibility, is_pos_int_str, parse_model_output};
 use evaluator_core::{Rubric, compact_result, jcs};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -24,6 +24,16 @@ use zeroize::{Zeroize, Zeroizing};
 /// Proposal fields a qualitative criterion may show a model. Price, delivery and identity never
 /// reach a prompt, whatever the rubric says (docs/04 stage 4).
 pub const PROMPT_FIELDS: [&str; 2] = ["methodology", "track_record"];
+
+/// `^[a-z][a-z0-9_]{1,31}$` (rubric.schema.json; the price criterion's `"price"` matches).
+pub fn is_criterion_id(id: &str) -> bool {
+    let b = id.as_bytes();
+    (2..=32).contains(&b.len())
+        && b[0].is_ascii_lowercase()
+        && b[1..]
+            .iter()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_')
+}
 
 /// The caller of `request_execution` must be the tender contract named in the input.
 fn check_sender(env: &dyn Environment, contract_id: &str) -> Result<(), RunError> {
@@ -71,11 +81,85 @@ pub fn derive_pubkey(
     )?)
 }
 
+/// A failed call that counts as unanswered for the outage rule (D-024): no HTTP response
+/// (transport error, timeout), or 5xx / 429 after the one retry. Other statuses are the API
+/// answering this request with a refusal.
+pub fn is_outage(http_status: Option<u16>) -> bool {
+    matches!(http_status, None | Some(429) | Some(500..=599))
+}
+
+/// A rubric the evaluator can run: both shapes it is read in, and its hash.
+pub struct CheckedRubric {
+    pub rubric: Rubric,
+    pub prompt: PromptRubric,
+    pub hash: Hash,
+}
+
+/// Every check the evaluator makes on a rubric, all before any service is called. The contract's
+/// `create_tender` refuses every rubric this refuses (invariant I14, docs/03-contract.md), so a
+/// tender that takes bids can be evaluated; a contract test runs both on the same rubrics.
+///
+/// - `rubric_json` is its own JCS form, so its hash is the one the contract stored;
+/// - it reads as the scoring core's `Rubric` and as the prompt's `PromptRubric`;
+/// - weights sum to 10000 and `budget_cap_minor` is a positive integer string;
+/// - qualitative criteria read only text fields (AI never sees prices);
+/// - every criterion id matches `^[a-z][a-z0-9_]{1,31}$` (rubric.schema.json): ids become keys
+///   of the debrief's `criteria` object, and JCS refuses keys that are not ASCII;
+/// - `min_valid_outputs` is 2 or 3 and at most the number of models, so with the outage rule a
+///   published result has at least two models answering each eligible bid (the answers may still
+///   be invalid: then the bid is `EVAL_INCOMPLETE`, D-024);
+/// - the user template renders: every qualitative criterion has a question and anchors 0–5.
+pub fn check_rubric(rubric_json: &str) -> Result<CheckedRubric, RunError> {
+    let value: Value = serde_json::from_str(rubric_json)
+        .map_err(|_| RunError::Rubric("rubric_json is not JSON"))?;
+    if jcs(&value).ok().as_deref() != Some(rubric_json.as_bytes()) {
+        return Err(RunError::Rubric("rubric_json is not canonical JCS"));
+    }
+    let rubric: Rubric =
+        serde_json::from_value(value.clone()).map_err(|_| RunError::Rubric("rubric fields"))?;
+    let prompt: PromptRubric =
+        serde_json::from_value(value).map_err(|_| RunError::Rubric("rubric prompt fields"))?;
+    let weights = rubric
+        .criteria
+        .iter()
+        .try_fold(0u64, |acc, c| acc.checked_add(c.weight_bp()));
+    if weights != Some(evaluator_core::BP) {
+        return Err(RunError::Rubric("weights do not sum to 10000"));
+    }
+    if !is_pos_int_str(Some(&Value::String(rubric.budget_cap_minor.clone()))) {
+        return Err(RunError::Rubric("budget_cap_minor"));
+    }
+    if !rubric.criteria.iter().all(|c| is_criterion_id(c.id())) {
+        return Err(RunError::Rubric("criterion id"));
+    }
+    if prompt
+        .criteria
+        .iter()
+        .filter(|c| c.kind == "qualitative")
+        .flat_map(|c| c.source_fields.iter())
+        .any(|f| !PROMPT_FIELDS.contains(&f.as_str()))
+    {
+        return Err(RunError::Rubric(
+            "a qualitative criterion reads a non-text field",
+        ));
+    }
+    let min_valid = rubric.aggregation.min_valid_outputs;
+    if !(2..=3).contains(&min_valid) || min_valid > rubric.models.len() {
+        return Err(RunError::Rubric(
+            "min_valid_outputs is not 2 or 3, or exceeds the number of models",
+        ));
+    }
+    prompt::render_user(&prompt, "", &|_| String::new())?;
+    Ok(CheckedRubric {
+        rubric,
+        prompt,
+        hash: sha256(rubric_json.as_bytes()),
+    })
+}
+
 /// Nonce for the attestation fetch: `sha256(bids_root || u32le(attempt))`, hex (D-024).
 pub fn attestation_nonce(root: &Hash, attempt: u8) -> String {
-    let mut bytes = root.to_vec();
-    bytes.extend_from_slice(&u32::from(attempt).to_le_bytes());
-    hex(&sha256(&bytes))
+    evaluator_core::run::attestation_nonce(root, u32::from(attempt))
 }
 
 /// A decrypted plaintext as the scoring core reads it: JSON via `parse_model_output` (D-020),
@@ -104,29 +188,11 @@ pub fn evaluate(
         return Err(RunError::Attempt);
     }
 
-    // Rubric: canonical JCS (so its hash is the one the contract stored), usable, and every
-    // qualitative criterion reads only text fields.
-    let rubric_value: Value = serde_json::from_str(&input.rubric_json)
-        .map_err(|_| RunError::Rubric("rubric_json is not JSON"))?;
-    if jcs(&rubric_value).ok().as_deref() != Some(input.rubric_json.as_bytes()) {
-        return Err(RunError::Rubric("rubric_json is not canonical JCS"));
-    }
-    let rubric_hash = sha256(input.rubric_json.as_bytes());
-    let rubric: Rubric = serde_json::from_value(rubric_value.clone())
-        .map_err(|_| RunError::Rubric("rubric fields"))?;
-    let prompt_rubric: PromptRubric = serde_json::from_value(rubric_value)
-        .map_err(|_| RunError::Rubric("rubric prompt fields"))?;
-    if prompt_rubric
-        .criteria
-        .iter()
-        .filter(|c| c.kind == "qualitative")
-        .flat_map(|c| c.source_fields.iter())
-        .any(|f| !PROMPT_FIELDS.contains(&f.as_str()))
-    {
-        return Err(RunError::Rubric(
-            "a qualitative criterion reads a non-text field",
-        ));
-    }
+    let CheckedRubric {
+        rubric,
+        prompt: prompt_rubric,
+        hash: rubric_hash,
+    } = check_rubric(&input.rubric_json)?;
 
     // Bids: indices 0..n-1, ciphertexts decode, leaves hash to the frozen root.
     if input.bids.is_empty() {
@@ -195,9 +261,16 @@ pub fn evaluate(
         Err(e) => json!({"nonce_hex": nonce_hex, "reports": [], "error": e.0}),
     };
 
-    // One call per (eligible bid, model), then its signature.
+    // One call per (eligible bid, model), then its signature. A model outage refuses the run, so
+    // the contract's retry applies, instead of publishing a result with no qualitative scoring
+    // behind it (D-024): an authorization refusal (401/403) stops at once; a bid left with fewer
+    // answered calls than `min_valid_outputs` stops after its calls (`is_outage`: no response,
+    // 5xx or 429 after the retry); a run where no call got a 2xx answer stops at the end. Other
+    // 4xx are the API refusing that request (a bid's text can cause them), and like answers that
+    // arrive but are invalid they stay recorded as invalid outputs (no retry, scoring-prompt.md).
     let mut calls: Vec<CallRecord> = Vec::new();
     let mut outputs: BTreeMap<String, Vec<Value>> = BTreeMap::new();
+    let mut any_reply = false;
     for &i in &eligible {
         let pt = bid_inputs[i].plaintext.as_ref();
         let user = prompt::render_user(
@@ -209,6 +282,7 @@ pub fn evaluate(
             &|f| field_text(pt, f),
         )?;
         let mut per_model = Vec::with_capacity(rubric.models.len());
+        let mut answered = 0usize;
         for (m, model) in rubric.models.iter().enumerate() {
             let req = ModelRequest {
                 bid_index: i,
@@ -219,6 +293,8 @@ pub fn evaluate(
             };
             match svc.models.complete(&req) {
                 Ok(reply) => {
+                    answered += 1;
+                    any_reply = true;
                     per_model.push(
                         reply
                             .content
@@ -230,12 +306,25 @@ pub fn evaluate(
                     calls.push(CallRecord::answered(i, model, reply, signature));
                 }
                 Err(e) => {
+                    if matches!(e.http_status, Some(401 | 403)) {
+                        return Err(RunError::ModelAuth);
+                    }
+                    if !is_outage(e.http_status) {
+                        answered += 1;
+                    }
                     per_model.push(Value::Null);
                     calls.push(CallRecord::failed(i, model, e));
                 }
             }
         }
+        if answered < rubric.aggregation.min_valid_outputs {
+            return Err(RunError::ModelOutage);
+        }
         outputs.insert(i.to_string(), per_model);
+    }
+    if !eligible.is_empty() && !any_reply {
+        // Every call was refused (e.g. no model id the API knows): no qualitative scoring at all.
+        return Err(RunError::ModelOutage);
     }
     eprintln!(
         "evaluate: {} bids, {} eligible, {} model calls",

@@ -11,9 +11,14 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 near-sdk = { workspace = true }
+# Reader keys must be curve points (I15). The RustCrypto line evaluator/core and ecies use;
+# arithmetic only (no ECDSA, no RNG).
+k256 = { version = "0.14.0", default-features = false, features = ["arithmetic"] }
 
 [dev-dependencies]
 near-sdk = { workspace = true, features = ["unit-testing"] }
+# I14 parity test: the evaluator's own rubric checks (default features, host build).
+evaluator-wasm = { path = "../../evaluator/wasm" }
 
 # Sandbox integration tests (tests/sandbox.rs). Versions checked 2026-11-02 (docs/references.md).
 # Only where near-sandbox ships a neard binary (linux-x86_64, linux-aarch64, darwin-arm64; checked

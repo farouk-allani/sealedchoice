@@ -1,7 +1,9 @@
 //! What one evaluation publishes besides the compact result (docs/06-evidence-and-verification.md):
 //! - per bid, a debrief (debrief.schema.json) encrypted to the bid's `debrief_pubkey`;
-//! - one committee report, encrypted once per committee member: every bid's debrief plus its
-//!   decrypted proposal;
+//! - one committee report: every bid's debrief plus its decrypted proposal. Its body is encrypted
+//!   once, with AES-256-GCM under a fresh key, and each committee member gets an ECIES envelope
+//!   holding only that 32-byte key (D-024). So the report's size does not grow with the
+//!   committee;
 //! - the public bundle (evidence-bundle.schema.json): no plaintext, no prices, no other bidder's
 //!   criterion scores. `bundle_hash = sha256(JCS(bundle))`.
 //!
@@ -12,11 +14,19 @@
 use crate::error::RunError;
 use crate::input::EvaluateInput;
 use crate::services::{ModelFailure, ModelReply, ServiceError};
+use aes_gcm::aead::Aead;
+use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use evaluator_core::merkle::{Hash, hex, sha256};
 use evaluator_core::{Evaluation, jcs};
 use serde_json::{Map, Value, json};
+use zeroize::Zeroizing;
+
+/// Name of the committee report's body cipher in the bundle.
+pub const REPORT_CIPHER: &str = "aes-256-gcm";
+/// AES-GCM nonce length of the committee report body (the WebCrypto default).
+pub const REPORT_NONCE_BYTES: usize = 12;
 
 /// Where the published source lives (docs/06 check 4). ⚠️ T14 fixes the public repository and
 /// the release tag the reproducible build is made from.
@@ -176,6 +186,46 @@ fn envelope(fields: Value, pubkey_hex: &str, plaintext: &[u8]) -> Value {
     entry
 }
 
+/// The committee report, encrypted once: `body_b64` = base64(nonce(12) || AES-256-GCM(key, nonce,
+/// report, no AAD)), the ciphertext with its 16-byte tag appended (what WebCrypto's AES-GCM
+/// produces). Each member's envelope holds only the 32-byte key, ECIES-encrypted to their reader
+/// key; a bad reader key gets `E_READER_KEY` like a debrief does.
+fn seal_report(c: &Context<'_>, report_plain: &[u8]) -> Result<Value, RunError> {
+    let mut key = Zeroizing::new([0u8; 32]);
+    let mut nonce = [0u8; REPORT_NONCE_BYTES];
+    getrandom::getrandom(key.as_mut_slice())
+        .and_then(|()| getrandom::getrandom(&mut nonce))
+        .map_err(|_| RunError::Service("no randomness for the committee report"))?;
+    let cipher = Aes256Gcm::new_from_slice(key.as_slice())
+        .map_err(|_| RunError::Scoring("committee report key"))?;
+    let nonce_arr =
+        Nonce::try_from(&nonce[..]).map_err(|_| RunError::Scoring("committee report nonce"))?;
+    let sealed = cipher
+        .encrypt(&nonce_arr, report_plain)
+        .map_err(|_| RunError::Scoring("committee report encryption"))?;
+    let mut body = nonce.to_vec();
+    body.extend_from_slice(&sealed);
+    let keys: Vec<Value> = c
+        .input
+        .committee
+        .iter()
+        .map(|m| {
+            let mut entry = envelope(json!({"member": m.account}), &m.pubkey, key.as_slice());
+            // The envelope's plaintext is the key: never publish its hash.
+            if let Some(o) = entry.as_object_mut() {
+                o.remove("plaintext_sha256");
+            }
+            entry
+        })
+        .collect();
+    Ok(json!({
+        "cipher": REPORT_CIPHER,
+        "body_b64": STANDARD.encode(body),
+        "plaintext_sha256": hex(&sha256(report_plain)),
+        "keys": keys,
+    }))
+}
+
 fn decode_hex(s: &str) -> Option<Vec<u8>> {
     if !s.len().is_multiple_of(2) {
         return None;
@@ -263,12 +313,7 @@ pub fn build(c: &Context<'_>) -> Result<Built, RunError> {
         "lowest_eligible_price_minor": c.ev.lowest_eligible_price_minor,
         "bids": report_bids,
     }))?;
-    let committee_report: Vec<Value> = c
-        .input
-        .committee
-        .iter()
-        .map(|m| envelope(json!({"member": m.account}), &m.pubkey, &report_plain))
-        .collect();
+    let committee_report = seal_report(c, &report_plain)?;
 
     // Public bundle.
     let bids: Vec<Value> = c

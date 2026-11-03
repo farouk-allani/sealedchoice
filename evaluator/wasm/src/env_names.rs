@@ -10,7 +10,10 @@ pub const SENDER_ID: &str = "NEAR_SENDER_ID";
 pub const BLOCK_HEIGHT: &str = "NEAR_BLOCK_HEIGHT";
 
 /// The tender-key master secret (OutLayer PROTECTED_ hex32 secret bound to the WASM hash).
-/// Its value is 64 hex characters. ⚠️ G1 fixes the name (a PROTECTED_ prefix may apply).
+/// Its value is 64 hex characters. OutLayer requires generated secrets to carry a `PROTECTED_`
+/// prefix (and refuses it on manual ones), so the real name starts with `PROTECTED_` (Farouk,
+/// from the dashboard, 2026-11-03). The rest of the name and the value format are ⚠️ G1: this
+/// placeholder is not the real name.
 pub const MASTER_SECRET: &str = "MASTER_SECRET";
 
 /// Offline build only (feature `offline`): JSON file with the fixture model outputs, signatures,

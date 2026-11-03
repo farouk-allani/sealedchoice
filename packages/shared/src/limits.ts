@@ -27,6 +27,8 @@ export const BP = 10_000;
 /** Qualitative scores are integers 0..5. */
 export const QUAL_MAX = 5;
 
-/** Largest evidence bundle the bundle store accepts (T06). ⚠️ Check against real bundles at T05/T07
- * (attestation reports dominate their size). */
-export const MAX_BUNDLE_BYTES = 2 * 1024 * 1024;
+/** Largest evidence bundle the bundle store accepts (T06): our own limit, not the storage
+ * backend's. Raised to 4 MiB as a second line of defence; the committee report format (D-024) is
+ * what keeps bundles small (worst case measured 0.48 MB with fixture bodies). ⚠️ Check against real
+ * bundles at T07 (attestation reports may dominate). */
+export const MAX_BUNDLE_BYTES = 4 * 1024 * 1024;

@@ -702,7 +702,14 @@ async fn gas_close_and_evaluate_with_five_large_bids() -> R {
     let deadline = open_tender(&env).await?;
     for (i, v) in env.vendors.iter().enumerate() {
         assert_eq!(v.id().as_str().len(), 64);
-        check(submit(&env, v, i as u8 + 1, 4500).await?, "submit_bid");
+        let r = submit(&env, v, i as u8 + 1, 4500).await?;
+        if i == 0 {
+            eprintln!(
+                "GAS submit_bid (4500 B, debrief key checked as a curve point, I15): tx total {} Ggas",
+                r.total_gas_burnt.as_gas() / 1_000_000_000
+            );
+        }
+        check(r, "submit_bid");
     }
     cross_deadline(&env, deadline).await?;
     let (closing, rid, input) = start_eval(&env, &env.root, "close_and_evaluate").await?;
@@ -731,6 +738,59 @@ async fn gas_close_and_evaluate_with_five_large_bids() -> R {
     );
     assert!(max_receipt < 300);
     wait_status(&env, "Evaluated").await?;
+    Ok(())
+}
+
+/// Gas for create_tender with the largest committee (10 report keys, each checked as a curve
+/// point, I15) and the example rubric (read in the evaluator's two shapes, I14). Printed for
+/// PROGRESS.md.
+#[tokio::test]
+async fn gas_create_tender_with_ten_committee_keys() -> R {
+    let env = setup(&[]).await?;
+    let mut rubric: Value = serde_json::from_str(&specs("examples/rubric.example.json"))?;
+    rubric["currency"]["asset"] = json!(format!("nep141:{}", env.token.id()));
+    let rubric_json = String::from_utf8(jcs(&rubric).unwrap())?;
+    let committee: Vec<Value> = (0..10)
+        .map(|i| {
+            let key = if i % 2 == 0 {
+                "committee_key"
+            } else {
+                "debrief_key"
+            };
+            json!({"account": format!("member-{i}.test.near"), "report_pubkey": pk(key)})
+        })
+        .collect();
+    let deadline = chain_now(&env).await? + DEADLINE_MARGIN_S * 1_000_000_000;
+    let pending = start(
+        env.buyer
+            .call(env.tender.id(), "create_tender")
+            .args_json(json!({
+                "rubric_json": rubric_json,
+                "deadline_ns": deadline.to_string(),
+                "bond": BOND,
+                "committee": committee,
+                "evaluator_index": 0,
+            }))
+            .deposit(NearToken::from_near(2))
+            .gas(Gas::from_tgas(300)),
+    )
+    .await?;
+    new_request(&env, &pending, 0).await?;
+    let key = json!({"v": 1, "tid": "1", "pk": pk("tender_key")}).to_string();
+    check(resolve(&env, 0, Some(&key)).await?, "resolve key");
+    let r = ok(pending.await?, "create_tender with 10 committee keys");
+    let receipts: Vec<u64> = r
+        .receipt_outcomes()
+        .iter()
+        .map(|o| o.gas_burnt.as_gas() / 1_000_000_000)
+        .collect();
+    eprintln!(
+        "GAS create_tender (10 committee keys, example rubric): first receipt {} Ggas, largest receipt {} Ggas, tx total {} Ggas",
+        receipts.first().copied().unwrap_or(0),
+        receipts.iter().copied().max().unwrap_or(0),
+        r.total_gas_burnt.as_gas() / 1_000_000_000
+    );
+    wait_status(&env, "AwaitingFunds").await?;
     Ok(())
 }
 

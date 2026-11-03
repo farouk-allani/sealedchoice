@@ -1,7 +1,7 @@
 //! Buyer side: create_tender, the tender key (OutLayer derive_pubkey), escrow funding, cancel.
 
 use crate::events::emit;
-use crate::rubric::{is_compressed_pubkey_hex, parse_rubric};
+use crate::rubric::{is_compressed_pubkey, parse_rubric};
 use crate::*;
 use near_sdk::json_types::{U64, U128};
 use near_sdk::serde::Deserialize;
@@ -43,7 +43,7 @@ impl Contract {
             "E_COMMITTEE_SIZE",
         );
         for (i, m) in committee.iter().enumerate() {
-            require(is_compressed_pubkey_hex(&m.report_pubkey), "E_BAD_PUBKEY");
+            require(is_compressed_pubkey(&m.report_pubkey), "E_BAD_PUBKEY");
             require(
                 !committee[..i].iter().any(|o| o.account == m.account),
                 "E_COMMITTEE_DUPLICATE",
@@ -412,7 +412,7 @@ fn parse_pubkey_result(
     if out.tid != tender_id.to_string() {
         return Err("E_KEY_RESULT_TID");
     }
-    if !is_compressed_pubkey_hex(&out.pk) {
+    if !is_compressed_pubkey(&out.pk) {
         return Err("E_BAD_PUBKEY");
     }
     Ok(out.pk)

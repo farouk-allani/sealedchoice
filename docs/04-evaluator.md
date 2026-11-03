@@ -43,7 +43,7 @@ For each eligible bid, the evaluator calls three different models on NEAR AI Clo
 
 The AI never sees prices, never decides eligibility, never sees other bids, never computes totals and never ranks.
 
-The evaluator enforces the first point itself: it refuses a rubric whose qualitative `source_fields` name anything other than `methodology` and `track_record` (D-024), since the contract does not check that field.
+The evaluator enforces the first point itself: it refuses a rubric whose qualitative `source_fields` name anything other than `methodology` and `track_record` (D-024). The contract refuses the same rubrics at creation (I14, D-025), so such a tender never takes bids.
 
 ### Stage 5 — code checks the AI
 
@@ -52,6 +52,8 @@ A score of 2 or more needs at least one quote that (after normalising case and w
 ### Stage 6 — combine 3 models
 
 Lower median of the valid scores (`sorted[(n-1)//2]`). With 3 valid scores that is the true median, so **one fooled or broken model cannot move the result**. With 2 valid scores it takes the lower one (conservative). With fewer than 2, the criterion counts 0, the bid is flagged `EVAL_INCOMPLETE` and the whole result is `needs_committee`.
+
+An answer that arrives but fails validation, or a request the API refuses with a 4xx other than 401/403, is an invalid output. A call that gets no answer (no response, 5xx or 429 after the retry) is an outage, and the run publishes nothing instead of a result with no qualitative scoring behind it: HTTP 401/403 → `E_MODEL_AUTH` at once; an eligible bid with fewer answered calls than `min_valid_outputs`, or a run where no call got a 2xx response → `E_MODEL_OUTAGE`. The contract's retry runs it again; a third failure ends the tender as `Failed` with escrow, bonds and fee returned (D-020, D-024).
 
 Text score in basis points = median × 2,000.
 
