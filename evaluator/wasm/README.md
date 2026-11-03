@@ -36,10 +36,10 @@ On refusal: `{"error":"E_…","v":1}` and exit code 1. stderr carries fixed code
 | `E_INPUT` | stdin is not the JSON of a known action, has unknown fields, bad base64, or bid indices are not 0..n−1 |
 | `E_SENDER` | `NEAR_SENDER_ID` missing or not the input's `contract_id` |
 | `E_ENV` | master secret missing or not 64 hex characters |
-| `E_RUBRIC` | `rubric_json` not canonical JCS, not a rubric, or a qualitative criterion reads a non-text field |
+| `E_RUBRIC` | `rubric_json` not canonical JCS, not a rubric in either shape (scoring core, prompt), weights not 10000, `budget_cap_minor` not a positive integer string, a qualitative criterion reads a non-text field, or `min_valid_outputs` not 2 or 3 (or above the model count). `pipeline::check_rubric`, before any service; the contract refuses the same rubrics (I14) |
 | `E_ROOT_MISMATCH` | the bids do not hash to `bids_root` |
 | `E_ATTEMPT` | `attempt` outside 1..=3 |
-| `E_PROMPT` | the user template could not be rendered (missing question or anchor) |
+| `E_PROMPT` | the user template could not be rendered (missing question or anchor); `check_rubric` renders it once before any service |
 | `E_SCORING` | the scoring core refused (weights, JCS of the bundle, result over 900 bytes, …) |
 | `E_SERVICE` | an external service failed or is unavailable in this build; or the bundle store refused twice |
 | `E_MODEL_AUTH` | the model API answered 401 or 403 (key refused or revoked): the run stops at that call, nothing is stored, the contract's retry applies (D-024) |

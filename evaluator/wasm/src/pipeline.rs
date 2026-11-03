@@ -15,7 +15,7 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use evaluator_core::keys::{SecretKey, tender_key};
 use evaluator_core::merkle::{Hash, hex, merkle_leaf, merkle_root, parse_hash, sha256};
-use evaluator_core::scoring::{BidInput, check_eligibility, parse_model_output};
+use evaluator_core::scoring::{BidInput, check_eligibility, is_pos_int_str, parse_model_output};
 use evaluator_core::{Rubric, compact_result, jcs};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -71,6 +71,69 @@ pub fn derive_pubkey(
     )?)
 }
 
+/// A rubric the evaluator can run: both shapes it is read in, and its hash.
+pub struct CheckedRubric {
+    pub rubric: Rubric,
+    pub prompt: PromptRubric,
+    pub hash: Hash,
+}
+
+/// Every check the evaluator makes on a rubric, all before any service is called. The contract's
+/// `create_tender` refuses every rubric this refuses (invariant I14, docs/03-contract.md), so a
+/// tender that takes bids can be evaluated; a contract test runs both on the same rubrics.
+///
+/// - `rubric_json` is its own JCS form, so its hash is the one the contract stored;
+/// - it reads as the scoring core's `Rubric` and as the prompt's `PromptRubric`;
+/// - weights sum to 10000 and `budget_cap_minor` is a positive integer string;
+/// - qualitative criteria read only text fields (AI never sees prices);
+/// - `min_valid_outputs` is 2 or 3 and at most the number of models, so a result always has
+///   qualitative scoring from at least two models behind it (D-024 outage rule);
+/// - the user template renders: every qualitative criterion has a question and anchors 0–5.
+pub fn check_rubric(rubric_json: &str) -> Result<CheckedRubric, RunError> {
+    let value: Value = serde_json::from_str(rubric_json)
+        .map_err(|_| RunError::Rubric("rubric_json is not JSON"))?;
+    if jcs(&value).ok().as_deref() != Some(rubric_json.as_bytes()) {
+        return Err(RunError::Rubric("rubric_json is not canonical JCS"));
+    }
+    let rubric: Rubric =
+        serde_json::from_value(value.clone()).map_err(|_| RunError::Rubric("rubric fields"))?;
+    let prompt: PromptRubric =
+        serde_json::from_value(value).map_err(|_| RunError::Rubric("rubric prompt fields"))?;
+    let weights = rubric
+        .criteria
+        .iter()
+        .try_fold(0u64, |acc, c| acc.checked_add(c.weight_bp()));
+    if weights != Some(evaluator_core::BP) {
+        return Err(RunError::Rubric("weights do not sum to 10000"));
+    }
+    if !is_pos_int_str(Some(&Value::String(rubric.budget_cap_minor.clone()))) {
+        return Err(RunError::Rubric("budget_cap_minor"));
+    }
+    if prompt
+        .criteria
+        .iter()
+        .filter(|c| c.kind == "qualitative")
+        .flat_map(|c| c.source_fields.iter())
+        .any(|f| !PROMPT_FIELDS.contains(&f.as_str()))
+    {
+        return Err(RunError::Rubric(
+            "a qualitative criterion reads a non-text field",
+        ));
+    }
+    let min_valid = rubric.aggregation.min_valid_outputs;
+    if !(2..=3).contains(&min_valid) || min_valid > rubric.models.len() {
+        return Err(RunError::Rubric(
+            "min_valid_outputs is not 2 or 3, or exceeds the number of models",
+        ));
+    }
+    prompt::render_user(&prompt, "", &|_| String::new())?;
+    Ok(CheckedRubric {
+        rubric,
+        prompt,
+        hash: sha256(rubric_json.as_bytes()),
+    })
+}
+
 /// Nonce for the attestation fetch: `sha256(bids_root || u32le(attempt))`, hex (D-024).
 pub fn attestation_nonce(root: &Hash, attempt: u8) -> String {
     evaluator_core::run::attestation_nonce(root, u32::from(attempt))
@@ -102,29 +165,11 @@ pub fn evaluate(
         return Err(RunError::Attempt);
     }
 
-    // Rubric: canonical JCS (so its hash is the one the contract stored), usable, and every
-    // qualitative criterion reads only text fields.
-    let rubric_value: Value = serde_json::from_str(&input.rubric_json)
-        .map_err(|_| RunError::Rubric("rubric_json is not JSON"))?;
-    if jcs(&rubric_value).ok().as_deref() != Some(input.rubric_json.as_bytes()) {
-        return Err(RunError::Rubric("rubric_json is not canonical JCS"));
-    }
-    let rubric_hash = sha256(input.rubric_json.as_bytes());
-    let rubric: Rubric = serde_json::from_value(rubric_value.clone())
-        .map_err(|_| RunError::Rubric("rubric fields"))?;
-    let prompt_rubric: PromptRubric = serde_json::from_value(rubric_value)
-        .map_err(|_| RunError::Rubric("rubric prompt fields"))?;
-    if prompt_rubric
-        .criteria
-        .iter()
-        .filter(|c| c.kind == "qualitative")
-        .flat_map(|c| c.source_fields.iter())
-        .any(|f| !PROMPT_FIELDS.contains(&f.as_str()))
-    {
-        return Err(RunError::Rubric(
-            "a qualitative criterion reads a non-text field",
-        ));
-    }
+    let CheckedRubric {
+        rubric,
+        prompt: prompt_rubric,
+        hash: rubric_hash,
+    } = check_rubric(&input.rubric_json)?;
 
     // Bids: indices 0..n-1, ciphertexts decode, leaves hash to the frozen root.
     if input.bids.is_empty() {

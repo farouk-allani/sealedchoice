@@ -6,6 +6,7 @@ use crate::MAX_RUBRIC_BYTES;
 use near_sdk::serde::Deserialize;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, env};
+use std::collections::BTreeMap;
 
 pub const BP: u64 = 10_000;
 pub const MAX_SAFE_INT: u64 = (1 << 53) - 1;
@@ -49,6 +50,118 @@ struct AwardPolicy {
     acceptance_window_hours: u64,
 }
 
+// ---------------------------------------------- the rubric as the evaluator reads it (I14) ---
+//
+// Same field names and types as evaluator/core `Rubric` and evaluator/wasm `PromptRubric`, so a
+// rubric that deserializes here deserializes there (`usize` there is `u32` here: the evaluator
+// runs on wasm32). Serde reading the fields is the check, so most are never read afterwards.
+
+/// Proposal fields a qualitative criterion may show a model (evaluator/wasm `PROMPT_FIELDS`):
+/// price, delivery and identity never reach a prompt.
+pub const PROMPT_FIELDS: [&str; 2] = ["methodology", "track_record"];
+
+/// Anchors the prompt's user template shows for every qualitative criterion.
+const PROMPT_ANCHORS: [&str; 6] = ["0", "1", "2", "3", "4", "5"];
+
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+#[allow(dead_code)]
+struct ScoringShape {
+    budget_cap_minor: String,
+    max_delivery_days: u64,
+    criteria: Vec<ScoringCriterion>,
+    eligibility: ScoringEligibility,
+    models: Vec<String>,
+    aggregation: ScoringAggregation,
+}
+
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", tag = "type")]
+#[allow(dead_code)]
+enum ScoringCriterion {
+    #[serde(rename = "price_lowest_ratio")]
+    PriceLowestRatio { id: String, weight_bp: u64 },
+    #[serde(rename = "qualitative")]
+    Qualitative {
+        id: String,
+        weight_bp: u64,
+        source_fields: Vec<String>,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+#[allow(dead_code)]
+struct ScoringEligibility {
+    require_price_lte_cap: bool,
+    require_delivery_lte_max: bool,
+    required_fields: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+#[allow(dead_code)]
+struct ScoringAggregation {
+    min_valid_outputs: u32,
+    disagreement_threshold: u8,
+    evidence_min_chars: u32,
+    evidence_required_from_score: u8,
+    evidence_clamp_score: u8,
+}
+
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+#[allow(dead_code)]
+struct PromptShape {
+    title: String,
+    scope: String,
+    criteria: Vec<PromptCriterion>,
+}
+
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+#[allow(dead_code)]
+struct PromptCriterion {
+    id: String,
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default)]
+    question: Option<String>,
+    #[serde(default)]
+    anchors: Option<BTreeMap<String, String>>,
+    #[serde(default)]
+    source_fields: Vec<String>,
+}
+
+/// I14: refuses every rubric the evaluator refuses (evaluator/wasm `check_rubric`), so a tender
+/// that takes bids can be evaluated. JCS, weights, the budget cap and 3 models are checked in
+/// `parse_rubric` before this.
+fn check_evaluable(value: &Value) -> Result<(), &'static str> {
+    let scoring = ScoringShape::deserialize(value).map_err(|_| "E_RUBRIC_FIELDS")?;
+    let prompt = PromptShape::deserialize(value).map_err(|_| "E_RUBRIC_FIELDS")?;
+    let qualitative = || prompt.criteria.iter().filter(|c| c.kind == "qualitative");
+    if qualitative()
+        .flat_map(|c| c.source_fields.iter())
+        .any(|f| !PROMPT_FIELDS.contains(&f.as_str()))
+    {
+        return Err("E_RUBRIC_SOURCE_FIELDS");
+    }
+    // At least two models' answers behind every result (D-024 outage rule); 3 models exactly.
+    if !(2..=3).contains(&scoring.aggregation.min_valid_outputs) {
+        return Err("E_RUBRIC_AGGREGATION");
+    }
+    let renders = |c: &PromptCriterion| {
+        c.question.is_some()
+            && c.anchors
+                .as_ref()
+                .is_some_and(|a| PROMPT_ANCHORS.iter().all(|k| a.contains_key(*k)))
+    };
+    if !qualitative().all(renders) {
+        return Err("E_RUBRIC_PROMPT");
+    }
+    Ok(())
+}
+
 /// Validates the rubric and returns the parts the contract stores.
 /// Errors are the `E_*` codes listed in contracts/tender/README.md.
 pub fn parse_rubric(rubric_json: &str, committee_len: usize) -> Result<ParsedRubric, &'static str> {
@@ -62,7 +175,7 @@ pub fn parse_rubric(rubric_json: &str, committee_len: usize) -> Result<ParsedRub
     if value.get("v").and_then(Value::as_u64) != Some(1) {
         return Err("E_RUBRIC_VERSION");
     }
-    let head: RubricHead = serde_json::from_value(value).map_err(|_| "E_RUBRIC_FIELDS")?;
+    let head = RubricHead::deserialize(&value).map_err(|_| "E_RUBRIC_FIELDS")?;
 
     let weights = head
         .criteria
@@ -94,6 +207,7 @@ pub fn parse_rubric(rubric_json: &str, committee_len: usize) -> Result<ParsedRub
     if !(1..=720).contains(&hours) {
         return Err("E_RUBRIC_WINDOW");
     }
+    check_evaluable(&value)?;
     Ok(ParsedRubric {
         hash_hex: hex(&env::sha256(rubric_json.as_bytes())),
         currency_token,
@@ -112,14 +226,32 @@ pub fn parse_amount(s: &str) -> Option<u128> {
     if ok { s.parse().ok() } else { None }
 }
 
-/// Compressed secp256k1 public key format: 66 lowercase hex chars, prefix 02 or 03.
-/// (Format only; the contract does not check curve membership.)
-pub fn is_compressed_pubkey_hex(s: &str) -> bool {
+/// A compressed secp256k1 public key: 66 lowercase hex characters, prefix 02 or 03, and a point
+/// on the curve (I15). The evaluator cannot encrypt to a key that is not a point, so its reader
+/// would get no debrief or report.
+pub fn is_compressed_pubkey(s: &str) -> bool {
     let b = s.as_bytes();
-    b.len() == 66
+    let format = b.len() == 66
         && b[0] == b'0'
         && (b[1] == b'2' || b[1] == b'3')
-        && b.iter().all(|c| matches!(c, b'0'..=b'9' | b'a'..=b'f'))
+        && b.iter().all(|c| matches!(c, b'0'..=b'9' | b'a'..=b'f'));
+    format && unhex(s).is_some_and(|bytes| k256::PublicKey::from_sec1_bytes(&bytes).is_ok())
+}
+
+/// Lowercase hex to bytes.
+fn unhex(s: &str) -> Option<Vec<u8>> {
+    let nibble = |c: u8| match c {
+        b'0'..=b'9' => Some(c - b'0'),
+        b'a'..=b'f' => Some(c - b'a' + 10),
+        _ => None,
+    };
+    if !s.len().is_multiple_of(2) {
+        return None;
+    }
+    s.as_bytes()
+        .chunks(2)
+        .map(|p| Some(nibble(p[0])? << 4 | nibble(p[1])?))
+        .collect()
 }
 
 pub fn is_sha256_hex(s: &str) -> bool {

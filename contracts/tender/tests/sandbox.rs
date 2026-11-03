@@ -702,7 +702,14 @@ async fn gas_close_and_evaluate_with_five_large_bids() -> R {
     let deadline = open_tender(&env).await?;
     for (i, v) in env.vendors.iter().enumerate() {
         assert_eq!(v.id().as_str().len(), 64);
-        check(submit(&env, v, i as u8 + 1, 4500).await?, "submit_bid");
+        let r = submit(&env, v, i as u8 + 1, 4500).await?;
+        if i == 0 {
+            eprintln!(
+                "GAS submit_bid (4500 B, debrief key checked as a curve point, I15): tx total {} Ggas",
+                r.total_gas_burnt.as_gas() / 1_000_000_000
+            );
+        }
+        check(r, "submit_bid");
     }
     cross_deadline(&env, deadline).await?;
     let (closing, rid, input) = start_eval(&env, &env.root, "close_and_evaluate").await?;

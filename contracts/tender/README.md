@@ -19,7 +19,7 @@ Status: create, tender key, escrow funding, deposits, bids, withdrawals, cancell
 
 | Method | What |
 |---|---|
-| `create_tender` | Payable. `rubric_json` (canonical JCS, checked), `deadline_ns` (string, ≥ now + min delay), `bond` (yoctoNEAR string, per bid), `committee` (`[{account, report_pubkey}]`, 1–10, unique, compressed secp256k1 hex), `evaluator_index`. Attached NEAR pays the tender's storage plus a 2,500-byte reserve for what close and evaluation add; the rest is the eval fee, split in 6 equal OutLayer deposits (derive_pubkey and evaluate, up to 3 attempts each); each must cover OutLayer's storage deposit for the largest evaluate input this tender can produce (5 maximum-size bids). Starts the OutLayer `derive_pubkey` request and returns the tender id. Status `PendingKey`. |
+| `create_tender` | Payable. `rubric_json` (canonical JCS, checked, and refused if the pinned evaluator would refuse it: I14), `deadline_ns` (string, ≥ now + min delay), `bond` (yoctoNEAR string, per bid), `committee` (`[{account, report_pubkey}]`, 1–10, unique, compressed secp256k1 points in hex: I15), `evaluator_index`. Attached NEAR pays the tender's storage plus a 2,500-byte reserve for what close and evaluation add; the rest is the eval fee, split in 6 equal OutLayer deposits (derive_pubkey and evaluate, up to 3 attempts each); each must cover OutLayer's storage deposit for the largest evaluate input this tender can produce (5 maximum-size bids). Starts the OutLayer `derive_pubkey` request and returns the tender id. Status `PendingKey`. |
 | `retry_pubkey` | Buyer, in `PendingKey`, only while the fee still covers 3 evaluation attempts after this request (so at most 2 retries). |
 | `on_pubkey` | `#[private]` callback. Reads OutLayer's result (the evaluator's stdout as a JSON string, `null` on failure), expects `{"v":1,"tid":"<id>","pk":"02…"}`. Success: key stored, status `AwaitingFunds`. Anything else: logged, status unchanged. |
 | `ft_on_transfer` | NEP-141 receiver, `msg = {"fund_tender":"<id>"}`. Accepted only from the rubric token, from the buyer, in `AwaitingFunds`, before the deadline, for exactly the budget cap; otherwise every token is returned. Status `Open`. |
@@ -33,7 +33,7 @@ Status: create, tender key, escrow funding, deposits, bids, withdrawals, cancell
 |---|---|
 | `deposit` | Payable. Credits the caller's balance for a tender (for a function-call key, which cannot attach deposits). Storage of a new balance entry is paid from the deposit. |
 | `withdraw_balance` | Returns the caller's whole balance for a tender. |
-| `submit_bid` | Payable or from balance. `ciphertext_b64` (standard base64, 1–4500 decoded bytes), `debrief_pubkey`. Requires `Open`, before the deadline, no active bid from the caller, fewer than 5 active bids, a ciphertext hash never seen in this tender, attached + balance ≥ bond + storage. Excess attached deposit is refunded. Returns `{slot, ciphertext_sha256, submitted_at_ns}`. |
+| `submit_bid` | Payable or from balance. `ciphertext_b64` (standard base64, 1–4500 decoded bytes), `debrief_pubkey` (a compressed secp256k1 point, I15). Requires `Open`, before the deadline, no active bid from the caller, fewer than 5 active bids, a ciphertext hash never seen in this tender, attached + balance ≥ bond + storage. Excess attached deposit is refunded. Returns `{slot, ciphertext_sha256, submitted_at_ns}`. |
 | `withdraw_bid` | Before the deadline. Refunds the bond once, frees the slot; the ciphertext hash stays used. |
 
 ### Anyone
@@ -62,7 +62,7 @@ All nanosecond times are JSON strings (`U64`): they exceed JavaScript's safe int
 | `E_BAD_CIPHERTEXT` | Ciphertext is not standard base64, or empty |
 | `E_BAD_EVALUATOR` | Evaluator ref: hash not 64 lowercase hex, URL not https, target not wasm32-wasip2, or empty tag |
 | `E_BAD_MSG` | `ft_on_transfer` msg is not `{"fund_tender":"<id>"}` (tokens returned) |
-| `E_BAD_PUBKEY` | Not a compressed secp256k1 public key in lowercase hex (66 chars, 02/03 prefix) |
+| `E_BAD_PUBKEY` | Not a compressed secp256k1 public key in lowercase hex (66 chars, 02/03 prefix) that is a point on the curve (I15) |
 | `E_BAD_STATUS` | The tender's status does not allow this call |
 | `E_BOND_SETTLED` | The bond of this bid was already settled |
 | `E_CIPHERTEXT_TOO_LARGE` | Decoded ciphertext over 4500 bytes |
@@ -106,12 +106,15 @@ All nanosecond times are JSON strings (`U64`): they exceed JavaScript's safe int
 | `E_RESULT_TID` | Result `tid` names another tender (recorded) |
 | `E_RESULT_TOO_LARGE` | Result over 900 bytes (recorded) |
 | `E_RESULT_VERSION` | Result `v` is not 1 (recorded) |
+| `E_RUBRIC_AGGREGATION` | `aggregation.min_valid_outputs` is not 2 or 3 (every result needs at least two models' answers, D-024) |
 | `E_RUBRIC_APPROVALS` | `approvals_required` is 0, over 5, or over the committee size |
 | `E_RUBRIC_CAP` | `budget_cap_minor` is not a positive integer string of at most 30 digits |
-| `E_RUBRIC_FIELDS` | A required rubric field is missing or has the wrong type |
+| `E_RUBRIC_FIELDS` | A field the contract or the evaluator reads is missing or has the wrong type (the evaluator's two rubric shapes, I14) |
 | `E_RUBRIC_JSON` | Rubric is not JSON |
 | `E_RUBRIC_MODELS` | Not exactly 3 different, non-empty model ids |
+| `E_RUBRIC_PROMPT` | A qualitative criterion has no `question` or lacks one of the anchors 0–5 the scoring prompt shows (I14) |
 | `E_RUBRIC_NOT_CANONICAL` | Rubric is not its own JCS form (whitespace, key order, floats, integers beyond 2^53 − 1) |
+| `E_RUBRIC_SOURCE_FIELDS` | A qualitative criterion reads a field other than `methodology` or `track_record`: AI never sees prices (I14) |
 | `E_RUBRIC_TOKEN` | `currency.asset` is not `nep141:<account id>` |
 | `E_RUBRIC_TOO_LARGE` | Rubric over 16 KiB |
 | `E_RUBRIC_VERSION` | Rubric `v` is not 1 |

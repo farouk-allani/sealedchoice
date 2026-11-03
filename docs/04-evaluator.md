@@ -43,7 +43,7 @@ For each eligible bid, the evaluator calls three different models on NEAR AI Clo
 
 The AI never sees prices, never decides eligibility, never sees other bids, never computes totals and never ranks.
 
-The evaluator enforces the first point itself: it refuses a rubric whose qualitative `source_fields` name anything other than `methodology` and `track_record` (D-024), since the contract does not check that field.
+The evaluator enforces the first point itself: it refuses a rubric whose qualitative `source_fields` name anything other than `methodology` and `track_record` (D-024). The contract refuses the same rubrics at creation (I14, D-025), so such a tender never takes bids.
 
 ### Stage 5 — code checks the AI
 

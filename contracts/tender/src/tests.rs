@@ -1280,3 +1280,6 @@ fn views_page_tenders_and_carry_ns_as_strings() {
 
 #[path = "tests_evaluate.rs"]
 mod evaluate_tests;
+
+#[path = "tests_rubric.rs"]
+mod rubric_tests;
