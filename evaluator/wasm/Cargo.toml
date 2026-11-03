@@ -6,12 +6,32 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "evaluator-wasm"
 path = "src/main.rs"
 
 [dependencies]
 evaluator-core = { path = "../core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Same RustCrypto line as evaluator-core (k256 0.14, hkdf 0.13, sha2 0.11). Pure-Rust AES-GCM,
+# no OpenSSL; default config = eciespy/eciesjs (uncompressed ephemeral key, 16-byte nonce).
+ecies = { version = "=0.2.14", default-features = false, features = ["pure"] }
+base64 = "0.22.1"
+zeroize = "1.9.1"
+# ecies uses once_cell with `critical-section`; this links the std implementation it needs.
+critical-section = { version = "1.2.0", features = ["std"] }
+sha2 = "0.11.1"
+
+[features]
+# Fixture-backed services for the offline harness (evaluator/harness). Never in a release build:
+# the release WASM hash (pinned by the contract, bound to the secrets) contains none of it.
+offline = []
+# Test support (src/testkit.rs) for the wasmtime harness; host builds only.
+testkit = []
 
 [lints]
 workspace = true

@@ -266,11 +266,12 @@ fn hashes_and_keys_vectors() {
         "1",
     )
     .unwrap();
-    assert_eq!(hex(&sk), tk["sk_hex"].as_str().unwrap());
+    assert_eq!(hex(sk.expose()), tk["sk_hex"].as_str().unwrap());
     assert_eq!(
-        hex(&pubkey_compressed(&sk).unwrap()),
+        hex(&pubkey_compressed(sk.expose()).unwrap()),
         tk["pk_compressed_hex"].as_str().unwrap()
     );
+    assert_eq!(sk.public_compressed(), pubkey_compressed(sk.expose()));
 
     for (field, salt, account) in [
         ("debrief_key", SALT_DEBRIEF, "vendor-a.testnet"),
@@ -290,9 +291,13 @@ fn hashes_and_keys_vectors() {
             account,
         )
         .unwrap();
-        assert_eq!(hex(&sk), k["sk_hex"].as_str().unwrap(), "{field} sk");
         assert_eq!(
-            hex(&pubkey_compressed(&sk).unwrap()),
+            hex(sk.expose()),
+            k["sk_hex"].as_str().unwrap(),
+            "{field} sk"
+        );
+        assert_eq!(
+            hex(&pubkey_compressed(sk.expose()).unwrap()),
             k["pk_compressed_hex"].as_str().unwrap(),
             "{field} pk"
         );

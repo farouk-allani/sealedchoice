@@ -43,10 +43,13 @@ jobs:
         run: |
           cargo clippy --workspace --all-targets -- -D warnings
           cargo clippy -p tender-contract --features sandbox-tests --all-targets -- -D warnings
+          cargo clippy -p evaluator-wasm --all-targets --features offline,testkit -- -D warnings
       - name: Tests
         run: cargo test --workspace
       - name: Sandbox integration tests (near-workspaces, mock OutLayer, test FT)
         run: scripts/sandbox/test.sh --nocapture
+      - name: Evaluator WASM offline harness (wasmtime, fixture model outputs)
+        run: cargo test -p evaluator-harness --features run -- --nocapture
       - name: Evaluator wasm (wasm32-wasip2)
         run: |
           cargo build -p evaluator-wasm --target wasm32-wasip2 --release

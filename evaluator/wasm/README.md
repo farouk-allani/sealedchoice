@@ -1,0 +1,46 @@
+# Evaluator WASM
+
+The binary OutLayer runs (`wasm32-wasip2`). Design: [`docs/04-evaluator.md`](../../docs/04-evaluator.md). Decisions: DECISIONS D-024 (part 1), D-020 (model output parsing), D-019 (injection fold). Scoring is [`evaluator/core`](../core); this crate does input, keys, envelopes, prompts and services.
+
+Status: **part 1 (deterministic path)**. Every stage the vectors pin is built and tested. Model calls, signatures, attestation, the WASM's own hash, the request id and the HTTP bundle store sit behind traits (`src/services.rs`) with no real implementation until gates G1–G3.
+
+Build: `cargo build -p evaluator-wasm --target wasm32-wasip2 --release`. That is the default build: real services are `Unavailable`, so `evaluate` refuses with `E_SERVICE`. `--features offline` is for the harness only: fixture services and a local bundle store. Never deploy it.
+
+Tests:
+- `cargo test -p evaluator-wasm`: native, every scoring vector through the pipeline.
+- `cargo test -p evaluator-harness --features run`: the built WASM under wasmtime.
+
+## Actions (stdin JSON, built by the tender contract)
+
+| `action` | Output on stdout (JCS) |
+|---|---|
+| `derive_pubkey` `{contract_id, tender_id}` | `{"pk":"02…","tid":"<id>","v":1}`: the tender's public key |
+| `evaluate` (docs/04 §6) | the compact result (≤ 900 bytes); the bundle goes to the bundle store first |
+| `quote`, `payout_status` | `E_NOT_IMPLEMENTED` (T13) |
+
+On refusal: `{"error":"E_…","v":1}` and exit code 1. stderr carries fixed codes and counts only, never a secret, a key, bid text or a model answer.
+
+## Environment (`src/env_names.rs`)
+
+| Name | Use |
+|---|---|
+| `NEAR_SENDER_ID` | must equal the input's `contract_id` (⚠️ G1 confirms) |
+| `MASTER_SECRET` | tender-key master secret, 64 hex characters (⚠️ G1 fixes the name) |
+| `NEAR_BLOCK_HEIGHT` | written into the bundle when present |
+| `EVALUATOR_FIXTURES`, `BUNDLE_STORE_DIR` | offline build only |
+
+## Error codes
+
+| Code | Meaning |
+|---|---|
+| `E_INPUT` | stdin is not the JSON of a known action, has unknown fields, bad base64, or bid indices are not 0..n−1 |
+| `E_SENDER` | `NEAR_SENDER_ID` missing or not the input's `contract_id` |
+| `E_ENV` | master secret missing or not 64 hex characters |
+| `E_RUBRIC` | `rubric_json` not canonical JCS, not a rubric, or a qualitative criterion reads a non-text field |
+| `E_ROOT_MISMATCH` | the bids do not hash to `bids_root` |
+| `E_ATTEMPT` | `attempt` outside 1..=3 |
+| `E_PROMPT` | the user template could not be rendered (missing question or anchor) |
+| `E_SCORING` | the scoring core refused (weights, JCS of the bundle, result over 900 bytes, …) |
+| `E_ENVELOPE` | a reader key is not hex or encryption failed |
+| `E_SERVICE` | an external service failed or is unavailable in this build; or the bundle store refused twice |
+| `E_NOT_IMPLEMENTED` | `quote`, `payout_status` |

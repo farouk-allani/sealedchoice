@@ -1,10 +1,33 @@
 //! HKDF-SHA256 -> secp256k1 key derivation (docs/05-crypto-and-keys.md,
 //! reference.py `hkdf_sha256` / `derive_secp256k1` / `tender_key` / `reader_key`).
-//! Private keys returned here must never be printed, logged or put in the bundle.
+//! Private keys returned here must never be printed, logged or put in the bundle: they come back
+//! as `SecretKey`, which has no `Debug`, `Display`, `Clone` or `Serialize` and is zeroized on drop.
 
 use hkdf::Hkdf;
 use k256::elliptic_curve::sec1::ToSec1Point;
 use sha2::Sha256;
+use zeroize::Zeroize;
+
+/// A derived secp256k1 secret key (tender key, reader key). Read it with `expose` only to hand
+/// it to a cryptographic call; it cannot be printed or copied, and its bytes are zeroized on drop.
+pub struct SecretKey([u8; 32]);
+
+impl SecretKey {
+    pub fn expose(&self) -> &[u8; 32] {
+        &self.0
+    }
+
+    /// 33-byte compressed public key.
+    pub fn public_compressed(&self) -> Option<[u8; 33]> {
+        pubkey_compressed(&self.0)
+    }
+}
+
+impl Drop for SecretKey {
+    fn drop(&mut self) {
+        self.0.zeroize();
+    }
+}
 
 pub const SALT_TENDER: &[u8] = b"sealedchoice/tender-key/v1";
 pub const SALT_DEBRIEF: &[u8] = b"sealedchoice/debrief-key/v1";
@@ -31,22 +54,25 @@ pub fn is_valid_scalar(k: &[u8; 32]) -> bool {
 }
 
 /// k = HKDF-SHA256(ikm, salt, info || u8(ctr), 32) for ctr = 0, 1, … until 1 <= k < n.
-pub fn derive_secp256k1(ikm: &[u8], salt: &[u8], info: &[u8]) -> Option<[u8; 32]> {
+pub fn derive_secp256k1(ikm: &[u8], salt: &[u8], info: &[u8]) -> Option<SecretKey> {
     let mut buf = Vec::with_capacity(info.len() + 1);
     for ctr in 0..=u8::MAX {
         buf.clear();
         buf.extend_from_slice(info);
         buf.push(ctr);
-        let k = hkdf_sha256(ikm, salt, &buf)?;
+        let mut k = hkdf_sha256(ikm, salt, &buf)?;
         if is_valid_scalar(&k) {
-            return Some(k);
+            let key = SecretKey(k);
+            k.zeroize();
+            return Some(key);
         }
+        k.zeroize();
     }
     None
 }
 
 /// Per-tender bid-encryption key. Inside the TEE only (master secret = OutLayer PROTECTED_ secret).
-pub fn tender_key(master_secret: &[u8], contract_id: &str, tender_id: &str) -> Option<[u8; 32]> {
+pub fn tender_key(master_secret: &[u8], contract_id: &str, tender_id: &str) -> Option<SecretKey> {
     derive_secp256k1(
         master_secret,
         SALT_TENDER,
@@ -61,7 +87,7 @@ pub fn reader_key(
     contract_id: &str,
     tender_id: &str,
     account_id: &str,
-) -> Option<[u8; 32]> {
+) -> Option<SecretKey> {
     derive_secp256k1(
         signature,
         salt,

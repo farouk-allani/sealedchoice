@@ -43,6 +43,8 @@ For each eligible bid, the evaluator calls three different models on NEAR AI Clo
 
 The AI never sees prices, never decides eligibility, never sees other bids, never computes totals and never ranks.
 
+The evaluator enforces the first point itself: it refuses a rubric whose qualitative `source_fields` name anything other than `methodology` and `track_record` (D-024), since the contract does not check that field.
+
 ### Stage 5 — code checks the AI
 
 A score of 2 or more needs at least one quote that (after normalising case and whitespace) is at least 12 characters and actually appears in the relevant proposal fields. If not, that model's score is clamped to 1 and the bid gets `EVIDENCE_MISSING`. A model that invents praise without quoting the proposal cannot lift the score.
