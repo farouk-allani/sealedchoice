@@ -42,6 +42,8 @@ On refusal: `{"error":"E_…","v":1}` and exit code 1. stderr carries fixed code
 | `E_PROMPT` | the user template could not be rendered (missing question or anchor) |
 | `E_SCORING` | the scoring core refused (weights, JCS of the bundle, result over 900 bytes, …) |
 | `E_SERVICE` | an external service failed or is unavailable in this build; or the bundle store refused twice |
+| `E_MODEL_AUTH` | the model API answered 401 or 403 (key refused or revoked): the run stops at that call, nothing is stored, the contract's retry applies (D-024) |
+| `E_MODEL_OUTAGE` | an eligible bid got fewer answered model calls than `aggregation.min_valid_outputs` (transport errors, 5xx, 429 after the one retry): nothing is stored, the contract's retry applies (D-024) |
 | `E_NOT_IMPLEMENTED` | `quote`, `payout_status` |
 
 Recorded, not refused: a reader key (bid `debrief_pubkey` or committee `pubkey`) that is not a point on secp256k1 gets an envelope with `ecies_b64: ""` and `"error": "E_READER_KEY"`; the run goes on. A failed model call or signature fetch is recorded in `model_calls` with `error` (and `http_status`) and counts as an invalid output.

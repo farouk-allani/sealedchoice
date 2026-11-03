@@ -53,6 +53,8 @@ A score of 2 or more needs at least one quote that (after normalising case and w
 
 Lower median of the valid scores (`sorted[(n-1)//2]`). With 3 valid scores that is the true median, so **one fooled or broken model cannot move the result**. With 2 valid scores it takes the lower one (conservative). With fewer than 2, the criterion counts 0, the bid is flagged `EVAL_INCOMPLETE` and the whole result is `needs_committee`.
 
+"Valid" here means an answer that arrived and failed validation. A call that did not get an answer is an outage, and the run publishes nothing instead of a result with no qualitative scoring behind it: HTTP 401/403 → `E_MODEL_AUTH` at once; an eligible bid with fewer answered calls than `min_valid_outputs` → `E_MODEL_OUTAGE`. The contract's retry runs it again; a third failure ends the tender as `Failed` with escrow, bonds and fee returned (D-020, D-024).
+
 Text score in basis points = median × 2,000.
 
 ### Stage 7 — flags (bitmap in the on-chain result)

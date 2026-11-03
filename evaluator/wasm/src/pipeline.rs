@@ -193,7 +193,11 @@ pub fn evaluate(
         Err(e) => json!({"nonce_hex": nonce_hex, "reports": [], "error": e.0}),
     };
 
-    // One call per (eligible bid, model), then its signature.
+    // One call per (eligible bid, model), then its signature. A model outage refuses the run, so
+    // the contract's retry applies, instead of publishing a result with no qualitative scoring
+    // behind it (D-024): an authorization refusal (401/403) stops at once; a bid left with fewer
+    // answered calls than `min_valid_outputs` stops after its calls. Answers that arrive but are
+    // invalid are model judgement and stay recorded (no retry, scoring-prompt.md).
     let mut calls: Vec<CallRecord> = Vec::new();
     let mut outputs: BTreeMap<String, Vec<Value>> = BTreeMap::new();
     for &i in &eligible {
@@ -207,6 +211,7 @@ pub fn evaluate(
             &|f| field_text(pt, f),
         )?;
         let mut per_model = Vec::with_capacity(rubric.models.len());
+        let mut answered = 0usize;
         for (m, model) in rubric.models.iter().enumerate() {
             let req = ModelRequest {
                 bid_index: i,
@@ -217,6 +222,7 @@ pub fn evaluate(
             };
             match svc.models.complete(&req) {
                 Ok(reply) => {
+                    answered += 1;
                     per_model.push(
                         reply
                             .content
@@ -228,10 +234,16 @@ pub fn evaluate(
                     calls.push(CallRecord::answered(i, model, reply, signature));
                 }
                 Err(e) => {
+                    if matches!(e.http_status, Some(401 | 403)) {
+                        return Err(RunError::ModelAuth);
+                    }
                     per_model.push(Value::Null);
                     calls.push(CallRecord::failed(i, model, e));
                 }
             }
+        }
+        if answered < rubric.aggregation.min_valid_outputs {
+            return Err(RunError::ModelOutage);
         }
         outputs.insert(i.to_string(), per_model);
     }

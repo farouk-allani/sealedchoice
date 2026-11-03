@@ -724,3 +724,99 @@ fn the_committee_report_body_does_not_grow_with_the_committee() {
     // Each further member adds only a key envelope (~250 bytes of JSON).
     assert!(total10 - total1 < 9 * 400, "{total1} -> {total10}");
 }
+
+/// A model client for outage tests: answers with the fixture unless the call is listed as failing.
+struct Outage<'a> {
+    fixtures: &'a Fixtures,
+    /// (bid index, model index) of calls that fail, and the HTTP status they fail with.
+    failing: Vec<((usize, usize), Option<u16>)>,
+    calls: Cell<u32>,
+}
+
+impl crate::services::ModelClient for Outage<'_> {
+    fn complete(
+        &self,
+        req: &crate::services::ModelRequest<'_>,
+    ) -> Result<crate::services::ModelReply, crate::services::ModelFailure> {
+        self.calls.set(self.calls.get() + 1);
+        if let Some((_, status)) = self
+            .failing
+            .iter()
+            .find(|(k, _)| *k == (req.bid_index, req.model_index))
+        {
+            return Err(crate::services::ModelFailure {
+                attempts: 2,
+                request: b"{}".to_vec(),
+                response: vec![],
+                http_status: *status,
+                reason: "outage test",
+            });
+        }
+        self.fixtures.complete(req)
+    }
+}
+
+fn run_with_models(
+    case: &testkit::Case,
+    failing: Vec<((usize, usize), Option<u16>)>,
+) -> (Result<Vec<u8>, RunError>, u32, usize) {
+    let fixtures = Fixtures::from_value(&case.fixtures).unwrap();
+    let store = MemStore::default();
+    let models = Outage {
+        fixtures: &fixtures,
+        failing,
+        calls: Cell::new(0),
+    };
+    let svc = Services {
+        models: &models,
+        ..testkit::services(&fixtures, &store)
+    };
+    let r = run(case.input.to_string().as_bytes(), &testkit::env(), &svc);
+    let stored = store.0.borrow().len();
+    (r, models.calls.get(), stored)
+}
+
+#[test]
+fn a_model_outage_refuses_instead_of_publishing() {
+    let case = testkit::case("scoring-3-bids-injection.json", 1);
+    // Every call fails (transport errors, 503s): no result, nothing stored, retry applies.
+    let all: Vec<_> = (0..3)
+        .flat_map(|b| (0..3).map(move |m| ((b, m), Some(503))))
+        .collect();
+    let (r, _, stored) = run_with_models(&case, all);
+    assert_eq!(r.map_err(|e| e.code()), Err("E_MODEL_OUTAGE"));
+    assert_eq!(stored, 0);
+    // Two of bid 1's three calls fail: below min_valid_outputs (2) for that bid.
+    let (r, _, stored) = run_with_models(&case, vec![((1, 0), None), ((1, 2), Some(500))]);
+    assert_eq!(r.map_err(|e| e.code()), Err("E_MODEL_OUTAGE"));
+    assert_eq!(stored, 0);
+    // One failed call per bid still leaves two answers each: the result is published.
+    let (r, _, stored) = run_with_models(
+        &case,
+        vec![((0, 1), Some(503)), ((1, 0), None), ((2, 2), Some(429))],
+    );
+    assert!(r.is_ok());
+    assert_eq!(stored, 1);
+}
+
+#[test]
+fn an_authorization_refusal_stops_at_the_first_call() {
+    let case = testkit::case("scoring-3-bids-injection.json", 1);
+    for status in [401, 403] {
+        let (r, calls, stored) = run_with_models(&case, vec![((0, 0), Some(status))]);
+        assert_eq!(r.map_err(|e| e.code()), Err("E_MODEL_AUTH"));
+        assert_eq!(calls, 1, "no further call once the key is refused");
+        assert_eq!(stored, 0);
+    }
+}
+
+#[test]
+fn invalid_answers_are_recorded_not_refused() {
+    // Every model answers, but with output the scoring core rejects: that is model judgement,
+    // published as EVAL_INCOMPLETE / needs_committee, not an outage.
+    let mut case = testkit::case("scoring-2-bids.json", 1);
+    let junk = json!({"scores": "not a list"});
+    case.fixtures["model_outputs"] = json!({"0": [junk, junk, junk], "1": [junk, junk, junk]});
+    let (compact, _) = evaluate(&case).unwrap();
+    assert_eq!(compact["status"], "needs_committee");
+}
