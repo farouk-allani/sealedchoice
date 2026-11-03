@@ -73,9 +73,7 @@ pub fn derive_pubkey(
 
 /// Nonce for the attestation fetch: `sha256(bids_root || u32le(attempt))`, hex (D-024).
 pub fn attestation_nonce(root: &Hash, attempt: u8) -> String {
-    let mut bytes = root.to_vec();
-    bytes.extend_from_slice(&u32::from(attempt).to_le_bytes());
-    hex(&sha256(&bytes))
+    evaluator_core::run::attestation_nonce(root, u32::from(attempt))
 }
 
 /// A decrypted plaintext as the scoring core reads it: JSON via `parse_model_output` (D-020),

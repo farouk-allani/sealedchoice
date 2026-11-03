@@ -28,7 +28,7 @@ Each check prints PASS/FAIL with the data it used.
 6. **Bundle integrity**: `sha256(JCS(bundle)) == result.bundle`; `bundle.result` equals the compact result minus `bundle`; `bundle.bids_root == root`; `bundle.rubric_hash == rubric_hash`.
 7. **Model calls complete**: for every eligible bid, exactly one call per model in `rubric.models` (or a recorded error), with the model id as pinned.
 8. **Signatures**: each `signature` verifies (ECDSA, EIP-191 personal-sign over `text`, recovered address == `signing_address`); `text` contains the model id (for provider-TEE signatures) and the recorded `request_sha256:response_sha256`. Exact text format: verify at G3 and update this line.
-9. **Attestation**: the signing addresses appear in the attestation reports in the bundle; the report nonce equals `sha256(bids_root || attempt)[0..32]`. Deep verification of the TDX/GPU quotes follows NEAR AI's documented verifier; link it, run it if practical.
+9. **Attestation**: the signing addresses appear in the attestation reports in the bundle; the report nonce equals `sha256(bids_root || u32le(attempt))`, hex (`specs/test-vectors/evaluation-run.json`, D-024). Deep verification of the TDX/GPU quotes follows NEAR AI's documented verifier; link it, run it if practical.
 10. **Ranking consistency**: eligible entries sorted by total desc; ineligible flagged entries last; status consistent with flags.
 
 ## Bidder checks (`/tenders/<id>/debrief`, in the browser)

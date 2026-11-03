@@ -240,6 +240,19 @@ def key_derivation_message(contract_id: str, tender_id: str, purpose: str) -> st
             "This signature does not authorize any transaction.")
 
 
+# ------------------------------------------------------- evaluation run -----
+def attestation_nonce(bids_root: bytes, attempt: int) -> str:
+    """Nonce of the attestation fetch at the start of a run: sha256(bids_root || u32le(attempt)),
+    hex (docs/DECISIONS.md D-024). The verifier checks the report's nonce against it."""
+    return sha256(bids_root + attempt.to_bytes(4, "little")).hex()
+
+
+def prompt_boundary(bids_root: bytes, bid_index: int) -> str:
+    """Boundary of a bid's proposal in the user prompt: the first 16 hex characters of
+    sha256(bids_root || u32le(bid_index)) (specs/scoring-prompt.md)."""
+    return sha256(bids_root + bid_index.to_bytes(4, "little")).hex()[:16]
+
+
 # ------------------------------------------------------------- scoring -----
 def norm(s: str) -> str:
     s = unicodedata.normalize("NFC", s).lower()
@@ -646,6 +659,16 @@ def build_vectors() -> dict[str, dict]:
         "input": {"tender_id": "1", "bids_root": root3.hex(), "rubric_hash": rubric_hash.hex(),
                   "bundle_hash": bundle_hash.hex(), "attempt": 1},
         "json": cr.decode(), "length": len(cr), "worst_case_length_8_bids": worst_len}
+
+    # 7. evaluation run: attestation nonce and prompt boundaries for the 3-bid root
+    vec["evaluation-run.json"] = {
+        "description": "Per-run values the evaluator derives from the frozen bid-set root (bids_root = the "
+                       "3-bid root of merkle.json and compact-result.json). attestation_nonce = "
+                       "sha256(bids_root || u32le(attempt)), hex (D-024); prompt_boundary = first 16 hex of "
+                       "sha256(bids_root || u32le(bid_index)) (scoring-prompt.md).",
+        "bids_root": root3.hex(),
+        "attestation_nonce": [{"attempt": a, "nonce_hex": attestation_nonce(root3, a)} for a in (1, 2, 3)],
+        "prompt_boundary": [{"bid_index": i, "boundary": prompt_boundary(root3, i)} for i in range(5)]}
     return vec
 
 

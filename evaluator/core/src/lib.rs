@@ -9,6 +9,7 @@ pub mod error;
 pub mod jcs;
 pub mod keys;
 pub mod merkle;
+pub mod run;
 pub mod scoring;
 
 pub use compact::{COMPACT_RESULT_MAX_BYTES, compact_result};

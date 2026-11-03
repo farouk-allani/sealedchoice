@@ -520,3 +520,25 @@ fn huge_weights_are_refused_not_overflowed() {
         "E_WEIGHTS"
     );
 }
+
+#[test]
+fn evaluation_run_nonce_and_boundaries_match_the_reference() {
+    let v = load("test-vectors/evaluation-run.json");
+    let root = evaluator_core::merkle::parse_hash(v["bids_root"].as_str().unwrap()).unwrap();
+    let nonces = v["attestation_nonce"].as_array().unwrap();
+    assert_eq!(nonces.len(), 3);
+    for n in nonces {
+        let attempt = u32::try_from(n["attempt"].as_u64().unwrap()).unwrap();
+        assert_eq!(
+            evaluator_core::run::attestation_nonce(&root, attempt),
+            n["nonce_hex"].as_str().unwrap()
+        );
+    }
+    for b in v["prompt_boundary"].as_array().unwrap() {
+        let index = u32::try_from(b["bid_index"].as_u64().unwrap()).unwrap();
+        assert_eq!(
+            evaluator_core::run::prompt_boundary(&root, index),
+            b["boundary"].as_str().unwrap()
+        );
+    }
+}
