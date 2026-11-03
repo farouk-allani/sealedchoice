@@ -220,17 +220,20 @@ async fn start(tx: CallTransaction) -> R<TransactionStatus> {
     Ok(tx.transact_async().await?)
 }
 
-/// Waits for request number `known` in the mock. If the call finishes without making it (it
-/// failed), returns the call's failures as the error.
+/// Waits for request number `known` in the mock. If the call failed, returns its failures as the
+/// error. A successful call's own outcome can be final a block before the request it sent is
+/// visible (`request_execution` runs in the next block), so success alone keeps the wait going.
 async fn new_request(env: &Env, call: &TransactionStatus, known: usize) -> R<Value> {
     for _ in 0..300 {
         let reqs = requests(env).await?;
         if let Some(r) = reqs.get(known) {
             return Ok(r.clone());
         }
-        if let Poll::Ready(r) = call.status().await? {
+        if let Poll::Ready(r) = call.status().await?
+            && !r.is_success()
+        {
             return Err(format!(
-                "call finished without an OutLayer request: {}",
+                "call failed without an OutLayer request: {}",
                 failure_text(&r)
             )
             .into());
