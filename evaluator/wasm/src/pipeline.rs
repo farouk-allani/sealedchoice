@@ -25,6 +25,16 @@ use zeroize::{Zeroize, Zeroizing};
 /// reach a prompt, whatever the rubric says (docs/04 stage 4).
 pub const PROMPT_FIELDS: [&str; 2] = ["methodology", "track_record"];
 
+/// `^[a-z][a-z0-9_]{1,31}$` (rubric.schema.json; the price criterion's `"price"` matches).
+pub fn is_criterion_id(id: &str) -> bool {
+    let b = id.as_bytes();
+    (2..=32).contains(&b.len())
+        && b[0].is_ascii_lowercase()
+        && b[1..]
+            .iter()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_')
+}
+
 /// The caller of `request_execution` must be the tender contract named in the input.
 fn check_sender(env: &dyn Environment, contract_id: &str) -> Result<(), RunError> {
     match env.var(env_names::SENDER_ID) {
@@ -71,6 +81,13 @@ pub fn derive_pubkey(
     )?)
 }
 
+/// A failed call that counts as unanswered for the outage rule (D-024): no HTTP response
+/// (transport error, timeout), or 5xx / 429 after the one retry. Other statuses are the API
+/// answering this request with a refusal.
+pub fn is_outage(http_status: Option<u16>) -> bool {
+    matches!(http_status, None | Some(429) | Some(500..=599))
+}
+
 /// A rubric the evaluator can run: both shapes it is read in, and its hash.
 pub struct CheckedRubric {
     pub rubric: Rubric,
@@ -86,8 +103,11 @@ pub struct CheckedRubric {
 /// - it reads as the scoring core's `Rubric` and as the prompt's `PromptRubric`;
 /// - weights sum to 10000 and `budget_cap_minor` is a positive integer string;
 /// - qualitative criteria read only text fields (AI never sees prices);
-/// - `min_valid_outputs` is 2 or 3 and at most the number of models, so a result always has
-///   qualitative scoring from at least two models behind it (D-024 outage rule);
+/// - every criterion id matches `^[a-z][a-z0-9_]{1,31}$` (rubric.schema.json): ids become keys
+///   of the debrief's `criteria` object, and JCS refuses keys that are not ASCII;
+/// - `min_valid_outputs` is 2 or 3 and at most the number of models, so with the outage rule a
+///   published result has at least two models answering each eligible bid (the answers may still
+///   be invalid: then the bid is `EVAL_INCOMPLETE`, D-024);
 /// - the user template renders: every qualitative criterion has a question and anchors 0–5.
 pub fn check_rubric(rubric_json: &str) -> Result<CheckedRubric, RunError> {
     let value: Value = serde_json::from_str(rubric_json)
@@ -108,6 +128,9 @@ pub fn check_rubric(rubric_json: &str) -> Result<CheckedRubric, RunError> {
     }
     if !is_pos_int_str(Some(&Value::String(rubric.budget_cap_minor.clone()))) {
         return Err(RunError::Rubric("budget_cap_minor"));
+    }
+    if !rubric.criteria.iter().all(|c| is_criterion_id(c.id())) {
+        return Err(RunError::Rubric("criterion id"));
     }
     if prompt
         .criteria
@@ -241,10 +264,13 @@ pub fn evaluate(
     // One call per (eligible bid, model), then its signature. A model outage refuses the run, so
     // the contract's retry applies, instead of publishing a result with no qualitative scoring
     // behind it (D-024): an authorization refusal (401/403) stops at once; a bid left with fewer
-    // answered calls than `min_valid_outputs` stops after its calls. Answers that arrive but are
-    // invalid are model judgement and stay recorded (no retry, scoring-prompt.md).
+    // answered calls than `min_valid_outputs` stops after its calls (`is_outage`: no response,
+    // 5xx or 429 after the retry); a run where no call got a 2xx answer stops at the end. Other
+    // 4xx are the API refusing that request (a bid's text can cause them), and like answers that
+    // arrive but are invalid they stay recorded as invalid outputs (no retry, scoring-prompt.md).
     let mut calls: Vec<CallRecord> = Vec::new();
     let mut outputs: BTreeMap<String, Vec<Value>> = BTreeMap::new();
+    let mut any_reply = false;
     for &i in &eligible {
         let pt = bid_inputs[i].plaintext.as_ref();
         let user = prompt::render_user(
@@ -268,6 +294,7 @@ pub fn evaluate(
             match svc.models.complete(&req) {
                 Ok(reply) => {
                     answered += 1;
+                    any_reply = true;
                     per_model.push(
                         reply
                             .content
@@ -282,6 +309,9 @@ pub fn evaluate(
                     if matches!(e.http_status, Some(401 | 403)) {
                         return Err(RunError::ModelAuth);
                     }
+                    if !is_outage(e.http_status) {
+                        answered += 1;
+                    }
                     per_model.push(Value::Null);
                     calls.push(CallRecord::failed(i, model, e));
                 }
@@ -291,6 +321,10 @@ pub fn evaluate(
             return Err(RunError::ModelOutage);
         }
         outputs.insert(i.to_string(), per_model);
+    }
+    if !eligible.is_empty() && !any_reply {
+        // Every call was refused (e.g. no model id the API knows): no qualitative scoring at all.
+        return Err(RunError::ModelOutage);
     }
     eprintln!(
         "evaluate: {} bids, {} eligible, {} model calls",

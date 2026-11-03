@@ -110,6 +110,7 @@ All nanosecond times are JSON strings (`U64`): they exceed JavaScript's safe int
 | `E_RUBRIC_APPROVALS` | `approvals_required` is 0, over 5, or over the committee size |
 | `E_RUBRIC_CAP` | `budget_cap_minor` is not a positive integer string of at most 30 digits |
 | `E_RUBRIC_FIELDS` | A field the contract or the evaluator reads is missing or has the wrong type (the evaluator's two rubric shapes, I14) |
+| `E_RUBRIC_ID` | A criterion id does not match `^[a-z][a-z0-9_]{1,31}$` (ids are JSON keys in debriefs, I14) |
 | `E_RUBRIC_JSON` | Rubric is not JSON |
 | `E_RUBRIC_MODELS` | Not exactly 3 different, non-empty model ids |
 | `E_RUBRIC_PROMPT` | A qualitative criterion has no `question` or lacks one of the anchors 0–5 the scoring prompt shows (I14) |
