@@ -10,7 +10,8 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "verify": "tsx scripts/verify.ts"
+    "verify": "tsx scripts/verify.ts",
+    "env-status": "tsx scripts/env-status.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
