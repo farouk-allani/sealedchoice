@@ -81,6 +81,9 @@ pub fn derive_pubkey(
     )?)
 }
 
+/// The contract makes at most this many attempts (contracts/tender `MAX_ATTEMPTS`, I12).
+pub const LAST_ATTEMPT: u8 = 3;
+
 /// A failed call that counts as unanswered for the outage rule (D-024): no HTTP response
 /// (transport error, timeout), or 5xx / 429 after the one retry. Other statuses are the API
 /// answering this request with a refusal.
@@ -184,7 +187,7 @@ pub fn evaluate(
     svc: &Services<'_>,
 ) -> Result<Vec<u8>, RunError> {
     check_sender(env, &input.contract_id)?;
-    if !(1..=3).contains(&input.attempt) {
+    if !(1..=LAST_ATTEMPT).contains(&input.attempt) {
         return Err(RunError::Attempt);
     }
 
@@ -254,6 +257,18 @@ pub fn evaluate(
         }
     }
 
+    // The key check: one model API call that depends on no bid (D-024). Its failure is ours, not a
+    // bidder's, so it refuses on every attempt. Skipped when no bid is eligible (no model call).
+    if !eligible.is_empty()
+        && let Err(e) = svc.models.preflight(&rubric.models)
+    {
+        return Err(if matches!(e.http_status, Some(401 | 403)) {
+            RunError::ModelAuth
+        } else {
+            RunError::ModelOutage
+        });
+    }
+
     // Attestation for this run's nonce (a failure is recorded, scoring goes on).
     let nonce_hex = attestation_nonce(&root, input.attempt);
     let attestation = match svc.attestation.reports(&nonce_hex, &rubric.models) {
@@ -268,6 +283,12 @@ pub fn evaluate(
     // 5xx or 429 after the retry); a run where no call got a 2xx answer stops at the end. Other
     // 4xx are the API refusing that request (a bid's text can cause them), and like answers that
     // arrive but are invalid they stay recorded as invalid outputs (no retry, scoring-prompt.md).
+    // On the last attempt the key check above has passed, so a failed call may be this bid's
+    // doing: it is recorded as an invalid answer, whatever its status, and the result is published
+    // (`needs_committee`) instead of the tender ending `Failed`. A bidder must not be able to end a
+    // tender by what they write. Only a run where no call got a 2xx answer across two or more
+    // eligible bids still refuses then: no single bid's text causes that.
+    let last_attempt = input.attempt == LAST_ATTEMPT;
     let mut calls: Vec<CallRecord> = Vec::new();
     let mut outputs: BTreeMap<String, Vec<Value>> = BTreeMap::new();
     let mut any_reply = false;
@@ -306,10 +327,10 @@ pub fn evaluate(
                     calls.push(CallRecord::answered(i, model, reply, signature));
                 }
                 Err(e) => {
-                    if matches!(e.http_status, Some(401 | 403)) {
+                    if !last_attempt && matches!(e.http_status, Some(401 | 403)) {
                         return Err(RunError::ModelAuth);
                     }
-                    if !is_outage(e.http_status) {
+                    if last_attempt || !is_outage(e.http_status) {
                         answered += 1;
                     }
                     per_model.push(Value::Null);
@@ -322,8 +343,8 @@ pub fn evaluate(
         }
         outputs.insert(i.to_string(), per_model);
     }
-    if !eligible.is_empty() && !any_reply {
-        // Every call was refused (e.g. no model id the API knows): no qualitative scoring at all.
+    if !eligible.is_empty() && !any_reply && (!last_attempt || eligible.len() >= 2) {
+        // No call answered at all: no qualitative scoring behind any bid.
         return Err(RunError::ModelOutage);
     }
     eprintln!(

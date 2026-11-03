@@ -48,6 +48,10 @@ impl Fixtures {
 }
 
 impl ModelClient for Fixtures {
+    /// The fixtures answer every call, so the key check passes.
+    fn preflight(&self, _: &[String]) -> Result<(), ModelFailure> {
+        Ok(())
+    }
     fn complete(&self, req: &ModelRequest<'_>) -> Result<ModelReply, ModelFailure> {
         let request = serde_json::to_vec(&json!({
             "fixture": true,
