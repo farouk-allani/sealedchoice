@@ -151,6 +151,21 @@ fn validator(schema: &str) -> jsonschema::Validator {
     jsonschema::validator_for(&s).unwrap()
 }
 
+/// debrief.schema.json `$defs/committee_report`, with `$ref: "#"` resolving to the debrief.
+fn committee_report_validator() -> jsonschema::Validator {
+    let debrief = testkit::spec_json("schemas/debrief.schema.json");
+    let id = debrief["$id"].as_str().unwrap().to_string();
+    let registry = jsonschema::Registry::new()
+        .add(&id, &debrief)
+        .unwrap()
+        .prepare()
+        .unwrap();
+    jsonschema::options()
+        .with_registry(&registry)
+        .build(&json!({"$ref": format!("{id}#/$defs/committee_report")}))
+        .unwrap()
+}
+
 fn assert_valid(v: &jsonschema::Validator, instance: &Value, what: &str) {
     let errors: Vec<String> = v.iter_errors(instance).map(|e| e.to_string()).collect();
     assert!(errors.is_empty(), "{what} does not validate: {errors:?}");
@@ -294,16 +309,25 @@ fn evaluate_reproduces_the_three_bid_injection_vector_through_the_wasm() {
         }
     }
 
-    // Committee report: one envelope per member, each opens with that member's key; every bid
-    // entry has the debrief shape and carries the decrypted proposal.
+    // Committee report: one body, one key envelope per member; each member's key opens the body,
+    // whose plaintext validates against debrief.schema.json $defs/committee_report (every bid entry
+    // has the debrief shape) and carries the decrypted proposals.
     let members = testkit::committee();
-    let report_envelopes = bundle["committee_report"].as_array().unwrap();
-    assert_eq!(report_envelopes.len(), members.len());
-    for (env_entry, (account, _, sk)) in report_envelopes.iter().zip(&members) {
-        assert_eq!(env_entry["member"], account.as_str());
-        let plain = testkit::open(env_entry["ecies_b64"].as_str().unwrap(), sk);
-        assert_eq!(hex(&sha256(&plain)), env_entry["plaintext_sha256"]);
+    let report_env = &bundle["committee_report"];
+    assert_eq!(report_env["cipher"], "aes-256-gcm");
+    assert_eq!(report_env["keys"].as_array().unwrap().len(), members.len());
+    let report_schema = committee_report_validator();
+    assert!(
+        !report_schema.is_valid(&json!({"v": 1, "bids": [{"v": 1}]})),
+        "the report schema is loaded"
+    );
+    let mut opened = Vec::new();
+    for (i, (account, _, sk)) in members.iter().enumerate() {
+        assert_eq!(report_env["keys"][i]["member"], account.as_str());
+        let plain = testkit::open_report(report_env, i, sk);
+        assert_eq!(hex(&sha256(&plain)), report_env["plaintext_sha256"]);
         let report: Value = serde_json::from_slice(&plain).unwrap();
+        assert_valid(&report_schema, &report, "committee report");
         assert_eq!(report["rk"], compact["rk"]);
         for b in report["bids"].as_array().unwrap() {
             assert_valid(&debrief_schema, b, "committee report entry");
@@ -316,7 +340,12 @@ fn evaluate_reproduces_the_three_bid_injection_vector_through_the_wasm() {
                 case.input["bids"][b["bid_index"].as_u64().unwrap() as usize]["bidder"]
             );
         }
+        opened.push(plain);
     }
+    assert!(
+        opened.windows(2).all(|w| w[0] == w[1]),
+        "every member reads the same report"
+    );
 }
 
 #[test]
@@ -430,5 +459,8 @@ fn a_reader_key_off_the_curve_does_not_stop_the_wasm() {
         serde_json::from_slice(&std::fs::read(store_dir.join(name)).unwrap()).unwrap();
     assert_valid(&validator("evidence-bundle.schema.json"), &bundle, "bundle");
     assert_eq!(bundle["debriefs"][2]["error"], "E_READER_KEY");
-    assert_eq!(bundle["committee_report"][0]["error"], "E_READER_KEY");
+    assert_eq!(
+        bundle["committee_report"]["keys"][0]["error"],
+        "E_READER_KEY"
+    );
 }

@@ -251,8 +251,21 @@ export const evidenceBundleSchema = z.looseObject({
     reports: z.array(z.unknown()),
   }),
   result: z.record(z.string(), z.unknown()),
-  debriefs: z.array(z.looseObject({ bid_index: z.int(), ...envelopeFields })),
-  committee_report: z.array(z.looseObject({ member: z.string(), ...envelopeFields })),
+  debriefs: z.array(z.looseObject({ bid_index: z.int(), ...envelopeFields, error: z.string().optional() })),
+  // One AES-256-GCM body, one ECIES envelope of its 32-byte key per member (D-024).
+  committee_report: z.looseObject({
+    cipher: z.literal("aes-256-gcm"),
+    body_b64: z.string(),
+    plaintext_sha256: hex64,
+    keys: z.array(
+      z.looseObject({
+        member: z.string(),
+        recipient_pubkey: z.string(),
+        ecies_b64: z.string(),
+        error: z.string().optional(),
+      }),
+    ),
+  }),
 });
 
 export type EvidenceBundle = z.infer<typeof evidenceBundleSchema>;
