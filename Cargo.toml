@@ -6,6 +6,7 @@ members = [
     "contracts/mock-ft",
     "evaluator/core",
     "evaluator/wasm",
+    "evaluator/harness",
 ]
 
 [workspace.package]
