@@ -43,3 +43,7 @@ Collusion between bidders, bribes paid off-chain, a biased rubric, a committee t
 ## Privacy of the outcome
 
 Public after evaluation: who bid, when, ranks, totals, flags, the award amount and the payout transaction. Not public: proposal texts, prices of losing bids, per-criterion scores. Note: a bidder's debrief includes their own price score, from which they can compute the lowest eligible price. That is similar to publishing the lowest price in a public award notice; document it, do not hide it.
+
+The bundle publishes `request_sha256` for every model call, and a request is built only from public parts (the templates, the rubric, a boundary derived from the public root) plus the proposal. So anyone who guesses a proposal's exact text can confirm the guess against that hash. Proposals are long free text, so this only matters for a near-exact guess.
+
+A bad reader key (a `debrief_pubkey` or committee key that is not a point on secp256k1) does not stop an evaluation. That envelope is published empty with `E_READER_KEY`, and the run goes on (D-024). Otherwise a bidder, or the buyer through a committee key, could make every attempt fail and end the tender as `Failed`.

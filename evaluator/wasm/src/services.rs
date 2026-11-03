@@ -54,8 +54,23 @@ pub struct ModelReply {
     pub content: Option<String>,
 }
 
+/// A call that produced no usable answer (transport error, HTTP error after the retry, …). It keeps
+/// what was tried and exchanged: scoring-prompt.md records attempts, and every byte sent or
+/// received stays hashable.
+pub struct ModelFailure {
+    /// Tries made, 0 when nothing was sent.
+    pub attempts: u32,
+    /// The request body sent (empty when nothing was sent).
+    pub request: Vec<u8>,
+    /// The last response body received, if any.
+    pub response: Vec<u8>,
+    /// HTTP status of the last response, if any.
+    pub http_status: Option<u16>,
+    pub reason: &'static str,
+}
+
 pub trait ModelClient {
-    fn complete(&self, req: &ModelRequest<'_>) -> Result<ModelReply, ServiceError>;
+    fn complete(&self, req: &ModelRequest<'_>) -> Result<ModelReply, ModelFailure>;
 }
 
 pub trait SignatureSource {
@@ -105,8 +120,14 @@ pub struct Unavailable;
 const NOT_YET: ServiceError = ServiceError("not available in this build (part 2, gates G1/G3)");
 
 impl ModelClient for Unavailable {
-    fn complete(&self, _: &ModelRequest<'_>) -> Result<ModelReply, ServiceError> {
-        Err(NOT_YET)
+    fn complete(&self, _: &ModelRequest<'_>) -> Result<ModelReply, ModelFailure> {
+        Err(ModelFailure {
+            attempts: 0,
+            request: Vec::new(),
+            response: Vec::new(),
+            http_status: None,
+            reason: NOT_YET.0,
+        })
     }
 }
 impl SignatureSource for Unavailable {
