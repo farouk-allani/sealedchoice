@@ -25,14 +25,10 @@ pub fn prompt_hash() -> String {
     hex(&sha256(&bytes))
 }
 
-/// First 16 hex characters of `sha256(bids_root || u32le(bid_index))`.
+/// First 16 hex characters of `sha256(bids_root || u32le(bid_index))`
+/// (`evaluator_core::run::prompt_boundary`, pinned by evaluation-run.json).
 pub fn boundary(bids_root: &Hash, bid_index: u32) -> String {
-    let mut bytes = Vec::with_capacity(36);
-    bytes.extend_from_slice(bids_root);
-    bytes.extend_from_slice(&bid_index.to_le_bytes());
-    let mut h = hex(&sha256(&bytes));
-    h.truncate(16);
-    h
+    evaluator_core::run::prompt_boundary(bids_root, bid_index)
 }
 
 /// Removes every boundary marker from supplier text, repeating until none is left (removing one

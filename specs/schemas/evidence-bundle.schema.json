@@ -70,7 +70,7 @@
     },
     "attestation": {
       "type": "object",
-      "description": "NEAR AI attestation report(s) fetched by the evaluator at the start of the run with nonce = first 32 bytes of sha256(bids_root || attempt). Lets anyone check that signing addresses belong to attested TEEs.",
+      "description": "NEAR AI attestation report(s) fetched by the evaluator at the start of the run with nonce = sha256(bids_root || u32le(attempt)), hex (specs/test-vectors/evaluation-run.json, D-024). Lets anyone check that signing addresses belong to attested TEEs.",
       "required": ["nonce_hex", "reports"],
       "properties": {
         "nonce_hex": {"type": "string"},
