@@ -26,3 +26,7 @@ export const TEXT_LIMITS_BYTES = {
 export const BP = 10_000;
 /** Qualitative scores are integers 0..5. */
 export const QUAL_MAX = 5;
+
+/** Largest evidence bundle the bundle store accepts (T06). ⚠️ Check against real bundles at T05/T07
+ * (attestation reports dominate their size). */
+export const MAX_BUNDLE_BYTES = 2 * 1024 * 1024;

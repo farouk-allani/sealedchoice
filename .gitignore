@@ -33,3 +33,6 @@ publish/out/
 
 # Next.js generated types
 next-env.d.ts
+
+# local bundle store (apps/web, BUNDLE_STORE_BACKEND=local)
+.bundle-store/
