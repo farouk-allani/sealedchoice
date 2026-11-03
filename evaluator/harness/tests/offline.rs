@@ -245,11 +245,20 @@ fn evaluate_reproduces_the_three_bid_injection_vector_through_the_wasm() {
     let mut result = compact.clone();
     result.as_object_mut().unwrap().remove("bundle");
     assert_eq!(bundle["result"], result);
-    let public = String::from_utf8_lossy(&bytes);
-    assert!(
-        !public.contains("12000000000"),
-        "no price in the public bundle"
-    );
+    let public = String::from_utf8_lossy(&bytes).to_string();
+    let prices: Vec<String> =
+        testkit::spec_json("test-vectors/scoring-3-bids-injection.json")["bids"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| b["plaintext"]["price_minor"].as_str().unwrap().to_string())
+            .collect();
+    for p in &prices {
+        assert!(
+            !public.contains(p.as_str()),
+            "no price in the public bundle"
+        );
+    }
     eprintln!("bundle: {} bytes", bytes.len());
 
     // Debriefs: decrypt with the bidder's reader key, schema-valid, scores of the vector.
@@ -277,10 +286,11 @@ fn evaluate_reproduces_the_three_bid_injection_vector_through_the_wasm() {
                 .find(|c| c["chat_id"] == raw["chat_id"])
                 .unwrap();
             assert_eq!(call["request_sha256"], hex(&sha256(&req)));
-            assert!(
-                !String::from_utf8_lossy(&req).contains("12000000000"),
-                "no price in a prompt"
-            );
+            let req = String::from_utf8_lossy(&req);
+            assert!(!req.contains("price_minor"), "no price field in a prompt");
+            for p in &prices {
+                assert!(!req.contains(p.as_str()), "no price in a prompt");
+            }
         }
     }
 
@@ -381,4 +391,44 @@ fn derive_pubkey_through_the_release_wasm() {
     );
     assert!(!r.ok);
     assert_eq!(r.stdout, br#"{"error":"E_SERVICE","v":1}"#);
+}
+
+#[test]
+fn a_reader_key_off_the_curve_does_not_stop_the_wasm() {
+    let mut case = testkit::case("scoring-3-bids-injection.json", 1);
+    let off_curve = format!("02{}", "00".repeat(32));
+    case.input["bids"][2]["debrief_pubkey"] = json!(off_curve);
+    case.input["committee"][0]["pubkey"] = json!(off_curve);
+    let dir = scratch("reader-key");
+    std::fs::write(
+        dir.join("fixtures/fixtures.json"),
+        case.fixtures.to_string(),
+    )
+    .unwrap();
+    let mut env = base_env();
+    env.push((
+        env_names::OFFLINE_FIXTURES,
+        "/fixtures/fixtures.json".into(),
+    ));
+    env.push((env_names::OFFLINE_BUNDLE_DIR, "/store".into()));
+    let fixtures_dir = dir.join("fixtures");
+    let store_dir = dir.join("store");
+    let r = run_wasm(
+        offline_wasm(),
+        case.input.to_string().as_bytes(),
+        &env,
+        &[
+            (&fixtures_dir, "/fixtures", false),
+            (&store_dir, "/store", true),
+        ],
+    );
+    assert!(r.ok, "{}", String::from_utf8_lossy(&r.stderr));
+    let compact: Value = serde_json::from_slice(&r.stdout).unwrap();
+    assert_eq!(compact["rk"], case.expected["ranking"]);
+    let name = format!("{}.json", compact["bundle"].as_str().unwrap());
+    let bundle: Value =
+        serde_json::from_slice(&std::fs::read(store_dir.join(name)).unwrap()).unwrap();
+    assert_valid(&validator("evidence-bundle.schema.json"), &bundle, "bundle");
+    assert_eq!(bundle["debriefs"][2]["error"], "E_READER_KEY");
+    assert_eq!(bundle["committee_report"][0]["error"], "E_READER_KEY");
 }

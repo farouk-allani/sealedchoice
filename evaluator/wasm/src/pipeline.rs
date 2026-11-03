@@ -19,7 +19,7 @@ use evaluator_core::scoring::{BidInput, check_eligibility, parse_model_output};
 use evaluator_core::{Rubric, compact_result, jcs};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
-use zeroize::Zeroizing;
+use zeroize::{Zeroize, Zeroizing};
 
 /// Proposal fields a qualitative criterion may show a model. Price, delivery and identity never
 /// reach a prompt, whatever the rubric says (docs/04 stage 4).
@@ -40,9 +40,11 @@ fn master_secret(env: &dyn Environment) -> Result<Zeroizing<Vec<u8>>, RunError> 
             .ok_or(RunError::Env("master secret not set"))?,
     );
     let lower = Zeroizing::new(text.trim().to_ascii_lowercase());
-    let bytes =
+    let mut bytes =
         parse_hash(&lower).ok_or(RunError::Env("master secret is not 64 hex characters"))?;
-    Ok(Zeroizing::new(bytes.to_vec()))
+    let secret = Zeroizing::new(bytes.to_vec());
+    bytes.zeroize();
+    Ok(secret)
 }
 
 fn derive_tender_key(

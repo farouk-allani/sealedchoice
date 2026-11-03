@@ -11,7 +11,7 @@
 
 use crate::error::RunError;
 use crate::input::EvaluateInput;
-use crate::services::{ModelReply, ServiceError};
+use crate::services::{ModelFailure, ModelReply, ServiceError};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use evaluator_core::merkle::{Hash, hex, sha256};
@@ -38,9 +38,8 @@ pub struct BidRecord {
 pub struct CallRecord {
     pub bid_index: usize,
     pub model: String,
-    pub reply: Option<ModelReply>,
+    pub outcome: Result<ModelReply, ModelFailure>,
     pub signature: Result<Value, ServiceError>,
-    pub error: Option<&'static str>,
 }
 
 impl CallRecord {
@@ -53,66 +52,77 @@ impl CallRecord {
         CallRecord {
             bid_index,
             model: model.to_string(),
-            reply: Some(reply),
+            outcome: Ok(reply),
             signature,
-            error: None,
         }
     }
 
-    pub fn failed(bid_index: usize, model: &str, e: ServiceError) -> Self {
+    pub fn failed(bid_index: usize, model: &str, failure: ModelFailure) -> Self {
         CallRecord {
             bid_index,
             model: model.to_string(),
-            reply: None,
-            signature: Err(ServiceError("no call")),
-            error: Some(e.0),
+            outcome: Err(failure),
+            signature: Err(ServiceError("no answer")),
         }
     }
 
-    /// Public entry (evidence-bundle.schema.json `model_calls`): hashes, never the bytes.
+    fn chat_id(&self) -> &str {
+        self.outcome.as_ref().map_or("", |r| r.chat_id.as_str())
+    }
+
+    fn bytes(&self) -> (&[u8], &[u8]) {
+        match &self.outcome {
+            Ok(r) => (&r.request, &r.response),
+            Err(f) => (&f.request, &f.response),
+        }
+    }
+
+    /// Public entry (evidence-bundle.schema.json `model_calls`): hashes, never the bytes. A failed
+    /// call keeps its attempts and the hashes of what was exchanged, plus `error` (and
+    /// `http_status`); a missing signature leaves its fields empty and says so in `error`.
     fn public(&self) -> Value {
         let empty_signature =
             json!({"text": "", "signature": "", "signing_address": "", "signing_algo": ""});
-        let mut entry = match &self.reply {
-            Some(r) => json!({
-                "bid_index": self.bid_index,
-                "model": self.model,
-                "chat_id": r.chat_id,
-                "attempts": r.attempts,
-                "request_sha256": hex(&sha256(&r.request)),
-                "response_sha256": hex(&sha256(&r.response)),
-                "signature": self.signature.as_ref().map_or(empty_signature.clone(), Clone::clone),
-            }),
-            None => json!({
-                "bid_index": self.bid_index,
-                "model": self.model,
-                "chat_id": "",
-                "attempts": 0,
-                "request_sha256": hex(&sha256(b"")),
-                "response_sha256": hex(&sha256(b"")),
-                "signature": empty_signature,
-            }),
+        let (request, response) = self.bytes();
+        let attempts = match &self.outcome {
+            Ok(r) => r.attempts,
+            Err(f) => f.attempts,
         };
-        let error = match (&self.error, &self.signature) {
-            (Some(e), _) => Some(format!("call: {e}")),
-            (None, Err(e)) => Some(format!("signature: {}", e.0)),
-            (None, Ok(_)) => None,
-        };
-        if let (Some(e), Some(o)) = (error, entry.as_object_mut()) {
-            o.insert("error".into(), Value::String(e));
+        let mut entry = json!({
+            "bid_index": self.bid_index,
+            "model": self.model,
+            "chat_id": self.chat_id(),
+            "attempts": attempts,
+            "request_sha256": hex(&sha256(request)),
+            "response_sha256": hex(&sha256(response)),
+            "signature": self.signature.as_ref().map_or(empty_signature, Clone::clone),
+        });
+        if let Some(o) = entry.as_object_mut() {
+            match (&self.outcome, &self.signature) {
+                (Err(f), _) => {
+                    o.insert("error".into(), Value::String(format!("call: {}", f.reason)));
+                    if let Some(s) = f.http_status {
+                        o.insert("http_status".into(), json!(s));
+                    }
+                }
+                (Ok(_), Err(e)) => {
+                    o.insert("error".into(), Value::String(format!("signature: {}", e.0)));
+                }
+                (Ok(_), Ok(_)) => {}
+            }
         }
         entry
     }
 
-    /// Private entry (debrief `raw_calls`): the exact bytes.
-    fn raw(&self) -> Option<Value> {
-        let r = self.reply.as_ref()?;
-        Some(json!({
+    /// Private entry (debrief `raw_calls`): the exact bytes, failed calls included.
+    fn raw(&self) -> Value {
+        let (request, response) = self.bytes();
+        json!({
             "model": self.model,
-            "chat_id": r.chat_id,
-            "request_b64": STANDARD.encode(&r.request),
-            "response_b64": STANDARD.encode(&r.response),
-        }))
+            "chat_id": self.chat_id(),
+            "request_b64": STANDARD.encode(request),
+            "response_b64": STANDARD.encode(response),
+        })
     }
 }
 
@@ -137,11 +147,33 @@ pub struct Built {
     pub bundle_hash: Hash,
 }
 
-/// ECIES envelope to a compressed secp256k1 public key (hex): eciesjs/eciespy format.
-fn envelope(pubkey_hex: &str, plaintext: &[u8]) -> Result<(String, String), RunError> {
-    let pk = decode_hex(pubkey_hex).ok_or(RunError::Envelope("reader key is not hex"))?;
-    let ct = ecies::encrypt(&pk, plaintext).map_err(|_| RunError::Envelope("encrypt"))?;
-    Ok((STANDARD.encode(ct), hex(&sha256(plaintext))))
+/// ECIES envelope to a compressed secp256k1 public key (hex), eciesjs/eciespy format, added to
+/// `fields`. The contract checks only the key's format, so a key off the curve can reach us: that
+/// envelope is written empty with `"error":"E_READER_KEY"` instead of failing the run, so neither
+/// a bidder nor the buyer can make every attempt fail with a bad reader key.
+fn envelope(fields: Value, pubkey_hex: &str, plaintext: &[u8]) -> Value {
+    let sealed = decode_hex(pubkey_hex).and_then(|pk| ecies::encrypt(&pk, plaintext).ok());
+    let mut entry = fields;
+    if let Some(o) = entry.as_object_mut() {
+        o.insert(
+            "recipient_pubkey".into(),
+            Value::String(pubkey_hex.to_string()),
+        );
+        o.insert(
+            "plaintext_sha256".into(),
+            Value::String(hex(&sha256(plaintext))),
+        );
+        match sealed {
+            Some(ct) => {
+                o.insert("ecies_b64".into(), Value::String(STANDARD.encode(ct)));
+            }
+            None => {
+                o.insert("ecies_b64".into(), Value::String(String::new()));
+                o.insert("error".into(), Value::String("E_READER_KEY".into()));
+            }
+        }
+    }
+    entry
 }
 
 fn decode_hex(s: &str) -> Option<Vec<u8>> {
@@ -185,7 +217,7 @@ pub fn build(c: &Context<'_>) -> Result<Built, RunError> {
             .calls
             .iter()
             .filter(|k| k.bid_index == b.index)
-            .filter_map(CallRecord::raw)
+            .map(CallRecord::raw)
             .collect();
         debriefs_plain.push(json!({
             "v": 1,
@@ -203,13 +235,11 @@ pub fn build(c: &Context<'_>) -> Result<Built, RunError> {
     }
     let mut debriefs = Vec::with_capacity(n);
     for (b, d) in c.bids.iter().zip(&debriefs_plain) {
-        let (ecies_b64, plaintext_sha256) = envelope(&b.debrief_pubkey, &jcs(d)?)?;
-        debriefs.push(json!({
-            "bid_index": b.index,
-            "recipient_pubkey": b.debrief_pubkey,
-            "ecies_b64": ecies_b64,
-            "plaintext_sha256": plaintext_sha256,
-        }));
+        debriefs.push(envelope(
+            json!({"bid_index": b.index}),
+            &b.debrief_pubkey,
+            &jcs(d)?,
+        ));
     }
 
     // Committee report: every debrief plus the decrypted proposal, encrypted per member.
@@ -233,16 +263,12 @@ pub fn build(c: &Context<'_>) -> Result<Built, RunError> {
         "lowest_eligible_price_minor": c.ev.lowest_eligible_price_minor,
         "bids": report_bids,
     }))?;
-    let mut committee_report = Vec::with_capacity(c.input.committee.len());
-    for m in &c.input.committee {
-        let (ecies_b64, plaintext_sha256) = envelope(&m.pubkey, &report_plain)?;
-        committee_report.push(json!({
-            "member": m.account,
-            "recipient_pubkey": m.pubkey,
-            "ecies_b64": ecies_b64,
-            "plaintext_sha256": plaintext_sha256,
-        }));
-    }
+    let committee_report: Vec<Value> = c
+        .input
+        .committee
+        .iter()
+        .map(|m| envelope(json!({"member": m.account}), &m.pubkey, &report_plain))
+        .collect();
 
     // Public bundle.
     let bids: Vec<Value> = c

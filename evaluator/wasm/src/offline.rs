@@ -9,8 +9,8 @@
 
 use crate::env_names;
 use crate::services::{
-    AttestationSource, BundleStore, Environment, ExecutionInfo, ModelClient, ModelReply,
-    ModelRequest, PutOutcome, ServiceError, SignatureSource,
+    AttestationSource, BundleStore, Environment, ExecutionInfo, ModelClient, ModelFailure,
+    ModelReply, ModelRequest, PutOutcome, ServiceError, SignatureSource,
 };
 use evaluator_core::merkle::{hex, sha256};
 use serde_json::{Value, json};
@@ -48,17 +48,7 @@ impl Fixtures {
 }
 
 impl ModelClient for Fixtures {
-    fn complete(&self, req: &ModelRequest<'_>) -> Result<ModelReply, ServiceError> {
-        let output = self
-            .model_outputs
-            .get(&req.bid_index.to_string())
-            .and_then(|v| v.get(req.model_index))
-            .filter(|o| !o.is_null())
-            .ok_or(ServiceError(
-                "offline: the fixture has no answer for this call",
-            ))?;
-        let chat_id = format!("offline-{}-{}", req.bid_index, req.model_index);
-        let content = output.to_string();
+    fn complete(&self, req: &ModelRequest<'_>) -> Result<ModelReply, ModelFailure> {
         let request = serde_json::to_vec(&json!({
             "fixture": true,
             "model": req.model,
@@ -67,10 +57,27 @@ impl ModelClient for Fixtures {
                 {"role": "user", "content": req.user},
             ],
         }))
-        .map_err(|_| ServiceError("offline: request"))?;
+        .unwrap_or_default();
+        let Some(output) = self
+            .model_outputs
+            .get(&req.bid_index.to_string())
+            .and_then(|v| v.get(req.model_index))
+            .filter(|o| !o.is_null())
+        else {
+            // A null fixture is a call that failed twice (one retry, scoring-prompt.md).
+            return Err(ModelFailure {
+                attempts: 2,
+                request,
+                response: br#"{"fixture":true,"error":"unavailable"}"#.to_vec(),
+                http_status: Some(503),
+                reason: "offline: the fixture has no answer for this call",
+            });
+        };
+        let chat_id = format!("offline-{}-{}", req.bid_index, req.model_index);
+        let content = output.to_string();
         let response =
             serde_json::to_vec(&json!({"fixture": true, "id": chat_id, "content": content}))
-                .map_err(|_| ServiceError("offline: response"))?;
+                .unwrap_or_default();
         Ok(ModelReply {
             chat_id,
             attempts: 1,

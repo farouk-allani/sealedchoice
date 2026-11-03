@@ -22,8 +22,6 @@ pub enum RunError {
     Prompt(&'static str),
     /// The scoring core refused its input.
     Scoring(&'static str),
-    /// Encrypting a debrief or the committee report failed.
-    Envelope(&'static str),
     /// An external service (models, signatures, attestation, bundle store) failed.
     Service(&'static str),
     /// The action exists but is not built yet (quote, payout_status: T13).
@@ -41,7 +39,6 @@ impl RunError {
             RunError::Attempt => "E_ATTEMPT",
             RunError::Prompt(_) => "E_PROMPT",
             RunError::Scoring(_) => "E_SCORING",
-            RunError::Envelope(_) => "E_ENVELOPE",
             RunError::Service(_) => "E_SERVICE",
             RunError::NotImplemented(_) => "E_NOT_IMPLEMENTED",
         }
@@ -54,7 +51,6 @@ impl RunError {
             | RunError::Rubric(d)
             | RunError::Prompt(d)
             | RunError::Scoring(d)
-            | RunError::Envelope(d)
             | RunError::Service(d)
             | RunError::NotImplemented(d) => d,
             RunError::SenderMismatch => "NEAR_SENDER_ID is not the input contract_id",

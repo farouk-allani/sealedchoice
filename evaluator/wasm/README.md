@@ -41,6 +41,7 @@ On refusal: `{"error":"E_…","v":1}` and exit code 1. stderr carries fixed code
 | `E_ATTEMPT` | `attempt` outside 1..=3 |
 | `E_PROMPT` | the user template could not be rendered (missing question or anchor) |
 | `E_SCORING` | the scoring core refused (weights, JCS of the bundle, result over 900 bytes, …) |
-| `E_ENVELOPE` | a reader key is not hex or encryption failed |
 | `E_SERVICE` | an external service failed or is unavailable in this build; or the bundle store refused twice |
 | `E_NOT_IMPLEMENTED` | `quote`, `payout_status` |
+
+Recorded, not refused: a reader key (bid `debrief_pubkey` or committee `pubkey`) that is not a point on secp256k1 gets an envelope with `ecies_b64: ""` and `"error": "E_READER_KEY"`; the run goes on. A failed model call or signature fetch is recorded in `model_calls` with `error` (and `http_status`) and counts as an invalid output.
