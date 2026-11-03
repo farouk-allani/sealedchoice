@@ -1,5 +1,6 @@
 // Picks the bundle store backend from server-side env (DECISIONS D-021). Never `NEXT_PUBLIC_`.
-//   BUNDLE_STORE_TOKEN    bearer token the evaluator sends with PUT (also an OutLayer secret)
+//   BUNDLE_STORE_TOKEN    bearer token the evaluator sends with PUT (also an OutLayer secret); at
+//                         least MIN_TOKEN_CHARS, else PUT is refused as if no token were set
 //   BUNDLE_STORE_BACKEND  "local" | "vercel-blob"; unset → "local" outside production, none in
 //                         production (the store then answers 503 rather than guess)
 //   BUNDLE_STORE_DIR      local driver directory (default `.bundle-store` in the app folder)
@@ -12,6 +13,9 @@ import type { BundleBackend } from "./backend";
 import type { BundleStore } from "./handler";
 import { localBackend } from "./local";
 import { vercelBlobBackend } from "./vercel-blob";
+
+/** Shorter tokens are treated as unset: PUT answers 503 (fail closed). */
+export const MIN_TOKEN_CHARS = 32;
 
 const Env = z.object({
   NODE_ENV: z.string().optional(),
@@ -39,5 +43,10 @@ export function bundleStoreFromEnv(env: Record<string, string | undefined> = pro
   } else if (kind === "vercel-blob") {
     backend = vercelBlobBackend({ access: e.BUNDLE_BLOB_ACCESS });
   }
-  return { backend, token: e.BUNDLE_STORE_TOKEN, maxBytes: MAX_BUNDLE_BYTES };
+  let token = e.BUNDLE_STORE_TOKEN;
+  if (token !== undefined && token.length < MIN_TOKEN_CHARS) {
+    console.error(`bundle store: BUNDLE_STORE_TOKEN is shorter than ${MIN_TOKEN_CHARS} characters; PUT disabled`);
+    token = undefined;
+  }
+  return { backend, token, maxBytes: MAX_BUNDLE_BYTES };
 }
