@@ -90,6 +90,9 @@ describe("compact result", () => {
     const out = compactResult(v.input.tender_id, v.input.bids_root, v.input.rubric_hash, v.input.bundle_hash, v.input.attempt, ev);
     expect(new TextDecoder().decode(out)).toBe(v.json);
     expect(out.length).toBe(v.length);
+    expect(() =>
+      compactResult("1", v.input.bids_root.toUpperCase(), v.input.rubric_hash, v.input.bundle_hash, 1, ev),
+    ).toThrow("lowercase hex");
   });
 });
 
@@ -133,6 +136,13 @@ describe("JSON number kinds (D-017, D-020)", () => {
     for (const bad of ["NaN", "Infinity", "-Infinity", '"\\ud800"', '"\\udc00x"', "1e999", "[1,]", "{} x", "01"]) {
       expect(() => parseJson(bad), bad).toThrow(JsonParseError);
     }
+    // serde_json's limits (evaluator/core `model_output_numbers_read_like_python_json_loads`).
+    const nest = (n: number): string => "[".repeat(n) + "]".repeat(n);
+    expect(() => parseJson(nest(127))).not.toThrow();
+    expect(() => parseJson(nest(128))).toThrow("nesting too deep");
+    expect(() => parseJson(`{"a":${nest(127)}}`)).toThrow("nesting too deep");
+    expect(parseJson(`1${"0".repeat(308)}`)).toEqual(new JsonInt(10n ** 308n));
+    expect(() => parseJson(`2${"0".repeat(308)}`)).toThrow("out of range");
     expect(parseJson('"\\ud83d\\ude00"')).toBe("\u{1F600}");
     expect(parseJson('{"a":1,"a":2}')).toEqual(new JsonObject(new Map([["a", new JsonInt(2n)]])));
   });
@@ -147,7 +157,16 @@ describe("text rules", () => {
   });
 
   it("injection patterns are reference.py's, case-insensitive and dot-all, without the u flag", () => {
-    expect(INJECTION_PATTERNS).toHaveLength(6);
+    const ref = text("reference/reference.py");
+    const start = ref.indexOf("INJECTION_PATTERNS = [");
+    const block = ref.slice(start, ref.indexOf("\n]", start));
+    const reference = block
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith('r"'))
+      .map((l) => l.replace(/^r"/, "").replace(/",?$/, ""));
+    expect(reference).toHaveLength(6);
+    expect(INJECTION_PATTERNS.map((p) => p.source.replaceAll("\\/", "/"))).toEqual(reference);
     for (const p of INJECTION_PATTERNS) expect(p.flags).toBe("is");
   });
 

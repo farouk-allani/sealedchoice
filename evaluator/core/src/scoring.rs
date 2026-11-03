@@ -736,6 +736,20 @@ mod tests {
         assert_eq!(score("-1"), None);
         assert_eq!(score("3"), Some((3, "-0 stays".into())));
         assert_eq!(parse_model_output("not json"), Value::Null);
+        // serde_json's own limits, which Python's json.loads does not have (D-020): at most 127
+        // nested containers, and no integer literal beyond the f64 range. packages/verify matches.
+        let nest = |n: usize| format!("{}{}", "[".repeat(n), "]".repeat(n));
+        assert_ne!(parse_model_output(&nest(127)), Value::Null);
+        assert_eq!(parse_model_output(&nest(128)), Value::Null);
+        assert_ne!(
+            parse_model_output(&format!("1{}", "0".repeat(308))),
+            Value::Null
+        );
+        assert_eq!(
+            parse_model_output(&format!("2{}", "0".repeat(308))),
+            Value::Null
+        );
+        assert_eq!(parse_model_output("1e999"), Value::Null);
         assert_eq!(
             normalize_negative_zero_ints(r#"["-0", -0, -0.5, -01, "a\"-0"]"#),
             r#"["-0", 0, -0.5, -01, "a\"-0"]"#
