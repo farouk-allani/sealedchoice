@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bundleStoreFromEnv } from "./config";
+import { MIN_TOKEN_CHARS, bundleStoreFromEnv } from "./config";
+import { handlePut } from "./handler";
 
 describe("bundleStoreFromEnv", () => {
   it("uses the local driver outside production when nothing is set", () => {
@@ -25,9 +26,18 @@ describe("bundleStoreFromEnv", () => {
     expect(store.token).toBeUndefined();
   });
 
-  it("passes the token through and caps bundles at MAX_BUNDLE_BYTES", () => {
-    const store = bundleStoreFromEnv({ BUNDLE_STORE_TOKEN: "abc" });
-    expect(store.token).toBe("abc");
+  it("passes a token of at least 32 characters through and caps bundles at MAX_BUNDLE_BYTES", () => {
+    const token = "t".repeat(MIN_TOKEN_CHARS);
+    const store = bundleStoreFromEnv({ BUNDLE_STORE_TOKEN: token });
+    expect(store.token).toBe(token);
     expect(store.maxBytes).toBe(2 * 1024 * 1024);
+  });
+
+  it("treats a token shorter than 32 characters as unset, so PUT fails closed", async () => {
+    const store = bundleStoreFromEnv({ NODE_ENV: "development", BUNDLE_STORE_TOKEN: "t".repeat(MIN_TOKEN_CHARS - 1) });
+    expect(MIN_TOKEN_CHARS).toBe(32);
+    expect(store.token).toBeUndefined();
+    const put = new Request("http://t/", { method: "PUT", headers: { authorization: `Bearer ${"t".repeat(31)}` }, body: "{}" });
+    expect((await handlePut(put, "0".repeat(64), store)).status).toBe(503);
   });
 });

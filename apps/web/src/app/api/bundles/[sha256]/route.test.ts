@@ -6,7 +6,7 @@ import { jcs, sha256Hex } from "@tender/crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GET, PUT } from "./route";
 
-const BEARER = "route-test-bearer-value";
+const BEARER = "route-test-bearer-value-of-32-chars-at-least";
 let dir: string;
 
 beforeAll(async () => {
