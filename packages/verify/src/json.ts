@@ -2,8 +2,9 @@
 // used for bid plaintext or model outputs: it turns `12.0` into the integer 12 (Python and
 // serde_json keep a float, so `delivery_days: 12.0` is ineligible) and rounds integers beyond 2^53.
 // This parser keeps each number's kind from its source text: integers as bigint, anything with a
-// fraction or exponent as a float. Strict RFC 8259: no NaN/Infinity, no lone surrogates (rejected,
-// as serde_json does), duplicate keys keep the last value (as Python, JavaScript and serde_json do).
+// fraction or exponent as a float. Strict RFC 8259 with serde_json's limits (D-020): no NaN or
+// Infinity, no lone surrogates, no number beyond the f64 range, at most MAX_DEPTH nested containers.
+// Duplicate keys keep the last value (as Python, JavaScript and serde_json do).
 
 /** An integer literal (`-0` is the integer 0, as in Python and serde_json). */
 export class JsonInt {
@@ -32,6 +33,8 @@ export class JsonParseError extends Error {
 }
 
 const WS = new Set([0x20, 0x09, 0x0a, 0x0d]);
+/** serde_json's recursion limit: the 128th nested container is an error. */
+export const MAX_DEPTH = 127;
 
 export function parseJson(text: string): Json {
   let i = 0;
@@ -131,19 +134,21 @@ export function parseJson(text: string): Json {
     if (m === null) fail("bad number");
     const lit = (m as RegExpExecArray)[0];
     i += lit.length;
+    // Python's json.loads would give inf for 1e999 (or a huge int); serde_json refuses any literal
+    // beyond the f64 range, integer or not. Refuse, like Rust.
+    const v = Number(lit);
+    if (!Number.isFinite(v)) fail("number out of range");
     if ((m as RegExpExecArray)[1] === undefined && (m as RegExpExecArray)[2] === undefined) {
       return new JsonInt(BigInt(lit));
     }
-    const v = Number(lit);
-    // Python's json.loads would give inf for 1e999; serde_json refuses it. Refuse, like Rust.
-    if (!Number.isFinite(v)) fail("number out of range");
     return new JsonFloat(v);
   }
 
+  /** `depth` = number of enclosing containers. */
   function value(depth: number): Json {
-    if (depth > 128) fail("nesting too deep");
     ws();
     const c = text[i];
+    if ((c === "{" || c === "[") && depth >= MAX_DEPTH) fail("nesting too deep");
     if (c === "{") {
       i++;
       const entries = new Map<string, Json>();

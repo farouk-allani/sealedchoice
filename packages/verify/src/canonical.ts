@@ -8,7 +8,20 @@ export class NotCanonicalError extends Error {
   override name = "NotCanonicalError";
 }
 
-/** True when `text` is exactly the JCS serialization of the value it parses to. */
+/** A string holding an unpaired surrogate (JSON.parse accepts `"\\ud800"`; serde_json does not). */
+function hasLoneSurrogate(v: unknown): boolean {
+  if (typeof v === "string") return /[\ud800-\udfff]/u.test(v);
+  if (Array.isArray(v)) return v.some(hasLoneSurrogate);
+  if (typeof v === "object" && v !== null) {
+    return Object.entries(v).some(([k, x]) => hasLoneSurrogate(k) || hasLoneSurrogate(x));
+  }
+  return false;
+}
+
+/**
+ * True when `text` is exactly the JCS serialization of the value it parses to, with no lone
+ * surrogate. Callers decode bytes with a fatal UTF-8 decoder first (invalid UTF-8 is not JSON text).
+ */
 export function isCanonicalJson(text: string): boolean {
   let value: unknown;
   try {
@@ -16,6 +29,7 @@ export function isCanonicalJson(text: string): boolean {
   } catch {
     return false;
   }
+  if (hasLoneSurrogate(value)) return false;
   try {
     return jcsString(value) === text;
   } catch (e) {

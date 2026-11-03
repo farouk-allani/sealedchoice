@@ -309,6 +309,9 @@ export function compactResult(
   attempt: number,
   ev: Evaluation,
 ): Uint8Array {
+  for (const h of [bidsRootHex, rubricHashHex, bundleHashHex]) {
+    if (!/^[0-9a-f]{64}$/.test(h)) throw new CompactResultError("hashes must be 64 lowercase hex characters");
+  }
   const out = jcs({
     v: 1,
     tid: tenderId,

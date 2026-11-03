@@ -31,6 +31,8 @@ describe("sha256OfCanonicalJson", () => {
     ["a duplicate key", '{"a":1,"a":1}'],
     ["an escaped character JCS writes literally", '{"a":"\\u00e9"}'],
     ["not JSON", "{a:1}"],
+    ["a lone surrogate (JSON.stringify writes it back the same way)", '{"a":"\\ud800"}'],
+    ["a lone surrogate in a key", '{"\\udc00":1}'],
   ])("refuses %s", (_name, text) => {
     expect(isCanonicalJson(text)).toBe(false);
     expect(() => sha256OfCanonicalJson(text)).toThrow(NotCanonicalError);
