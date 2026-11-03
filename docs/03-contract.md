@@ -92,6 +92,10 @@ pub struct Award { bid_index: Option<u32> /* None = close without award */, amou
 
 Parse the rubric with serde_json into a minimal struct (only the fields the contract needs) and also validate: size ≤ 16 KiB, `rubric_json` is its own JCS form (so `rubric_hash` = sha256(JCS(rubric)) everywhere), `v == 1`, weights sum to 10000, `budget_cap_minor` positive integer string of at most 30 digits, `currency.asset` is `nep141:<account>`, 3 different non-empty model ids, `1 ≤ approvals_required ≤ min(5, committee.len())`, acceptance window 1–720 hours. Reject on any error (`E_RUBRIC_*`).
 
+It must also refuse every rubric the pinned evaluator would refuse (I14), or a tender could take bids and bonds and never be evaluated. `contracts/tender/src/rubric.rs` reads the rubric in the evaluator's two shapes, with the same field names and types (evaluator/core `Rubric`, evaluator/wasm `PromptRubric`; the evaluator's `usize` fields as `u32`, since it runs on wasm32): `E_RUBRIC_FIELDS` if either fails. Then: qualitative `source_fields` only `methodology` or `track_record` (`E_RUBRIC_SOURCE_FIELDS`); `aggregation.min_valid_outputs` 2 or 3 (`E_RUBRIC_AGGREGATION`, D-024 outage rule); every qualitative criterion has a `question` and anchors `0`–`5` (`E_RUBRIC_PROMPT`). A unit test runs the same rubrics through the evaluator's own `check_rubric` (D-025).
+
+Reader keys (committee `report_pubkey`, bid `debrief_pubkey`) and the tender key returned by `derive_pubkey` must be compressed secp256k1 points, checked as points with `k256`, not only as hex (I15, `E_BAD_PUBKEY`). The evaluator cannot encrypt to a key that is not a point, so its reader would get no debrief or report (D-024).
+
 ## Methods
 
 ### Admin
@@ -99,7 +103,7 @@ Parse the rubric with serde_json into a minimal struct (only the fields the cont
 - `add_evaluator(EvaluatorRef)` — owner only. Append-only. Existing tenders keep their pinned copy.
 
 ### Buyer
-- `create_tender(rubric_json, deadline_ns, bond, committee, evaluator_index) -> u64` — payable. Committee 1–10 members, unique, compressed secp256k1 report keys; `deadline_ns ≥ now + min_deadline_delay_ns` (`E_DEADLINE_TOO_SOON`). Attached NEAR pays:
+- `create_tender(rubric_json, deadline_ns, bond, committee, evaluator_index) -> u64` — payable. Committee 1–10 members, unique, report keys that are compressed secp256k1 points (I15); rubric checked as above (I14); `deadline_ns ≥ now + min_deadline_delay_ns` (`E_DEADLINE_TOO_SOON`). Attached NEAR pays:
   1. storage: the tender's own bytes plus `STORAGE_RESERVE_BYTES` (2,500) for what close and evaluation add later. Not refunded.
   2. the eval fee = the rest, split into `EXECUTIONS_BUDGETED` = 6 equal OutLayer deposits (`exec_deposit`: derive_pubkey and evaluate, up to 3 attempts each). Each deposit must be > 0 and cover OutLayer's input storage deposit (10^19 yocto per byte over 32 KiB) for the largest evaluate input this tender can produce: 5 maximum-size bids, this rubric, this committee (`E_EVAL_FEE_LOW`). The compute part is the client's job: it attaches 6 × `estimate_execution_cost` for the evaluate limits and that worst input length. Whatever is not spent goes back to the buyer when the tender ends; OutLayer refunds the unused part of each deposit to the buyer directly (`payer_account_id`).
 
@@ -113,7 +117,7 @@ Parse the rubric with serde_json into a minimal struct (only the fields the cont
 ### Bidder
 - `deposit(tender_id)` — payable. Credits `balances[(tender_id, caller)]`. For bidders using a function-call key (cannot attach deposits). Storage of a new balance entry is paid from the deposit.
 - `withdraw_balance(tender_id)` — returns the caller's whole balance.
-- `submit_bid(tender_id, ciphertext_b64, debrief_pubkey)` — payable (or uses balance). Requires `Open`, `now < deadline`, caller has no active bid, `active_slots.len() < MAX_BIDS`, ciphertext decodes and `≤ MAX_CIPHERTEXT_BYTES`, `debrief_pubkey` valid compressed point, `ciphertext_sha256` never seen before in this tender (including withdrawn bids: `E_DUPLICATE_CIPHERTEXT`), attached + balance ≥ `bond + storage_cost`. Excess attached deposit is refunded. Stores bid, records the hash in `ciphertext_hashes`, emits `bid_submitted {tender_id, slot, bidder, ciphertext_sha256, submitted_at_ns}`. Returns the receipt `{slot, ciphertext_sha256, submitted_at_ns}`.
+- `submit_bid(tender_id, ciphertext_b64, debrief_pubkey)` — payable (or uses balance). Requires `Open`, `now < deadline`, caller has no active bid, `active_slots.len() < MAX_BIDS`, ciphertext decodes and `≤ MAX_CIPHERTEXT_BYTES`, `debrief_pubkey` a compressed secp256k1 point (I15), `ciphertext_sha256` never seen before in this tender (including withdrawn bids: `E_DUPLICATE_CIPHERTEXT`), attached + balance ≥ `bond + storage_cost`. Excess attached deposit is refunded. Stores bid, records the hash in `ciphertext_hashes`, emits `bid_submitted {tender_id, slot, bidder, ciphertext_sha256, submitted_at_ns}`. Returns the receipt `{slot, ciphertext_sha256, submitted_at_ns}`.
 - `withdraw_bid(tender_id)` — before deadline only. Refunds the bond once, frees the slot (marks withdrawn); the bid record and its ciphertext hash stay.
 
 ### Anyone
@@ -161,6 +165,8 @@ Validation of the compact result (all must hold; each failure has its own `E_RES
 | I11 | Escrow only accepted from the buyer, in the rubric token, for exactly the cap | unit. T03: `i11_escrow_only_from_buyer_in_rubric_token_for_exact_cap`, `ft_on_transfer_refunds_bad_messages_and_late_funding` |
 | I13 | A ciphertext hash can be submitted only once per tender | unit. T03: `i13_duplicate_ciphertext_is_rejected`, `i13_withdrawn_ciphertext_cannot_be_resubmitted` |
 | I12 | `retry_evaluate` only after a failure and at most twice; every attempt recorded | integration. T04: unit `i12_failure_retry_success`, `i12_three_failures_fail_the_tender_and_refund_everything`, `eval_budget_survives_two_key_retries`; sandbox `i12_failure_retry_success`, `i6_crafted_results_rejected_and_i12_three_failures_refund_everything` |
+| I14 | `create_tender` refuses every rubric the pinned evaluator refuses, so a tender that takes bids can be evaluated | unit, against the evaluator's own `check_rubric`: `i14_every_rubric_the_evaluator_refuses_is_refused_at_creation` (31 rubrics, both directions), `i14_usize_fields_are_bounded_as_on_wasm32`, `i14_create_tender_refuses_a_rubric_the_prompt_cannot_show` |
+| I15 | Every reader key (committee `report_pubkey`, bid `debrief_pubkey`) and the tender key is a secp256k1 point, so the evaluator can encrypt to it | unit: `i15_reader_keys_are_curve_points`, `i15_submit_bid_refuses_an_off_curve_debrief_key`, `i15_create_tender_refuses_an_off_curve_committee_key`, `i15_an_off_curve_tender_key_leaves_the_tender_pending`; sandbox gas: `gas_close_and_evaluate_with_five_large_bids` prints `submit_bid` |
 
 ## Testing
 

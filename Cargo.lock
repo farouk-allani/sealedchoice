@@ -4737,6 +4737,8 @@ dependencies = [
 name = "tender-contract"
 version = "0.1.0"
 dependencies = [
+ "evaluator-wasm",
+ "k256",
  "near-sdk",
  "near-workspaces",
  "tokio",

@@ -1,7 +1,7 @@
 //! Bidder side: deposit, withdraw_balance, submit_bid, withdraw_bid.
 
 use crate::events::emit;
-use crate::rubric::{hex, is_compressed_pubkey_hex};
+use crate::rubric::{hex, is_compressed_pubkey};
 use crate::*;
 use near_sdk::Promise;
 use near_sdk::base64::Engine;
@@ -96,7 +96,7 @@ impl Contract {
             ciphertext.len() <= MAX_CIPHERTEXT_BYTES,
             "E_CIPHERTEXT_TOO_LARGE",
         );
-        require(is_compressed_pubkey_hex(&debrief_pubkey), "E_BAD_PUBKEY");
+        require(is_compressed_pubkey(&debrief_pubkey), "E_BAD_PUBKEY");
         let ciphertext_sha256 = hex(&env::sha256(&ciphertext));
         require(
             !self

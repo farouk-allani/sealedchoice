@@ -562,12 +562,33 @@ impl crate::services::ExecutionInfo for Counting {
 fn refusals_happen_before_any_service_is_called() {
     let base = testkit::case("scoring-2-bids.json", 1).input;
     type Mutation<'a> = (&'a str, &'a dyn Fn(&mut Value));
-    let mutations: [Mutation<'_>; 4] = [
+    fn rubric(i: &mut Value, change: &dyn Fn(&mut Value)) {
+        let mut r: Value = serde_json::from_str(i["rubric_json"].as_str().unwrap()).unwrap();
+        change(&mut r);
+        i["rubric_json"] = json!(String::from_utf8(jcs(&r).unwrap()).unwrap());
+    }
+    let mutations: [Mutation<'_>; 7] = [
         ("E_SENDER", &|i| i["contract_id"] = json!("other.testnet")),
         ("E_ATTEMPT", &|i| i["attempt"] = json!(4)),
         ("E_RUBRIC", &|i| {
             let r = i["rubric_json"].as_str().unwrap().replacen('{', "{ ", 1);
             i["rubric_json"] = json!(r);
+        }),
+        // check_rubric: everything the contract must also refuse (I14).
+        ("E_PROMPT", &|i| {
+            rubric(i, &|r| {
+                for c in r["criteria"].as_array_mut().unwrap() {
+                    if let Some(a) = c.get_mut("anchors") {
+                        a.as_object_mut().unwrap().remove("3");
+                    }
+                }
+            })
+        }),
+        ("E_RUBRIC", &|i| {
+            rubric(i, &|r| r["aggregation"]["min_valid_outputs"] = json!(1))
+        }),
+        ("E_RUBRIC", &|i| {
+            rubric(i, &|r| r["criteria"][0]["weight_bp"] = json!(1))
         }),
         ("E_ROOT_MISMATCH", &|i| {
             i["bids_root"] = json!("11".repeat(32))
