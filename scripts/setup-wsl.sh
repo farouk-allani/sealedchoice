@@ -20,6 +20,17 @@ REPO_WIN_PATH="${REPO_WIN_PATH:-/mnt/c/Users/DELL/Desktop/sealedchoice}"
 NODE_MAJOR=22
 step() { printf '\n== %s ==\n' "$1"; }
 
+step "glibc"
+# near-sandbox 2.13.4 ships a neard built against GLIBC_2.39, so Ubuntu 22.04 (2.35) runs every
+# other test but dies on the sandbox suite with "version `GLIBC_2.39' not found". Ubuntu 24.04 has
+# 2.39. CI is on ubuntu-latest, which is why it never saw this. Measured 2026-11-03.
+glibc="$(ldd --version | head -1 | grep -oE '[0-9]+\.[0-9]+$')"
+echo "glibc $glibc (sandbox suite needs 2.39)"
+if [ "$(printf '%s\n2.39\n' "$glibc" | sort -V | head -1)" != "2.39" ]; then
+  echo "NOTE: this distro is too old for the sandbox suite. Everything else works here."
+  echo "      For the sandbox: wsl --install Ubuntu-24.04, then re-run this script there."
+fi
+
 step "stop the Windows PATH leaking into WSL"
 # Without this, `pnpm` resolves to the Windows shim and dies with "exec: node: not found", and
 # /etc/profile fails to parse because "Program Files (x86)" arrives unquoted. Needs `wsl --shutdown`
