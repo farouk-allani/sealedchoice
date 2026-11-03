@@ -109,6 +109,10 @@ edge_case!(
     "injection_hidden_with_invisible_characters"
 );
 edge_case!(edge_no_eligible_bids, "no_eligible_bids");
+edge_case!(
+    edge_several_ineligibility_reasons,
+    "several_ineligibility_reasons"
+);
 
 #[test]
 fn every_edge_case_has_a_test() {
@@ -131,6 +135,7 @@ fn every_edge_case_has_a_test() {
             "malformed_plaintext_types",
             "injection_hidden_with_invisible_characters",
             "no_eligible_bids",
+            "several_ineligibility_reasons",
         ]
     );
 }

@@ -570,6 +570,23 @@ def build_vectors() -> dict[str, dict]:
     case("no_eligible_bids",
          [{"index": 0, "submitter": "vendor-x.testnet", "decrypt_ok": False, "plaintext": None}],
          {}, "Only an undecryptable bid: status no_eligible_bids.")
+    case("several_ineligibility_reasons",
+         [bids3[0],
+          {"index": 1, "submitter": "vendor-b.testnet", "decrypt_ok": True,
+           "plaintext": {"v": 1, "tender_id": "9", "bidder": "someone-else.testnet", "price_minor": "0",
+                         "delivery_days": 0, "methodology": 42, "track_record": "x" * 1201,
+                         "salt": "00" * 16}},
+          {"index": 2, "submitter": "vendor-c.testnet", "decrypt_ok": True,
+           "plaintext": {"v": 1, "tender_id": "1", "bidder": "vendor-c.testnet",
+                         "price_minor": "16000000000", "delivery_days": 31, "methodology": "  \n",
+                         "track_record": None, "salt": "00" * 16}},
+          {"index": 3, "submitter": "vendor-d.testnet", "decrypt_ok": True,
+           "plaintext": dict(a, bidder="vendor-d.testnet", price_minor="16000000000", delivery_days=999)}],
+         {"0": mo3["0"]},
+         "Several reasons on one bid, in check_eligibility order. Bid 1: wrong_tender, "
+         "account_mismatch (flags 5), bad_price, bad_delivery_days, bad_methodology, "
+         "too_long_track_record. Bid 2: missing_methodology, missing_track_record (cap and delivery "
+         "are not checked once a reason exists). Bid 3: over_budget_cap, over_max_delivery.")
     vec["scoring-edge-cases.json"] = {"description": "Edge cases. Same rubric as scoring-2-bids.json.",
                                       "rubric_ref": "examples/rubric.example.json", "cases": edge}
 
