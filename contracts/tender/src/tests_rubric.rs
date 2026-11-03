@@ -103,6 +103,44 @@ const CASES: &[(&str, Mutate, Option<&str>)] = &[
         |v| qual(v)["anchors"]["0"] = json!(1),
         Some("E_RUBRIC_FIELDS"),
     ),
+    // Ids are object keys in debriefs: ASCII, the schema's pattern.
+    (
+        "non-ASCII criterion id",
+        |v| qual(v)["id"] = json!("méthode"),
+        Some("E_RUBRIC_ID"),
+    ),
+    (
+        "upper-case criterion id",
+        |v| qual(v)["id"] = json!("Methodology"),
+        Some("E_RUBRIC_ID"),
+    ),
+    (
+        "one-letter criterion id",
+        |v| v["criteria"][0]["id"] = json!("p"),
+        Some("E_RUBRIC_ID"),
+    ),
+    (
+        "33-character criterion id",
+        |v| qual(v)["id"] = json!("m".repeat(33)),
+        Some("E_RUBRIC_ID"),
+    ),
+    (
+        "32-character criterion id",
+        |v| qual(v)["id"] = json!(format!("m{}", "_1".repeat(15) + "x")),
+        None,
+    ),
+    // Checked before the evaluator shapes, by the contract's own rules; listed so this table
+    // covers every branch of check_rubric.
+    (
+        "weights not 10000",
+        |v| v["criteria"][0]["weight_bp"] = json!(1),
+        Some("E_RUBRIC_WEIGHTS"),
+    ),
+    (
+        "budget cap with a leading zero",
+        |v| v["budget_cap_minor"] = json!("0150"),
+        Some("E_RUBRIC_CAP"),
+    ),
     // AI never sees prices.
     (
         "qualitative reads price_minor",

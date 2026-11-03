@@ -841,3 +841,51 @@ fn invalid_answers_are_recorded_not_refused() {
     let (compact, _) = evaluate(&case).unwrap();
     assert_eq!(compact["status"], "needs_committee");
 }
+
+#[test]
+fn a_refused_request_is_an_invalid_answer_not_an_outage() {
+    let case = testkit::case("scoring-3-bids-injection.json", 1);
+    // Bid 1's text gets a 400 and a 422 (e.g. a content filter): the API answered, so this is not
+    // an outage. The bid has one valid output, below min_valid_outputs: EVAL_INCOMPLETE, and the
+    // result is published as needs_committee. One bid cannot make every attempt refuse this way.
+    let (r, calls, stored) = run_with_models(&case, vec![((1, 0), Some(400)), ((1, 2), Some(422))]);
+    let out: Value = serde_json::from_slice(&r.unwrap()).unwrap();
+    assert_eq!(out["status"], "needs_committee");
+    assert_eq!(calls, 9);
+    assert_eq!(stored, 1);
+    // The same statuses as no response would be an outage.
+    for status in [None, Some(429), Some(500), Some(503), Some(599)] {
+        assert!(crate::pipeline::is_outage(status), "{status:?}");
+    }
+    for status in [400, 404, 413, 422, 418] {
+        assert!(!crate::pipeline::is_outage(Some(status)), "{status}");
+    }
+}
+
+#[test]
+fn a_run_where_no_call_is_answered_refuses() {
+    // Every call refused with a 4xx (e.g. no model id the API knows): each bid counts its calls as
+    // answered, but nothing was scored, so publishing would be a price-only result.
+    let case = testkit::case("scoring-3-bids-injection.json", 1);
+    let all: Vec<_> = (0..3)
+        .flat_map(|b| (0..3).map(move |m| ((b, m), Some(404))))
+        .collect();
+    let (r, calls, stored) = run_with_models(&case, all);
+    assert_eq!(r.map_err(|e| e.code()), Err("E_MODEL_OUTAGE"));
+    assert_eq!(calls, 9);
+    assert_eq!(stored, 0);
+}
+
+#[test]
+fn a_criterion_id_that_cannot_be_a_jcs_key_is_refused_up_front() {
+    for id in ["méthode", "Methodology", "p", "a-b"] {
+        let mut case = testkit::case("scoring-2-bids.json", 1);
+        let mut r: Value =
+            serde_json::from_str(case.input["rubric_json"].as_str().unwrap()).unwrap();
+        r["criteria"][1]["id"] = json!(id);
+        case.input["rubric_json"] = json!(String::from_utf8(jcs(&r).unwrap()).unwrap());
+        let (r, calls, stored) = run_with_models(&case, vec![]);
+        assert_eq!(r.map_err(|e| e.code()), Err("E_RUBRIC"), "{id}");
+        assert_eq!((calls, stored), (0, 0), "{id}");
+    }
+}

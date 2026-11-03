@@ -133,12 +133,26 @@ struct PromptCriterion {
     source_fields: Vec<String>,
 }
 
+/// `^[a-z][a-z0-9_]{1,31}$` (rubric.schema.json; evaluator/wasm `is_criterion_id`).
+fn is_criterion_id(id: &str) -> bool {
+    let b = id.as_bytes();
+    (2..=32).contains(&b.len())
+        && b[0].is_ascii_lowercase()
+        && b[1..]
+            .iter()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_')
+}
+
 /// I14: refuses every rubric the evaluator refuses (evaluator/wasm `check_rubric`), so a tender
 /// that takes bids can be evaluated. JCS, weights, the budget cap and 3 models are checked in
 /// `parse_rubric` before this.
 fn check_evaluable(value: &Value) -> Result<(), &'static str> {
     let scoring = ScoringShape::deserialize(value).map_err(|_| "E_RUBRIC_FIELDS")?;
     let prompt = PromptShape::deserialize(value).map_err(|_| "E_RUBRIC_FIELDS")?;
+    // Ids become keys of the debrief's `criteria` object, and JCS refuses keys that are not ASCII.
+    if !prompt.criteria.iter().all(|c| is_criterion_id(&c.id)) {
+        return Err("E_RUBRIC_ID");
+    }
     let qualitative = || prompt.criteria.iter().filter(|c| c.kind == "qualitative");
     if qualitative()
         .flat_map(|c| c.source_fields.iter())
