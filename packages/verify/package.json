@@ -7,9 +7,13 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tender/crypto": "workspace:*",
+    "@tender/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
