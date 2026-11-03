@@ -515,7 +515,7 @@ struct Counting {
 }
 
 impl crate::services::ModelClient for Counting {
-    fn preflight(&self, _: &[String]) -> Result<(), crate::services::ModelFailure> {
+    fn preflight(&self) -> Result<(), crate::services::ModelFailure> {
         self.calls.set(self.calls.get() + 1);
         Err(crate::services::ModelFailure {
             attempts: 0,
@@ -767,7 +767,7 @@ struct Outage<'a> {
 }
 
 impl crate::services::ModelClient for Outage<'_> {
-    fn preflight(&self, _: &[String]) -> Result<(), crate::services::ModelFailure> {
+    fn preflight(&self) -> Result<(), crate::services::ModelFailure> {
         match self.preflight {
             None => Ok(()),
             Some(status) => Err(crate::services::ModelFailure {
@@ -978,6 +978,27 @@ fn a_bid_that_draws_failures_is_retried_then_published_on_the_last_attempt() {
         let out: Value = serde_json::from_slice(&r.unwrap()).unwrap();
         assert_eq!(out["status"], "needs_committee", "{status:?}");
         assert_eq!((calls, stored), (9, 1), "{status:?}");
+    }
+}
+
+#[test]
+fn a_tender_with_no_eligible_bid_never_makes_the_key_check() {
+    // The key check is skipped when no bid is eligible: no model call is coming, so a broken key
+    // is not this tender's problem and must not fail it. Without the skip, a run that needs no
+    // model would start refusing, and every other test would still pass.
+    let edge = testkit::spec_json("test-vectors/scoring-edge-cases.json");
+    let v = edge["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "no_eligible_bids")
+        .unwrap();
+    for attempt in 1..=3 {
+        let (r, calls, stored) =
+            run_with_preflight(&testkit::case_from(v, attempt), vec![], Some(Some(503)));
+        let out: Value = serde_json::from_slice(&r.expect("published")).unwrap();
+        assert_eq!(out["status"], "no_eligible_bids", "attempt {attempt}");
+        assert_eq!((calls, stored), (0, 1), "attempt {attempt}");
     }
 }
 

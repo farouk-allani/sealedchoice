@@ -108,9 +108,12 @@ pub struct CheckedRubric {
 /// - qualitative criteria read only text fields (AI never sees prices);
 /// - every criterion id matches `^[a-z][a-z0-9_]{1,31}$` (rubric.schema.json): ids become keys
 ///   of the debrief's `criteria` object, and JCS refuses keys that are not ASCII;
-/// - `min_valid_outputs` is 2 or 3 and at most the number of models, so with the outage rule a
-///   published result has at least two models answering each eligible bid (the answers may still
-///   be invalid: then the bid is `EVAL_INCOMPLETE`, D-024);
+/// - `min_valid_outputs` is 2 or 3 and at most the number of models. On attempts 1 and 2 the
+///   outage rule means a published result has at least that many models answering each eligible
+///   bid; on attempt 3 an unanswered bid is published as `EVAL_INCOMPLETE` instead of ending the
+///   tender (D-024). What holds on every attempt is that no criterion is *scored* from fewer than
+///   `min_valid_outputs` valid outputs: `score_qualitative` re-applies the parameter, and a failed
+///   call contributes no valid output;
 /// - the user template renders: every qualitative criterion has a question and anchors 0–5.
 pub fn check_rubric(rubric_json: &str) -> Result<CheckedRubric, RunError> {
     let value: Value = serde_json::from_str(rubric_json)
@@ -260,7 +263,7 @@ pub fn evaluate(
     // The key check: one model API call that depends on no bid (D-024). Its failure is ours, not a
     // bidder's, so it refuses on every attempt. Skipped when no bid is eligible (no model call).
     if !eligible.is_empty()
-        && let Err(e) = svc.models.preflight(&rubric.models)
+        && let Err(e) = svc.models.preflight()
     {
         return Err(if matches!(e.http_status, Some(401 | 403)) {
             RunError::ModelAuth

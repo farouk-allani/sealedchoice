@@ -74,11 +74,17 @@ pub struct ModelFailure {
 }
 
 pub trait ModelClient {
-    /// One request that depends on no bid, made once per run before any bid's call: the API key
-    /// is accepted and every model in `models` is served (for example, one model listing; the
-    /// request is G3's). It tells "our key or the API is broken" (refuse, every attempt) apart
-    /// from "this bid's call failed" (D-024). Same Ok/Err rule as `complete`.
-    fn preflight(&self, models: &[String]) -> Result<(), ModelFailure>;
+    /// One request that depends on nothing the buyer or a bidder wrote, made once per run before
+    /// any bid's call: the API key is accepted (for example, one model listing; the request is
+    /// G3's). It tells "our key or the API is broken" (refuse, every attempt) apart from "this
+    /// bid's call failed" (D-024). Same Ok/Err rule as `complete`.
+    ///
+    /// It deliberately takes no arguments. Checking that the rubric's models are served would put
+    /// buyer-supplied ids behind a refusal that fires on every attempt, so a buyer naming a model
+    /// that is retired between creation and the deadline would end their own tender `Failed` and
+    /// get escrow, bonds and fee back at a point where `cancel_tender` is refused and the bids are
+    /// already sealed. An unservable model id takes the per-bid path instead (D-024).
+    fn preflight(&self) -> Result<(), ModelFailure>;
     fn complete(&self, req: &ModelRequest<'_>) -> Result<ModelReply, ModelFailure>;
 }
 
@@ -129,7 +135,7 @@ pub struct Unavailable;
 const NOT_YET: ServiceError = ServiceError("not available in this build (part 2, gates G1/G3)");
 
 impl ModelClient for Unavailable {
-    fn preflight(&self, _: &[String]) -> Result<(), ModelFailure> {
+    fn preflight(&self) -> Result<(), ModelFailure> {
         Err(ModelFailure {
             attempts: 0,
             request: Vec::new(),
