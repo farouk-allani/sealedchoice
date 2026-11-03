@@ -200,6 +200,13 @@ impl Contract {
     }
 
     /// Anyone, after a failed attempt, while attempts < MAX_ATTEMPTS (I12). Same frozen input.
+    ///
+    /// At least `RETRY_MIN_GAP_NS` after the last attempt started: the evaluator's last attempt is
+    /// deliberately lenient (an unanswered bid is published as EVAL_INCOMPLETE rather than ending
+    /// the tender, D-024), which only makes sense if the earlier attempts were spread out. Without
+    /// a gap anyone could fire attempts 2 and 3 in consecutive blocks during one outage, so the
+    /// lenient attempt lands inside the same failure window and bids that happened to go
+    /// unanswered publish with their text criteria at 0.
     pub fn retry_evaluate(&mut self, tender_id: u64) {
         let t = self.tender(tender_id);
         require(t.status == Status::EvalFailed, "E_BAD_STATUS");
@@ -207,6 +214,12 @@ impl Contract {
             t.attempts.len() < usize::from(MAX_ATTEMPTS),
             "E_MAX_ATTEMPTS",
         );
+        if let Some(last) = t.attempts.last() {
+            require(
+                now_ns() >= last.started_at_ns.0.saturating_add(RETRY_MIN_GAP_NS),
+                "E_RETRY_TOO_SOON",
+            );
+        }
         self.start_attempt(tender_id);
     }
 

@@ -49,7 +49,7 @@ impl Fixtures {
 
 impl ModelClient for Fixtures {
     /// The fixtures answer every call, so the key check passes.
-    fn preflight(&self, _: &[String]) -> Result<(), ModelFailure> {
+    fn preflight(&self) -> Result<(), ModelFailure> {
         Ok(())
     }
     fn complete(&self, req: &ModelRequest<'_>) -> Result<ModelReply, ModelFailure> {

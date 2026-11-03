@@ -16,6 +16,12 @@ pub const MAX_BIDS: usize = 5;
 pub const MAX_CIPHERTEXT_BYTES: usize = 4500;
 /// First run plus two retries (D-004); also the key-request budget.
 pub const MAX_ATTEMPTS: u8 = 3;
+/// Shortest gap between a failed attempt starting and the next `retry_evaluate` (D-024 review).
+/// The evaluator is lenient on the last attempt: a bid whose model calls fail is published as
+/// EVAL_INCOMPLETE instead of ending the tender. That rests on attempts 1 and 2 having given a
+/// transient failure a real chance, so retries must not be fired back to back inside one outage
+/// window. 10 minutes is far above a model API's own retry window and far below any deadline.
+pub const RETRY_MIN_GAP_NS: u64 = 10 * 60 * 1_000_000_000;
 pub const MAX_RATIONALE_CHARS: usize = 1000;
 pub const MIN_DEVIATION_RATIONALE_CHARS: usize = 20;
 pub const MAX_COMMITTEE: usize = 10;

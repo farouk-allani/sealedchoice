@@ -48,8 +48,16 @@ fn deliver_raw(c: &mut Contract, id: u64, attempt: u8, r: PromiseResult) -> bool
     c.on_evaluate(id, attempt)
 }
 
+/// A retry at the earliest moment the contract allows: `RETRY_MIN_GAP_NS` after the last attempt
+/// started (D-024 review). Retries fired back to back would put the evaluator's lenient last
+/// attempt inside the same outage window as the ones before it.
 fn retry(c: &mut Contract, id: u64) {
-    call(VENDORS[6], NearToken::from_yoctonear(0), DEADLINE + 20);
+    let started = c.get_attempts(id).last().unwrap().started_at_ns.0;
+    call(
+        VENDORS[6],
+        NearToken::from_yoctonear(0),
+        started + RETRY_MIN_GAP_NS,
+    );
     c.retry_evaluate(id);
 }
 
@@ -585,6 +593,35 @@ fn failed_runs_and_promises_are_recorded() {
 }
 
 // ---------------------------------------------------------------- retries ---
+
+#[test]
+fn i12_retries_cannot_be_fired_back_to_back() {
+    let mut c = setup();
+    let id = with_bids(&mut c, 2);
+    close(&mut c, id);
+    let started = c.get_attempts(id)[0].started_at_ns.0;
+    assert!(!deliver_raw(
+        &mut c,
+        id,
+        1,
+        PromiseResult::Successful(b"null".to_vec())
+    ));
+    // The evaluator's last attempt publishes a bid whose model calls failed instead of ending the
+    // tender (D-024). That only holds if the earlier attempts were spread out, so a retry inside
+    // the gap is refused however close to it it gets.
+    for ts in [started, started + 1, started + RETRY_MIN_GAP_NS - 1] {
+        call(VENDORS[6], NearToken::from_yoctonear(0), ts);
+        assert_fails("E_RETRY_TOO_SOON", || c.retry_evaluate(id));
+    }
+    assert_eq!(c.get_attempts(id).len(), 1, "no attempt was started");
+    call(
+        VENDORS[6],
+        NearToken::from_yoctonear(0),
+        started + RETRY_MIN_GAP_NS,
+    );
+    c.retry_evaluate(id);
+    assert_eq!(c.get_attempts(id).len(), 2);
+}
 
 #[test]
 fn i12_failure_retry_success() {

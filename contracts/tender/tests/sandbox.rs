@@ -25,6 +25,7 @@ use near_workspaces::{Account, Contract, Worker};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::task::Poll;
+use tender_contract::constants::RETRY_MIN_GAP_NS;
 use tender_contract::rubric::jcs;
 
 type R<T = ()> = Result<T, Box<dyn std::error::Error>>;
@@ -202,17 +203,35 @@ async fn chain_now(env: &Env) -> R<u64> {
 }
 
 /// Moves the chain clock past `deadline` with `fast_forward`, so the next block is after it.
-async fn cross_deadline(env: &Env, deadline: u64) -> R {
+/// Advances the chain clock past `target_ns`. Used for the deadline and for the gap the contract
+/// requires between retries (`RETRY_MIN_GAP_NS`).
+async fn advance_past(env: &Env, target_ns: u64) -> R {
     for _ in 0..40 {
         let now = chain_now(env).await?;
-        if now > deadline {
+        if now > target_ns {
             return Ok(());
         }
-        // ~0.3 s of chain time per fast-forwarded block; aim a little past the deadline.
-        let blocks = ((deadline - now) / 300_000_000 + 20).min(2_000);
+        // ~0.3 s of chain time per fast-forwarded block; aim a little past the target.
+        let blocks = ((target_ns - now) / 300_000_000 + 20).min(2_000);
         env.worker.fast_forward(blocks).await?;
     }
-    Err("the chain clock did not pass the deadline".into())
+    Err("the chain clock did not reach the target".into())
+}
+
+async fn cross_deadline(env: &Env, deadline: u64) -> R {
+    advance_past(env, deadline).await
+}
+
+/// Waits out `RETRY_MIN_GAP_NS` from the last attempt's start, so `retry_evaluate` is allowed.
+async fn wait_for_retry(env: &Env, tender_id: u64) -> R {
+    let t = tender_view(env, tender_id).await?;
+    let attempts = t["attempts"].as_array().ok_or("no attempts")?;
+    let last = attempts.last().ok_or("no attempt to wait on")?;
+    let started: u64 = last["started_at_ns"]
+        .as_str()
+        .ok_or("started_at_ns is not a string")?
+        .parse()?;
+    advance_past(env, started + RETRY_MIN_GAP_NS).await
 }
 
 /// Sends a call that makes an OutLayer request without waiting for its yielded callback.
@@ -590,6 +609,9 @@ async fn i6_crafted_results_rejected_and_i12_three_failures_refund_everything() 
         let method = if n == 1 {
             "close_and_evaluate"
         } else {
+            // The contract refuses retries fired inside RETRY_MIN_GAP_NS of the last attempt
+            // (D-024 review), so the lenient third attempt cannot land in the same outage window.
+            wait_for_retry(&env, 1).await?;
             "retry_evaluate"
         };
         let (pending, rid, input) = start_eval(&env, &env.root, method).await?;
@@ -675,6 +697,7 @@ async fn i12_failure_retry_success() -> R {
     check(resolve(&env, rid, None).await?, "failed run");
     check(closing.await?, "close");
     wait_status(&env, "EvalFailed").await?;
+    wait_for_retry(&env, 1).await?;
     let (retrying, rid2, input) = start_eval(&env, &env.vendors[1], "retry_evaluate").await?;
     assert_eq!(input["attempt"], 2);
     assert_eq!(input["bids"], first_input["bids"], "same frozen bids");

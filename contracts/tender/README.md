@@ -82,6 +82,7 @@ All nanosecond times are JSON strings (`U64`): they exceed JavaScript's safe int
 | `E_KEY_RESULT_VERSION` | Key result `v` is not 1 (logged) |
 | `E_KEY_RUN_FAILED` | OutLayer returned `null`: the run failed or timed out (logged) |
 | `E_MAX_ATTEMPTS` | Already 3 evaluation attempts |
+| `E_RETRY_TOO_SOON` | `retry_evaluate` less than `RETRY_MIN_GAP_NS` after the last attempt started |
 | `E_MAX_BIDS` | 5 active bids already |
 | `E_NOTHING_TO_REFUND` | No escrow left to refund |
 | `E_NOT_BUYER` | Caller (or token sender) is not the tender's buyer |
