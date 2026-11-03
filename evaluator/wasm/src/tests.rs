@@ -515,6 +515,16 @@ struct Counting {
 }
 
 impl crate::services::ModelClient for Counting {
+    fn preflight(&self, _: &[String]) -> Result<(), crate::services::ModelFailure> {
+        self.calls.set(self.calls.get() + 1);
+        Err(crate::services::ModelFailure {
+            attempts: 0,
+            request: vec![],
+            response: vec![],
+            http_status: None,
+            reason: "counting",
+        })
+    }
     fn complete(
         &self,
         _: &crate::services::ModelRequest<'_>,
@@ -751,10 +761,24 @@ struct Outage<'a> {
     fixtures: &'a Fixtures,
     /// (bid index, model index) of calls that fail, and the HTTP status they fail with.
     failing: Vec<((usize, usize), Option<u16>)>,
+    /// Some(status): the key check fails with that status.
+    preflight: Option<Option<u16>>,
     calls: Cell<u32>,
 }
 
 impl crate::services::ModelClient for Outage<'_> {
+    fn preflight(&self, _: &[String]) -> Result<(), crate::services::ModelFailure> {
+        match self.preflight {
+            None => Ok(()),
+            Some(status) => Err(crate::services::ModelFailure {
+                attempts: 2,
+                request: vec![],
+                response: vec![],
+                http_status: status,
+                reason: "outage test: key check",
+            }),
+        }
+    }
     fn complete(
         &self,
         req: &crate::services::ModelRequest<'_>,
@@ -781,11 +805,21 @@ fn run_with_models(
     case: &testkit::Case,
     failing: Vec<((usize, usize), Option<u16>)>,
 ) -> (Result<Vec<u8>, RunError>, u32, usize) {
+    run_with_preflight(case, failing, None)
+}
+
+/// (result, bid calls made, bundles stored).
+fn run_with_preflight(
+    case: &testkit::Case,
+    failing: Vec<((usize, usize), Option<u16>)>,
+    preflight: Option<Option<u16>>,
+) -> (Result<Vec<u8>, RunError>, u32, usize) {
     let fixtures = Fixtures::from_value(&case.fixtures).unwrap();
     let store = MemStore::default();
     let models = Outage {
         fixtures: &fixtures,
         failing,
+        preflight,
         calls: Cell::new(0),
     };
     let svc = Services {
@@ -888,4 +922,100 @@ fn a_criterion_id_that_cannot_be_a_jcs_key_is_refused_up_front() {
         assert_eq!(r.map_err(|e| e.code()), Err("E_RUBRIC"), "{id}");
         assert_eq!((calls, stored), (0, 0), "{id}");
     }
+}
+
+#[test]
+fn a_failed_key_check_refuses_on_every_attempt_before_any_bid_call() {
+    // Our key or the API is broken: not a bidder's doing, so even the last attempt refuses.
+    for attempt in 1..=3 {
+        let case = testkit::case("scoring-3-bids-injection.json", attempt);
+        for (status, code) in [
+            (Some(401), "E_MODEL_AUTH"),
+            (Some(403), "E_MODEL_AUTH"),
+            (None, "E_MODEL_OUTAGE"),
+            (Some(503), "E_MODEL_OUTAGE"),
+            (Some(404), "E_MODEL_OUTAGE"),
+        ] {
+            let (r, calls, stored) = run_with_preflight(&case, vec![], Some(status));
+            assert_eq!(
+                r.map_err(|e| e.code()),
+                Err(code),
+                "attempt {attempt}, {status:?}"
+            );
+            assert_eq!((calls, stored), (0, 0), "attempt {attempt}, {status:?}");
+        }
+    }
+}
+
+/// Every call of bid 1 fails with `status` (a WAF in front of the API, a 5xx, a timeout).
+fn bid_one_draws(status: Option<u16>) -> Vec<((usize, usize), Option<u16>)> {
+    (0..3).map(|m| ((1, m), status)).collect()
+}
+
+#[test]
+fn a_bid_that_draws_failures_is_retried_then_published_on_the_last_attempt() {
+    for (status, code) in [
+        (Some(403), "E_MODEL_AUTH"),
+        (Some(401), "E_MODEL_AUTH"),
+        (Some(503), "E_MODEL_OUTAGE"),
+        (None, "E_MODEL_OUTAGE"),
+    ] {
+        // Attempts 1 and 2: refuse, so a transient failure gets its retry.
+        for attempt in 1..=2 {
+            let case = testkit::case("scoring-3-bids-injection.json", attempt);
+            let (r, _, stored) = run_with_models(&case, bid_one_draws(status));
+            assert_eq!(
+                r.map_err(|e| e.code()),
+                Err(code),
+                "attempt {attempt}, {status:?}"
+            );
+            assert_eq!(stored, 0);
+        }
+        // Last attempt: the key check passed, so bid 1's failures are recorded as invalid answers
+        // and the result is published; the tender does not end Failed.
+        let case = testkit::case("scoring-3-bids-injection.json", 3);
+        let (r, calls, stored) = run_with_models(&case, bid_one_draws(status));
+        let out: Value = serde_json::from_slice(&r.unwrap()).unwrap();
+        assert_eq!(out["status"], "needs_committee", "{status:?}");
+        assert_eq!((calls, stored), (9, 1), "{status:?}");
+    }
+}
+
+#[test]
+fn the_only_eligible_bid_cannot_end_its_tender_either() {
+    // One eligible bid (the other does not decrypt) whose every call is refused. No call is
+    // answered, but one bid's text can cause that: attempts 1-2 refuse, the last one publishes.
+    let edge = testkit::spec_json("test-vectors/scoring-edge-cases.json");
+    let v = edge["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "decrypt_failed")
+        .unwrap();
+    let fail_all: Vec<_> = (0..3).map(|m| ((0, m), Some(403))).collect();
+    for attempt in 1..=2 {
+        let (r, _, stored) = run_with_models(&testkit::case_from(v, attempt), fail_all.clone());
+        assert_eq!(
+            r.map_err(|e| e.code()),
+            Err("E_MODEL_AUTH"),
+            "attempt {attempt}"
+        );
+        assert_eq!(stored, 0);
+    }
+    let (r, calls, stored) = run_with_models(&testkit::case_from(v, 3), fail_all);
+    let out: Value = serde_json::from_slice(&r.unwrap()).unwrap();
+    assert_eq!(out["status"], "needs_committee");
+    assert_eq!((calls, stored), (3, 1));
+}
+
+#[test]
+fn a_run_with_no_answer_across_several_bids_still_refuses_on_the_last_attempt() {
+    // No single bid's text makes every bid's calls fail: that is an outage after the key check.
+    let case = testkit::case("scoring-3-bids-injection.json", 3);
+    let all: Vec<_> = (0..3)
+        .flat_map(|b| (0..3).map(move |m| ((b, m), Some(503))))
+        .collect();
+    let (r, calls, stored) = run_with_models(&case, all);
+    assert_eq!(r.map_err(|e| e.code()), Err("E_MODEL_OUTAGE"));
+    assert_eq!((calls, stored), (9, 0));
 }
