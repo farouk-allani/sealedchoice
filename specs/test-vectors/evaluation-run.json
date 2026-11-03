@@ -1,0 +1,40 @@
+{
+  "description": "Per-run values the evaluator derives from the frozen bid-set root (bids_root = the 3-bid root of merkle.json and compact-result.json). attestation_nonce = sha256(bids_root || u32le(attempt)), hex (D-024); prompt_boundary = first 16 hex of sha256(bids_root || u32le(bid_index)) (scoring-prompt.md).",
+  "bids_root": "86877fd0152bc6fb2eee49e6809909230f65fc77135338a3f007e73164932577",
+  "attestation_nonce": [
+    {
+      "attempt": 1,
+      "nonce_hex": "029e47d7c98700bfea5634ccdcc2b5fff0e4cdab327c407caf6fc681375dc09e"
+    },
+    {
+      "attempt": 2,
+      "nonce_hex": "0ed504e3e8caccfd4cce8314c66dc420d9d58efb655cd753a48907d328e3cc30"
+    },
+    {
+      "attempt": 3,
+      "nonce_hex": "db47f6207c653fb5b1060b1a86770fc92ee25f3a6b3d072d7e641a07b970f68e"
+    }
+  ],
+  "prompt_boundary": [
+    {
+      "bid_index": 0,
+      "boundary": "78ebdc5c08cf5caa"
+    },
+    {
+      "bid_index": 1,
+      "boundary": "029e47d7c98700bf"
+    },
+    {
+      "bid_index": 2,
+      "boundary": "0ed504e3e8caccfd"
+    },
+    {
+      "bid_index": 3,
+      "boundary": "db47f6207c653fb5"
+    },
+    {
+      "bid_index": 4,
+      "boundary": "01bc93c20c921c86"
+    }
+  ]
+}

@@ -13,7 +13,7 @@ Goal: anyone can check the process, a bidder can check their own score end to en
 | OutLayer execution record + TEE attestation for each run | OutLayer explorer / API (verify how at G1) | everyone |
 | Evidence bundle: per-bid public info, model call hashes, NEAR AI signatures, attestation reports, encrypted envelopes | bundle store `GET /api/bundles/<sha256>` | everyone |
 | Debrief: own criterion scores, quotes, raw model request/response bytes | envelope in bundle, encrypted to the bidder | that bidder |
-| Committee report: everything, including all proposals | envelope in bundle, encrypted per member | committee |
+| Committee report: everything, including all proposals | one AES-256-GCM body in the bundle, its key ECIES-encrypted per member (D-024) | committee |
 | Award, amount, rationale, deviation flag, approvals; payout tx | contract `get_award`, events, explorer | everyone |
 
 ## Public verification checklist (`pnpm verify --tender <id>` and the `/tenders/<id>/verify` page run the same code from `packages/verify`)
@@ -28,7 +28,7 @@ Each check prints PASS/FAIL with the data it used.
 6. **Bundle integrity**: `sha256(JCS(bundle)) == result.bundle`; `bundle.result` equals the compact result minus `bundle`; `bundle.bids_root == root`; `bundle.rubric_hash == rubric_hash`.
 7. **Model calls complete**: for every eligible bid, exactly one call per model in `rubric.models` (or a recorded error), with the model id as pinned.
 8. **Signatures**: each `signature` verifies (ECDSA, EIP-191 personal-sign over `text`, recovered address == `signing_address`); `text` contains the model id (for provider-TEE signatures) and the recorded `request_sha256:response_sha256`. Exact text format: verify at G3 and update this line.
-9. **Attestation**: the signing addresses appear in the attestation reports in the bundle; the report nonce equals `sha256(bids_root || attempt)[0..32]`. Deep verification of the TDX/GPU quotes follows NEAR AI's documented verifier; link it, run it if practical.
+9. **Attestation**: the signing addresses appear in the attestation reports in the bundle; the report nonce equals `sha256(bids_root || u32le(attempt))`, hex (`specs/test-vectors/evaluation-run.json`, D-024). Deep verification of the TDX/GPU quotes follows NEAR AI's documented verifier; link it, run it if practical.
 10. **Ranking consistency**: eligible entries sorted by total desc; ineligible flagged entries last; status consistent with flags.
 
 ## Bidder checks (`/tenders/<id>/debrief`, in the browser)
@@ -47,7 +47,7 @@ Decrypt the report (key derived like the debrief one, purpose `committee`), then
 
 `apps/web` API route (`apps/web/src/app/api/bundles/[sha256]/route.ts`; rules in `apps/web/src/lib/bundles/handler.ts`).
 
-- `PUT /api/bundles/<sha256>` with header `Authorization: Bearer <BUNDLE_STORE_TOKEN>`; body = JCS bytes, at most `MAX_BUNDLE_BYTES` (2 MiB ⚠️ check against real bundles at T05/T07). Server recomputes sha256, rejects mismatch, rejects overwrite of an existing different object (cannot happen with content addressing, check anyway), stores immutably. Answers: 201 stored; 200 the same bytes were already there (idempotent); 400 `E_BAD_HASH` (path not 64 lowercase hex), `E_EMPTY_BODY` or `E_HASH_MISMATCH`; 401 missing or wrong token (checked first, constant-time); 409 `E_CONFLICT` (different bytes under that hash); 413 `E_TOO_LARGE`; 503 when no backend or no token is configured (fails closed).
+- `PUT /api/bundles/<sha256>` with header `Authorization: Bearer <BUNDLE_STORE_TOKEN>`; body = JCS bytes, at most `MAX_BUNDLE_BYTES` (4 MiB, our limit; D-024 keeps bundles far below it; ⚠️ check against real bundles at T07). Server recomputes sha256, rejects mismatch, rejects overwrite of an existing different object (cannot happen with content addressing, check anyway), stores immutably. Answers: 201 stored; 200 the same bytes were already there (idempotent); 400 `E_BAD_HASH` (path not 64 lowercase hex), `E_EMPTY_BODY` or `E_HASH_MISMATCH`; 401 missing or wrong token (checked first, constant-time); 409 `E_CONFLICT` (different bytes under that hash); 413 `E_TOO_LARGE`; 503 when no backend or no token is configured (fails closed).
 - `GET /api/bundles/<sha256>` public, `Content-Type: application/json`, `Cache-Control: public, max-age=31536000, immutable`, `ETag` = the hash. The route hashes the stored bytes again before serving them (500 `E_STORE_CORRUPT` otherwise); unknown hash → 404, not cached.
 - Storage backend: Vercel Blob (D-021), behind a two-method interface (`get`, `putIfAbsent`); a filesystem driver serves tests and local development. Server-side env only: `BUNDLE_STORE_TOKEN`, `BUNDLE_STORE_BACKEND` (`local` | `vercel-blob`), `BUNDLE_STORE_DIR`, `BUNDLE_BLOB_ACCESS`, `BLOB_READ_WRITE_TOKEN`. Optional: also pin to IPFS and record the CID in the bundle store index (not in the hash).
 - The store can withhold but cannot alter. Mention this limit in the README.

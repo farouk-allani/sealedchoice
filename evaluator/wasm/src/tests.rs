@@ -138,17 +138,20 @@ fn check_against_expected(case: &testkit::Case, compact: &Value, bundle: &Value)
         assert_eq!(debrief["flags"], want["flags"]);
         assert_eq!(debrief["ineligible_reasons"], want["reasons"]);
     }
-    for (member, (account, _, sk)) in bundle["committee_report"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .zip(testkit::committee())
-    {
-        assert_eq!(member["member"], account);
-        let plain = testkit::open(member["ecies_b64"].as_str().unwrap(), &sk);
+    let report_env = &bundle["committee_report"];
+    let members = testkit::committee();
+    assert_eq!(report_env["keys"].as_array().unwrap().len(), members.len());
+    for (i, (account, _, sk)) in members.iter().enumerate() {
+        let entry = &report_env["keys"][i];
+        assert_eq!(entry["member"], account.as_str());
+        assert!(
+            entry.get("plaintext_sha256").is_none(),
+            "no hash of the key"
+        );
+        let plain = testkit::open_report(report_env, i, sk);
         assert_eq!(
             hex(&sha256(&plain)),
-            member["plaintext_sha256"].as_str().unwrap()
+            report_env["plaintext_sha256"].as_str().unwrap()
         );
         let report: Value = serde_json::from_slice(&plain).unwrap();
         assert_eq!(report["rk"], rk);
@@ -439,7 +442,7 @@ fn a_reader_key_off_the_curve_is_recorded_not_fatal() {
     assert_eq!(d1["ecies_b64"], "");
     assert_eq!(d1["error"], "E_READER_KEY");
     assert_eq!(d1["recipient_pubkey"], OFF_CURVE);
-    let c1 = &bundle["committee_report"][1];
+    let c1 = &bundle["committee_report"]["keys"][1];
     assert_eq!(
         (c1["ecies_b64"].as_str(), c1["error"].as_str()),
         (Some(""), Some("E_READER_KEY"))
@@ -451,10 +454,7 @@ fn a_reader_key_off_the_curve_is_recorded_not_fatal() {
         assert!(d.get("error").is_none());
         testkit::open(d["ecies_b64"].as_str().unwrap(), &k.debrief_sk_hex);
     }
-    testkit::open(
-        bundle["committee_report"][0]["ecies_b64"].as_str().unwrap(),
-        &k.committee_sk_hex,
-    );
+    testkit::open_report(&bundle["committee_report"], 0, &k.committee_sk_hex);
     // Not hex at all is the same case.
     case.input["bids"][0]["debrief_pubkey"] = json!("zz");
     let (_, bundle) = evaluate(&case).unwrap();
@@ -562,12 +562,33 @@ impl crate::services::ExecutionInfo for Counting {
 fn refusals_happen_before_any_service_is_called() {
     let base = testkit::case("scoring-2-bids.json", 1).input;
     type Mutation<'a> = (&'a str, &'a dyn Fn(&mut Value));
-    let mutations: [Mutation<'_>; 4] = [
+    fn rubric(i: &mut Value, change: &dyn Fn(&mut Value)) {
+        let mut r: Value = serde_json::from_str(i["rubric_json"].as_str().unwrap()).unwrap();
+        change(&mut r);
+        i["rubric_json"] = json!(String::from_utf8(jcs(&r).unwrap()).unwrap());
+    }
+    let mutations: [Mutation<'_>; 7] = [
         ("E_SENDER", &|i| i["contract_id"] = json!("other.testnet")),
         ("E_ATTEMPT", &|i| i["attempt"] = json!(4)),
         ("E_RUBRIC", &|i| {
             let r = i["rubric_json"].as_str().unwrap().replacen('{', "{ ", 1);
             i["rubric_json"] = json!(r);
+        }),
+        // check_rubric: everything the contract must also refuse (I14).
+        ("E_PROMPT", &|i| {
+            rubric(i, &|r| {
+                for c in r["criteria"].as_array_mut().unwrap() {
+                    if let Some(a) = c.get_mut("anchors") {
+                        a.as_object_mut().unwrap().remove("3");
+                    }
+                }
+            })
+        }),
+        ("E_RUBRIC", &|i| {
+            rubric(i, &|r| r["aggregation"]["min_valid_outputs"] = json!(1))
+        }),
+        ("E_RUBRIC", &|i| {
+            rubric(i, &|r| r["criteria"][0]["weight_bp"] = json!(1))
         }),
         ("E_ROOT_MISMATCH", &|i| {
             i["bids_root"] = json!("11".repeat(32))
@@ -682,15 +703,189 @@ fn worst_case_bundle_bytes() -> usize {
     sizes[0]
 }
 
-/// Measured 2026-11-03: 2,698,072 bytes, above the bundle store's 2 MiB (MAX_BUNDLE_BYTES in
-/// packages/shared) even with short fixture bodies, because the committee report is encrypted once
-/// per member. Open decision (D-024): encrypt the report once and wrap its key per member.
+/// Measured 2026-11-03 with fixture bodies: 2,698,072 bytes when the committee report was encrypted
+/// once per member, 476,872 bytes with one body and per-member key envelopes (D-024). The store
+/// limit is MAX_BUNDLE_BYTES = 4 MiB (packages/shared); real model responses are larger than the
+/// fixtures, so keep a wide margin.
 #[test]
 fn worst_case_bundle_size_is_measured() {
     let bytes = worst_case_bundle_bytes();
     eprintln!("worst-case bundle (5 bids x 3 models, 10 members, fixture bodies): {bytes} bytes");
+    assert!(bytes < 1_000_000, "{bytes}: update D-024 and PROGRESS");
     assert!(
-        bytes > 2_000_000 && bytes < 3_000_000,
-        "{bytes}: update D-024 and PROGRESS"
+        bytes < 4 * 1024 * 1024 / 4,
+        "a quarter of the store limit at most"
     );
+}
+
+#[test]
+fn the_committee_report_body_does_not_grow_with_the_committee() {
+    let size = |members: usize| {
+        let mut case = testkit::case("scoring-3-bids-injection.json", 1);
+        let m = case.input["committee"][0].clone();
+        case.input["committee"] = json!(
+            (0..members)
+                .map(|i| {
+                    let mut x = m.clone();
+                    x["account"] = json!(format!("member-{i}.testnet"));
+                    x
+                })
+                .collect::<Vec<_>>()
+        );
+        let (_, bundle) = evaluate(&case).unwrap();
+        let report = &bundle["committee_report"];
+        (
+            report["body_b64"].as_str().unwrap().len(),
+            bundle.to_string().len(),
+        )
+    };
+    let (body1, total1) = size(1);
+    let (body10, total10) = size(10);
+    assert_eq!(body1, body10, "one body, whatever the committee size");
+    // Each further member adds only a key envelope (~250 bytes of JSON).
+    assert!(total10 - total1 < 9 * 400, "{total1} -> {total10}");
+}
+
+/// A model client for outage tests: answers with the fixture unless the call is listed as failing.
+struct Outage<'a> {
+    fixtures: &'a Fixtures,
+    /// (bid index, model index) of calls that fail, and the HTTP status they fail with.
+    failing: Vec<((usize, usize), Option<u16>)>,
+    calls: Cell<u32>,
+}
+
+impl crate::services::ModelClient for Outage<'_> {
+    fn complete(
+        &self,
+        req: &crate::services::ModelRequest<'_>,
+    ) -> Result<crate::services::ModelReply, crate::services::ModelFailure> {
+        self.calls.set(self.calls.get() + 1);
+        if let Some((_, status)) = self
+            .failing
+            .iter()
+            .find(|(k, _)| *k == (req.bid_index, req.model_index))
+        {
+            return Err(crate::services::ModelFailure {
+                attempts: 2,
+                request: b"{}".to_vec(),
+                response: vec![],
+                http_status: *status,
+                reason: "outage test",
+            });
+        }
+        self.fixtures.complete(req)
+    }
+}
+
+fn run_with_models(
+    case: &testkit::Case,
+    failing: Vec<((usize, usize), Option<u16>)>,
+) -> (Result<Vec<u8>, RunError>, u32, usize) {
+    let fixtures = Fixtures::from_value(&case.fixtures).unwrap();
+    let store = MemStore::default();
+    let models = Outage {
+        fixtures: &fixtures,
+        failing,
+        calls: Cell::new(0),
+    };
+    let svc = Services {
+        models: &models,
+        ..testkit::services(&fixtures, &store)
+    };
+    let r = run(case.input.to_string().as_bytes(), &testkit::env(), &svc);
+    let stored = store.0.borrow().len();
+    (r, models.calls.get(), stored)
+}
+
+#[test]
+fn a_model_outage_refuses_instead_of_publishing() {
+    let case = testkit::case("scoring-3-bids-injection.json", 1);
+    // Every call fails (transport errors, 503s): no result, nothing stored, retry applies.
+    let all: Vec<_> = (0..3)
+        .flat_map(|b| (0..3).map(move |m| ((b, m), Some(503))))
+        .collect();
+    let (r, _, stored) = run_with_models(&case, all);
+    assert_eq!(r.map_err(|e| e.code()), Err("E_MODEL_OUTAGE"));
+    assert_eq!(stored, 0);
+    // Two of bid 1's three calls fail: below min_valid_outputs (2) for that bid.
+    let (r, _, stored) = run_with_models(&case, vec![((1, 0), None), ((1, 2), Some(500))]);
+    assert_eq!(r.map_err(|e| e.code()), Err("E_MODEL_OUTAGE"));
+    assert_eq!(stored, 0);
+    // One failed call per bid still leaves two answers each: the result is published.
+    let (r, _, stored) = run_with_models(
+        &case,
+        vec![((0, 1), Some(503)), ((1, 0), None), ((2, 2), Some(429))],
+    );
+    assert!(r.is_ok());
+    assert_eq!(stored, 1);
+}
+
+#[test]
+fn an_authorization_refusal_stops_at_the_first_call() {
+    let case = testkit::case("scoring-3-bids-injection.json", 1);
+    for status in [401, 403] {
+        let (r, calls, stored) = run_with_models(&case, vec![((0, 0), Some(status))]);
+        assert_eq!(r.map_err(|e| e.code()), Err("E_MODEL_AUTH"));
+        assert_eq!(calls, 1, "no further call once the key is refused");
+        assert_eq!(stored, 0);
+    }
+}
+
+#[test]
+fn invalid_answers_are_recorded_not_refused() {
+    // Every model answers, but with output the scoring core rejects: that is model judgement,
+    // published as EVAL_INCOMPLETE / needs_committee, not an outage.
+    let mut case = testkit::case("scoring-2-bids.json", 1);
+    let junk = json!({"scores": "not a list"});
+    case.fixtures["model_outputs"] = json!({"0": [junk, junk, junk], "1": [junk, junk, junk]});
+    let (compact, _) = evaluate(&case).unwrap();
+    assert_eq!(compact["status"], "needs_committee");
+}
+
+#[test]
+fn a_refused_request_is_an_invalid_answer_not_an_outage() {
+    let case = testkit::case("scoring-3-bids-injection.json", 1);
+    // Bid 1's text gets a 400 and a 422 (e.g. a content filter): the API answered, so this is not
+    // an outage. The bid has one valid output, below min_valid_outputs: EVAL_INCOMPLETE, and the
+    // result is published as needs_committee. One bid cannot make every attempt refuse this way.
+    let (r, calls, stored) = run_with_models(&case, vec![((1, 0), Some(400)), ((1, 2), Some(422))]);
+    let out: Value = serde_json::from_slice(&r.unwrap()).unwrap();
+    assert_eq!(out["status"], "needs_committee");
+    assert_eq!(calls, 9);
+    assert_eq!(stored, 1);
+    // The same statuses as no response would be an outage.
+    for status in [None, Some(429), Some(500), Some(503), Some(599)] {
+        assert!(crate::pipeline::is_outage(status), "{status:?}");
+    }
+    for status in [400, 404, 413, 422, 418] {
+        assert!(!crate::pipeline::is_outage(Some(status)), "{status}");
+    }
+}
+
+#[test]
+fn a_run_where_no_call_is_answered_refuses() {
+    // Every call refused with a 4xx (e.g. no model id the API knows): each bid counts its calls as
+    // answered, but nothing was scored, so publishing would be a price-only result.
+    let case = testkit::case("scoring-3-bids-injection.json", 1);
+    let all: Vec<_> = (0..3)
+        .flat_map(|b| (0..3).map(move |m| ((b, m), Some(404))))
+        .collect();
+    let (r, calls, stored) = run_with_models(&case, all);
+    assert_eq!(r.map_err(|e| e.code()), Err("E_MODEL_OUTAGE"));
+    assert_eq!(calls, 9);
+    assert_eq!(stored, 0);
+}
+
+#[test]
+fn a_criterion_id_that_cannot_be_a_jcs_key_is_refused_up_front() {
+    for id in ["méthode", "Methodology", "p", "a-b"] {
+        let mut case = testkit::case("scoring-2-bids.json", 1);
+        let mut r: Value =
+            serde_json::from_str(case.input["rubric_json"].as_str().unwrap()).unwrap();
+        r["criteria"][1]["id"] = json!(id);
+        case.input["rubric_json"] = json!(String::from_utf8(jcs(&r).unwrap()).unwrap());
+        let (r, calls, stored) = run_with_models(&case, vec![]);
+        assert_eq!(r.map_err(|e| e.code()), Err("E_RUBRIC"), "{id}");
+        assert_eq!((calls, stored), (0, 0), "{id}");
+    }
 }

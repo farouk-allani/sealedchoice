@@ -57,6 +57,10 @@ pub struct ModelReply {
 /// A call that produced no usable answer (transport error, HTTP error after the retry, …). It keeps
 /// what was tried and exchanged: scoring-prompt.md records attempts, and every byte sent or
 /// received stays hashable.
+///
+/// What a `ModelClient` must return (the pipeline's outage rule depends on it, D-024): `Ok` only
+/// for a 2xx response, whatever its body; `Err` for everything else, with `http_status` set
+/// whenever a response arrived. Retry once on no response, 5xx or 429, never on another status.
 pub struct ModelFailure {
     /// Tries made, 0 when nothing was sent.
     pub attempts: u32,
