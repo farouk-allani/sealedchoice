@@ -24,6 +24,10 @@ pub enum RunError {
     Scoring(&'static str),
     /// An external service (models, signatures, attestation, bundle store) failed.
     Service(&'static str),
+    /// The model API refused a call for authorization (HTTP 401/403): no result, retry later.
+    ModelAuth,
+    /// An eligible bid got fewer answered model calls than `min_valid_outputs`: no result, retry.
+    ModelOutage,
     /// The action exists but is not built yet (quote, payout_status: T13).
     NotImplemented(&'static str),
 }
@@ -40,6 +44,8 @@ impl RunError {
             RunError::Prompt(_) => "E_PROMPT",
             RunError::Scoring(_) => "E_SCORING",
             RunError::Service(_) => "E_SERVICE",
+            RunError::ModelAuth => "E_MODEL_AUTH",
+            RunError::ModelOutage => "E_MODEL_OUTAGE",
             RunError::NotImplemented(_) => "E_NOT_IMPLEMENTED",
         }
     }
@@ -56,6 +62,8 @@ impl RunError {
             RunError::SenderMismatch => "NEAR_SENDER_ID is not the input contract_id",
             RunError::RootMismatch => "bids do not hash to bids_root",
             RunError::Attempt => "attempt outside 1..=3",
+            RunError::ModelAuth => "the model API refused a call for authorization",
+            RunError::ModelOutage => "a bid got fewer answered model calls than min_valid_outputs",
         }
     }
 }
