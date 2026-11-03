@@ -26,11 +26,11 @@ describe("bundleStoreFromEnv", () => {
     expect(store.token).toBeUndefined();
   });
 
-  it("passes a token of at least 32 characters through and caps bundles at MAX_BUNDLE_BYTES", () => {
+  it("passes a token of at least 32 characters through and caps bundles at MAX_BUNDLE_BYTES (4 MiB)", () => {
     const token = "t".repeat(MIN_TOKEN_CHARS);
     const store = bundleStoreFromEnv({ BUNDLE_STORE_TOKEN: token });
     expect(store.token).toBe(token);
-    expect(store.maxBytes).toBe(2 * 1024 * 1024);
+    expect(store.maxBytes).toBe(4 * 1024 * 1024);
   });
 
   it("treats a token shorter than 32 characters as unset, so PUT fails closed", async () => {

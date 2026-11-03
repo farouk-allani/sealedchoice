@@ -85,21 +85,31 @@
         "properties": {
           "bid_index": {"type": "integer"},
           "recipient_pubkey": {"type": "string"},
-          "ecies_b64": {"type": "string"},
-          "plaintext_sha256": {"type": "string"}
+          "ecies_b64": {"type": "string", "description": "ECIES envelope of the debrief JCS; empty when the reader key is not a secp256k1 point (then error = E_READER_KEY)."},
+          "plaintext_sha256": {"type": "string"},
+          "error": {"type": "string"}
         }
       }
     },
     "committee_report": {
-      "type": "array",
-      "description": "Same report encrypted once per committee member.",
-      "items": {
-        "type": "object", "required": ["member", "recipient_pubkey", "ecies_b64", "plaintext_sha256"],
-        "properties": {
-          "member": {"type": "string"},
-          "recipient_pubkey": {"type": "string"},
-          "ecies_b64": {"type": "string"},
-          "plaintext_sha256": {"type": "string"}
+      "type": "object",
+      "description": "The committee report (plaintext shape: debrief.schema.json $defs/committee_report), encrypted once (D-024). body_b64 = base64(nonce (12 bytes) || AES-256-GCM ciphertext || tag (16 bytes)), no associated data, under a fresh 32-byte key. Each committee member's entry in keys holds that key, ECIES-encrypted to the member's reader key (same ECIES format as debriefs). To read: ECIES-decrypt keys[i].ecies_b64 to the 32-byte key, AES-GCM-decrypt the body, check sha256(plaintext) == plaintext_sha256.",
+      "required": ["cipher", "body_b64", "plaintext_sha256", "keys"],
+      "properties": {
+        "cipher": {"const": "aes-256-gcm"},
+        "body_b64": {"type": "string"},
+        "plaintext_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["member", "recipient_pubkey", "ecies_b64"],
+            "properties": {
+              "member": {"type": "string"},
+              "recipient_pubkey": {"type": "string"},
+              "ecies_b64": {"type": "string", "description": "ECIES envelope of the 32-byte body key; empty when the reader key is not a secp256k1 point (then error = E_READER_KEY)."},
+              "error": {"type": "string"}
+            }
+          }
         }
       }
     }

@@ -230,3 +230,27 @@ pub fn open(ecies_b64: &str, sk_hex: &str) -> Vec<u8> {
         .unwrap_or_else(|e| panic!("envelope base64: {e}"));
     ecies::decrypt(&unhex(sk_hex), &ct).unwrap_or_else(|e| panic!("envelope decrypt: {e:?}"))
 }
+
+/// Opens the committee report for member `member` (index into `keys`): ECIES-decrypts the 32-byte
+/// key with `sk_hex`, then AES-256-GCM-decrypts the body (nonce = first 12 bytes, tag appended).
+pub fn open_report(report: &Value, member: usize, sk_hex: &str) -> Vec<u8> {
+    use aes_gcm::aead::Aead;
+    use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
+    assert_eq!(report["cipher"], crate::report::REPORT_CIPHER);
+    let key = open(
+        report["keys"][member]["ecies_b64"]
+            .as_str()
+            .unwrap_or_else(|| panic!("no key envelope for member {member}")),
+        sk_hex,
+    );
+    assert_eq!(key.len(), 32, "the envelope holds only the key");
+    let body = STANDARD
+        .decode(report["body_b64"].as_str().unwrap_or_default())
+        .unwrap_or_else(|e| panic!("report body base64: {e}"));
+    let n = crate::report::REPORT_NONCE_BYTES;
+    let cipher = Aes256Gcm::new_from_slice(&key).unwrap_or_else(|e| panic!("key: {e}"));
+    let nonce = Nonce::try_from(&body[..n]).unwrap_or_else(|e| panic!("nonce: {e}"));
+    cipher
+        .decrypt(&nonce, &body[n..])
+        .unwrap_or_else(|e| panic!("report body decrypt: {e}"))
+}
