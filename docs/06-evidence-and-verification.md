@@ -45,11 +45,11 @@ Decrypt the report (key derived like the debrief one, purpose `committee`), then
 
 ## Bundle store
 
-`apps/web` API route.
+`apps/web` API route (`apps/web/src/app/api/bundles/[sha256]/route.ts`; rules in `apps/web/src/lib/bundles/handler.ts`).
 
-- `PUT /api/bundles/<sha256>` with header `Authorization: Bearer <BUNDLE_STORE_TOKEN>`; body = JCS bytes. Server recomputes sha256, rejects mismatch, rejects overwrite of an existing different object (cannot happen with content addressing, check anyway), stores immutably.
-- `GET /api/bundles/<sha256>` public, `Cache-Control: immutable`.
-- Storage backend: decide at T06 (Vercel Blob, Cloudflare R2 or S3). Optional: also pin to IPFS and record the CID in the bundle store index (not in the hash).
+- `PUT /api/bundles/<sha256>` with header `Authorization: Bearer <BUNDLE_STORE_TOKEN>`; body = JCS bytes, at most `MAX_BUNDLE_BYTES` (2 MiB ⚠️ check against real bundles at T05/T07). Server recomputes sha256, rejects mismatch, rejects overwrite of an existing different object (cannot happen with content addressing, check anyway), stores immutably. Answers: 201 stored; 200 the same bytes were already there (idempotent); 400 `E_BAD_HASH` (path not 64 lowercase hex), `E_EMPTY_BODY` or `E_HASH_MISMATCH`; 401 missing or wrong token (checked first, constant-time); 409 `E_CONFLICT` (different bytes under that hash); 413 `E_TOO_LARGE`; 503 when no backend or no token is configured (fails closed).
+- `GET /api/bundles/<sha256>` public, `Content-Type: application/json`, `Cache-Control: public, max-age=31536000, immutable`, `ETag` = the hash. The route hashes the stored bytes again before serving them (500 `E_STORE_CORRUPT` otherwise); unknown hash → 404, not cached.
+- Storage backend: Vercel Blob (D-021), behind a two-method interface (`get`, `putIfAbsent`); a filesystem driver serves tests and local development. Server-side env only: `BUNDLE_STORE_TOKEN`, `BUNDLE_STORE_BACKEND` (`local` | `vercel-blob`), `BUNDLE_STORE_DIR`, `BUNDLE_BLOB_ACCESS`, `BLOB_READ_WRITE_TOKEN`. Optional: also pin to IPFS and record the CID in the bundle store index (not in the hash).
 - The store can withhold but cannot alter. Mention this limit in the README.
 
 ## What a judge does in 2 minutes (goes into README)
