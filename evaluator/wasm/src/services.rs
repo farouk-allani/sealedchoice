@@ -74,6 +74,11 @@ pub struct ModelFailure {
 }
 
 pub trait ModelClient {
+    /// One request that depends on no bid, made once per run before any bid's call: the API key
+    /// is accepted and every model in `models` is served (for example, one model listing; the
+    /// request is G3's). It tells "our key or the API is broken" (refuse, every attempt) apart
+    /// from "this bid's call failed" (D-024). Same Ok/Err rule as `complete`.
+    fn preflight(&self, models: &[String]) -> Result<(), ModelFailure>;
     fn complete(&self, req: &ModelRequest<'_>) -> Result<ModelReply, ModelFailure>;
 }
 
@@ -124,6 +129,15 @@ pub struct Unavailable;
 const NOT_YET: ServiceError = ServiceError("not available in this build (part 2, gates G1/G3)");
 
 impl ModelClient for Unavailable {
+    fn preflight(&self, _: &[String]) -> Result<(), ModelFailure> {
+        Err(ModelFailure {
+            attempts: 0,
+            request: Vec::new(),
+            response: Vec::new(),
+            http_status: None,
+            reason: NOT_YET.0,
+        })
+    }
     fn complete(&self, _: &ModelRequest<'_>) -> Result<ModelReply, ModelFailure> {
         Err(ModelFailure {
             attempts: 0,
