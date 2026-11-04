@@ -38,7 +38,7 @@ eciesjs (TS) and the Rust `ecies` crate, default config, which must be identical
 - secp256k1, ephemeral public key **uncompressed** (65 bytes), HKDF-SHA256 key, AES-256-GCM with **16-byte nonce**.
 - Wire: `ephemeral_pk(65) || nonce(16) || tag(16) || ciphertext`. Overhead 97 bytes.
 - Vector: `ecies-decrypt.json` (ciphertexts made with eciespy 0.4.7; decrypt in Rust and TS, compare plaintext hash).
-- Check `ecies` crate features for `wasm32-wasip2` (pure-Rust backend, no OpenSSL). Gate G2 proves TS-encrypt → WASM-decrypt inside OutLayer.
+- Pinned and measured at G2 (2026-11-04): TS `eciesjs` **0.5.0**, Rust `ecies` **=0.2.14** with `default-features = false, features = ["pure"]`. That builds for `wasm32-wasip2` with no C dependency, and a bid encrypted in Node opened inside the TEE with every hash matching (request 8657). Decryption costs ~2–4 ms a ciphertext in there, so the five-bid worst case is ~14 ms (docs/references.md).
 
 Plaintext of a bid = JCS bytes of the bid object (`specs/schemas/bid-plaintext.schema.json`). Salt: 16 random bytes hex, generated in the browser with `crypto.getRandomValues`.
 
@@ -68,6 +68,6 @@ Never send the reader private key anywhere. Decrypt in the browser.
 |---|---|---|
 | secp256k1 | `@noble/secp256k1` or `@noble/curves` | `k256` |
 | HKDF / SHA-256 | `@noble/hashes` | `hkdf`, `sha2` |
-| ECIES | `eciesjs` | `ecies` (pure feature) |
+| ECIES | `eciesjs` 0.5.0 | `ecies` =0.2.14, `["pure"]` (G2) |
 | JCS | `canonicalize` | `serde_jcs` |
 | ECDSA recover for NEAR AI signatures | `viem` or `ethers` (`verifyMessage`/`recoverMessageAddress`) | `k256` + keccak (only if verified in WASM; default is to verify off-chain) |
