@@ -26,7 +26,7 @@ The contract computes leaves and root with `env::sha256` at close. The evaluator
 - `MASTER_SECRET`: an OutLayer **PROTECTED_** secret, generated inside the TEE (type hex32), bound to the evaluator WASM hash, access condition = caller is the tender contract. Nobody, including us, ever sees it. Verify the exact setup at gate G1 and write the steps in `docs/references.md`.
 - Per tender: `tender_sk = derive_secp256k1(ikm = MASTER_SECRET bytes, salt = "sealedchoice/tender-key/v1", info = "<contract_id>:<tender_id>")`, `tender_pk = compressed(tender_sk·G)`.
 - `derive_secp256k1`: `k = HKDF-SHA256(ikm, salt, info || u8(ctr), 32)` for ctr = 0, 1, … until `1 ≤ k < n`.
-- The WASM takes `contract_id` from the OutLayer environment (`NEAR_SENDER_ID`, verify name at G1) and asserts it equals the input's `contract_id`.
+- The WASM takes the calling contract from the OutLayer environment (**`NEAR_PREDECESSOR_ID`**) and asserts it equals the input's `contract_id`. Not `NEAR_SENDER_ID`: G1 measured that as the transaction **signer** (the buyer who calls `close_and_evaluate`), so a check against it would refuse every honest run and admit only a transaction signed by the contract account itself — the full-access-key case in `docs/07-threat-model.md`.
 - The `derive_pubkey` action returns only the public key. No action ever returns a private key or plaintext.
 
 Consequence of WASM-hash binding: a new evaluator build cannot read tenders created with an older build. During development that is fine (create new tenders). For the demo, freeze the build (tag `evaluator-v1.0.0`) before creating the demo tender. Record in DECISIONS.md D-006.

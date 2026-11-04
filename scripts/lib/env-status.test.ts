@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { envStatus, formatEnvStatus, readEnvStatus } from "./env-status.ts";
+import { ENV_GROUPS, envStatus, formatEnvStatus, readEnvStatus } from "./env-status.ts";
 
 // Built at runtime so no key-shaped literal sits in the source.
 const FAKE_KEY = "ed25519:" + "1".repeat(64);
@@ -52,6 +52,25 @@ describe("envStatus", () => {
       present: ["SPIKE_CALLER_ACCOUNT_ID"],
     });
     expect(status.unknown).toEqual(["SPIKE_CALLER_ACCOUNT_ID"]);
+  });
+
+  it("counts a line whose key is not a variable name instead of printing it", () => {
+    // dotenv reads the left of any `=` as a key, so a pasted base64 token with
+    // padding arrives here as a "name". It must not be echoed.
+    const token = "dGVzdHNlY3JldFZhbHVlRm9yQVRlc3Q";
+    const status = envStatus({ [token]: "=" }, "testnet", { present: [token] });
+    expect(status.unknown).toEqual([]);
+    expect(status.unprintable).toBe(1);
+    const text = formatEnvStatus(status);
+    expect(text).not.toContain(token);
+    expect(text).toContain("not printed");
+  });
+
+  it("covers every known key in a group, so none drops out of the report", () => {
+    const grouped = new Set(ENV_GROUPS.flatMap((g) => g.keys));
+    const status = envStatus({}, "testnet");
+    for (const { key } of status.keys) expect(grouped.has(key)).toBe(true);
+    expect(grouped.size).toBe(status.keys.length);
   });
 
   it("never puts a value in the report", () => {

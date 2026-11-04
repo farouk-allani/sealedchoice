@@ -4,8 +4,18 @@
 // session finds out what it can use. Every row is key -> state, never a value,
 // and the only thing said about an unknown key is its name.
 import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { parse as parseDotenv } from "dotenv";
 import { DEFAULT_ENV_FILE, ENV_KEYS, type EnvKey, type Network, validateEnv } from "./env.ts";
+
+/**
+ * What a name has to look like before the report repeats it: the UPPER_SNAKE_CASE
+ * this project uses, and short. Base64 and hex tokens are mixed case or long, so
+ * they fall outside it and are only counted — a line like `dGVzdHNlY3JldA==` is
+ * read by dotenv as the key `dGVzdHNlY3JldA`, and echoing that would print the
+ * very thing this script exists not to print.
+ */
+const ENV_NAME = /^[A-Z_][A-Z0-9_]{0,39}$/;
 
 /** `ok`: present and valid · `invalid`: present but malformed · `missing`: unset or empty. */
 export type KeyState = "ok" | "invalid" | "missing";
@@ -23,6 +33,8 @@ export interface EnvStatus {
   keys: KeyStatus[];
   /** Keys in the file that no script knows about, by name only. */
   unknown: string[];
+  /** Lines whose "key" is not a plausible variable name: counted, never printed. */
+  unprintable: number;
   /** Problems that are not about one key: a NETWORK mismatch, accounts from the other network. */
   problems: string[];
 }
@@ -99,13 +111,19 @@ export function envStatus(
   }
 
   const known = new Set<string>(ENV_KEYS);
-  const unknown = [...(options.present ?? Object.keys(raw))].filter((k) => !known.has(k)).sort();
+  // Only names that look like environment variables are repeated. dotenv reads
+  // the left of any `=` as a key, so a stray line holding a pasted token
+  // (`dGVzdHNlY3JldA==`) would otherwise arrive here as a "name" and be printed.
+  const present = [...(options.present ?? Object.keys(raw))].filter((k) => !known.has(k));
+  const unknown = present.filter((k) => ENV_NAME.test(k)).sort();
+  const unprintable = present.length - unknown.length;
 
   return {
     file: options.file ?? "",
     fileExists: options.fileExists ?? false,
     keys,
     unknown,
+    unprintable,
     problems,
   };
 }
@@ -114,7 +132,7 @@ export function envStatus(
 export function readEnvStatus(network: Network, envFile: URL | string = DEFAULT_ENV_FILE): EnvStatus {
   const fileExists = existsSync(envFile);
   const fromFile = fileExists ? parseDotenv(readFileSync(envFile)) : {};
-  const file = envFile instanceof URL ? envFile.pathname : envFile;
+  const file = envFile instanceof URL ? fileURLToPath(envFile) : envFile;
   // The process environment can override a key, so count it as present too.
   const raw: Record<string, string | undefined> = { ...fromFile };
   for (const key of ENV_KEYS) {
@@ -145,6 +163,9 @@ export function formatEnvStatus(status: EnvStatus): string {
 
   if (status.unknown.length > 0) {
     lines.push("", `Other keys in the file (names only): ${status.unknown.join(", ")}`);
+  }
+  if (status.unprintable > 0) {
+    lines.push("", `${status.unprintable} line(s) parsed as a key that is not a variable name: not printed, in case the text is itself a secret.`);
   }
   if (status.problems.length > 0) {
     lines.push("", "Problems:");
