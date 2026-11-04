@@ -24,7 +24,8 @@ On refusal: `{"error":"E_…","v":1}` and exit code 1. stderr carries fixed code
 
 | Name | Use |
 |---|---|
-| `NEAR_SENDER_ID` | must equal the input's `contract_id` (⚠️ G1 confirms) |
+| `NEAR_PREDECESSOR_ID` | must equal the input's `contract_id`: the account that called `request_execution`, i.e. the tender contract (G1, request 6845) |
+| `NEAR_SENDER_ID` | the transaction signer (the buyer). Never compared with `contract_id` — doing so refuses every honest run |
 | `MASTER_SECRET` | tender-key master secret, 64 hex characters (⚠️ G1 fixes the name) |
 | `NEAR_BLOCK_HEIGHT` | written into the bundle when present |
 | `EVALUATOR_FIXTURES`, `BUNDLE_STORE_DIR` | offline build only |
@@ -34,7 +35,7 @@ On refusal: `{"error":"E_…","v":1}` and exit code 1. stderr carries fixed code
 | Code | Meaning |
 |---|---|
 | `E_INPUT` | stdin is not the JSON of a known action, has unknown fields, bad base64, or bid indices are not 0..n−1 |
-| `E_SENDER` | `NEAR_SENDER_ID` missing or not the input's `contract_id` |
+| `E_SENDER` | `NEAR_PREDECESSOR_ID` missing or not the input's `contract_id` |
 | `E_ENV` | master secret missing or not 64 hex characters |
 | `E_RUBRIC` | `rubric_json` not canonical JCS, not a rubric in either shape (scoring core, prompt), weights not 10000, `budget_cap_minor` not a positive integer string, a criterion id not matching `^[a-z][a-z0-9_]{1,31}$`, a qualitative criterion reads a non-text field, or `min_valid_outputs` not 2 or 3 (or above the model count). `pipeline::check_rubric`, before any service; the contract refuses the same rubrics (I14) |
 | `E_ROOT_MISMATCH` | the bids do not hash to `bids_root` |
