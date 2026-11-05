@@ -212,6 +212,7 @@ log(`    status ${open.status}  escrowed ${open.escrowed}`);
 step(4, "encrypting and submitting three bids");
 const bidFiles = ["bid-a.json", "bid-b.json", "bid-c-malicious.json"];
 const bidRecords: { bidder: string; tx: string; tgas: number; bytes: number }[] = [];
+const bidPrices: string[] = [];
 for (const [i, v] of vendors.entries()) {
   const example = bidFile.parse(readJson(`specs/examples/bids/${bidFiles[i]}`));
   const { plaintext, bytes } = buildBidPlaintext({
@@ -222,6 +223,7 @@ for (const [i, v] of vendors.entries()) {
     methodology: example.methodology,
     track_record: example.track_record,
   });
+  bidPrices[i] = plaintext.price_minor;
   const ciphertext = eciesEncrypt(hexToBytes(tenderPubkey), bytes);
   const dk = readerKey(TEST_SIGNATURE, "debrief", contractId, tenderId, v.id);
   const dkPub = bytesToHex(publicKeyCompressed(dk));
@@ -363,6 +365,65 @@ for (const m of readers.committee) {
   }
 }
 
+// ---------------------------------------------------------------- 8. award, accept, pay
+
+step(8, "award, acceptance and payout");
+const top = result.rk[0];
+if (!top) throw new Error("the result has an empty ranking");
+const winnerIndex = top[0];
+const winner = vendors[winnerIndex];
+if (!winner) throw new Error(`the ranking names bid ${winnerIndex}, which has no vendor`);
+const amount = bidPrices[winnerIndex];
+if (amount === undefined) throw new Error(`no price recorded for bid ${winnerIndex}`);
+
+const balanceOf = async (account: string): Promise<bigint> =>
+  BigInt(await view<string>(p, tokenId, "ft_balance_of", { account_id: account }));
+const winnerBefore = await balanceOf(winner.id);
+const buyerBefore = await balanceOf(must("BUYER_ACCOUNT_ID"));
+
+// The committee awards at the winner's own bid price, which is what the report showed them.
+const proposed = await call<unknown>(buyer, {
+  contractId,
+  methodName: "propose_award",
+  args: { tender_id: Number(tenderId), bid_index: winnerIndex, amount, rationale: "top of the ranking" },
+  tgas: 100,
+});
+log(`    propose_award bid ${winnerIndex} for ${amount}  tx ${proposed.txHash}`);
+
+const accepted = await call<unknown>(winner.account, {
+  contractId,
+  methodName: "accept_award",
+  args: { tender_id: Number(tenderId), payout: { Near: { account: winner.id } } },
+  tgas: 150,
+});
+log(`    accept_award by ${winner.id}  tx ${accepted.txHash}`);
+
+const paid = await until(
+  "the payout",
+  readTender,
+  (t) => t.status === "Paid" || t.status === "PayingOut",
+  { timeoutMs: 120_000 },
+);
+const finalTender = await until("Paid", readTender, (t) => t.status === "Paid", {
+  timeoutMs: 120_000,
+});
+out.award = {
+  bid_index: winnerIndex,
+  winner: winner.id,
+  amount,
+  propose_tx: proposed.txHash,
+  accept_tx: accepted.txHash,
+  status: finalTender.status,
+};
+const winnerAfter = await balanceOf(winner.id);
+const buyerAfter = await balanceOf(must("BUYER_ACCOUNT_ID"));
+const remainder = BigInt(rubric.budget_cap_minor) - BigInt(amount);
+ok("the winner was paid the award amount", winnerAfter - winnerBefore === BigInt(amount),
+  `+${winnerAfter - winnerBefore}`);
+ok("the buyer got the remainder back", buyerAfter - buyerBefore === remainder, `+${buyerAfter - buyerBefore}`);
+ok("the tender is Paid", finalTender.status === "Paid", paid.status);
+log(`    winner ${winner.id} +${winnerAfter - winnerBefore}  buyer +${buyerAfter - buyerBefore} (remainder ${remainder})`);
+
 console.log();
 for (const [what, pass, detail] of checks) {
   console.log(`  ${pass ? "PASS" : "FAIL"}  ${what}${detail ? `  ${detail}` : ""}`);
@@ -372,7 +433,7 @@ out.checks = checks.map(([what, pass, detail]) => ({ what, pass, detail }));
 
 // ---------------------------------------------------------------- 8. summary
 
-step(8, "ranking");
+step(9, "ranking");
 for (const [index, bp, flags] of result.rk) {
   const b = bundle.bids.find((x) => x.index === index);
   log(`    bid ${index} ${b?.bidder ?? "?"}  ${bp} bp  flags ${flags}${b?.eligible ? "" : "  INELIGIBLE"}`);

@@ -56,6 +56,9 @@ pub const GAS_ON_EVALUATE: Gas = Gas::from_tgas(50);
 /// NEP-141 `ft_transfer` of the escrow, and its callback. ⚠️ G1 (testnet token).
 pub const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
 pub const GAS_ON_ESCROW_REFUND: Gas = Gas::from_tgas(10);
+/// The award payout callback also books the escrow and starts the remainder refund, so it
+/// needs room for one more cross-contract call than the plain refund callback (T08).
+pub const GAS_ON_PAYOUT: Gas = Gas::from_tgas(30);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 /// Largest OutLayer callback payload read (compact result ≤ 900 bytes, JSON-string escaped).
 pub const MAX_CALLBACK_BYTES: usize = 4096;

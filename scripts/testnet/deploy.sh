@@ -7,7 +7,8 @@
 # e2e script has to impersonate (buyer, vendors) have keys in the file.
 #
 #   ./deploy.sh token      deploy + init the NEP-141 demo token, register the accounts
-#   ./deploy.sh contract   deploy + init the tender contract, then add_evaluator
+#   ./deploy.sh contract   deploy + init the tender contract (first time only), then add_evaluator
+#   ./deploy.sh upgrade    deploy new code over an initialised contract, keeping its state
 #   ./deploy.sh evaluator  add_evaluator only (after a rebuild)
 #   ./deploy.sh show       read back what is deployed
 #
@@ -91,8 +92,27 @@ contract)
   "$0" evaluator
   ;;
 
+upgrade)
+  # `with-init-call new` on a contract that already holds state fails the whole transaction and
+  # leaves the old code live - which is silent unless you compare code hashes afterwards. An
+  # upgrade deploys the code alone and keeps `next_tender_id`, the tenders and the evaluators.
+  wasm_from_wsl near/tender_contract/tender_contract.wasm tender_contract.wasm || exit 1
+  echo "== upgrade $CONTRACT (no init; state kept)"
+  near contract deploy "$CONTRACT" use-file "$(winpath "$HERE/evidence/tender_contract.wasm")"     without-init-call network-config "$NETWORK" sign-with-keychain send 2>&1 | tail -4
+  echo "-- deployed code hash (compare with the local build):"
+  node -e 'const{createHash}=require("node:crypto");const h=createHash("sha256").update(require("node:fs").readFileSync(process.argv[1])).digest();const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";let n=BigInt("0x"+h.toString("hex")),o="";while(n>0){o=A[Number(n%58n)]+o;n/=58n;}console.log("   local:",o)' "$(winpath "$HERE/evidence/tender_contract.wasm")"
+  node "$VIEW_JS" "$CONTRACT" version '{}' >/dev/null 2>&1
+  curl -sS -X POST https://rpc.$NETWORK.near.org -H 'content-type: application/json'     -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"query\",\"params\":{\"request_type\":\"view_account\",\"finality\":\"final\",\"account_id\":\"$CONTRACT\"}}"     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log("   chain:",JSON.parse(s).result.code_hash))'
+  ;;
+
 evaluator)
   need WASM_URL WASM_SHA256
+  # add_evaluator is append-only by design (existing tenders keep the copy they made), so adding
+  # the same build twice leaves a confusing duplicate that cannot be removed.
+  if node "$VIEW_JS" "$CONTRACT" get_evaluators '{}' 2>/dev/null | grep -q "$WASM_SHA256"; then
+    echo "== add_evaluator skipped: $WASM_SHA256 is already pinned"
+    exit 0
+  fi
   echo "== add_evaluator  $WASM_SHA256"
   near contract call-function as-transaction "$CONTRACT" add_evaluator \
     json-args "{\"evaluator\":{\"wasm_url\":\"$WASM_URL\",\"wasm_sha256\":\"$WASM_SHA256\",\"build_target\":\"wasm32-wasip2\",\"source_tag\":\"evaluator-v0.1.0\"}}" \
