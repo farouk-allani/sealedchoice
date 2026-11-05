@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@tender/crypto": "workspace:*",
     "@tender/shared": "workspace:*",
     "dotenv": "18.0.9",
     "near-api-js": "7.4.0",

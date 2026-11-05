@@ -320,6 +320,9 @@ importers:
 
   scripts:
     dependencies:
+      '@tender/crypto':
+        specifier: workspace:*
+        version: link:../packages/crypto
       '@tender/shared':
         specifier: workspace:*
         version: link:../packages/shared
