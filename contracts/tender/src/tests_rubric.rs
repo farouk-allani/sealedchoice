@@ -206,6 +206,26 @@ const CASES: &[(&str, Mutate, Option<&str>)] = &[
         },
         Some("E_RUBRIC_PROMPT"),
     ),
+    // D-028 let a rubric have two models, which untied `min_valid_outputs` from the model count.
+    // Both directions matter: two models is a shape the evaluator accepts (so the contract must
+    // too), and asking for three answers from two models is one it refuses (so the contract must
+    // refuse it, or the tender takes bids and bonds and can never be evaluated).
+    (
+        "two models",
+        |v| {
+            v["models"] = json!(["Qwen/Qwen3.6-35B-A3B-FP8", "z-ai/glm-5.3-flash"]);
+            v["aggregation"]["min_valid_outputs"] = json!(2);
+        },
+        None,
+    ),
+    (
+        "two models but three valid outputs required",
+        |v| {
+            v["models"] = json!(["Qwen/Qwen3.6-35B-A3B-FP8", "z-ai/glm-5.3-flash"]);
+            v["aggregation"]["min_valid_outputs"] = json!(3);
+        },
+        Some("E_RUBRIC_AGGREGATION"),
+    ),
     // Extra content the evaluator ignores.
     (
         "extra field on a criterion",

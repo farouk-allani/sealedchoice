@@ -395,19 +395,29 @@ fn no_result_without_a_stored_bundle() {
         };
         run(case.input.to_string().as_bytes(), &testkit::env(), &svc).map(|_| ())
     };
+    // A store that answers is stored exactly once, and the result follows.
+    let healthy = Flaky {
+        fails: Cell::new(0),
+        inner: MemStore::default(),
+        conflict: false,
+    };
+    assert_eq!(go(&healthy), Ok(()), "a working store");
+    assert_eq!(healthy.inner.0.borrow().len(), 1);
+    // One refusal is already final here, and that is the point: retrying belongs to the store,
+    // which alone knows whether the failure is a transport blip (retry) or a 401/413 (do not).
+    // The pipeline retrying as well sent the whole bundle up to four times. If this ever goes
+    // back to Ok, a second retry has been reintroduced above the service that owns the policy.
     let once = Flaky {
         fails: Cell::new(1),
         inner: MemStore::default(),
         conflict: false,
     };
-    assert_eq!(go(&once), Ok(()), "one retry");
-    assert_eq!(once.inner.0.borrow().len(), 1);
-    let twice = Flaky {
-        fails: Cell::new(2),
-        inner: MemStore::default(),
-        conflict: false,
-    };
-    assert_eq!(go(&twice).map_err(|e| e.code()), Err("E_SERVICE"));
+    assert_eq!(
+        go(&once).map_err(|e| e.code()),
+        Err("E_SERVICE"),
+        "no retry in the pipeline"
+    );
+    assert_eq!(once.inner.0.borrow().len(), 0, "nothing stored");
     let conflict = Flaky {
         fails: Cell::new(0),
         inner: MemStore::default(),

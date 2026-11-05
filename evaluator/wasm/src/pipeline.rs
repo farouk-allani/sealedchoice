@@ -279,10 +279,13 @@ pub fn evaluate(
     if !eligible.is_empty()
         && let Err(e) = svc.models.preflight()
     {
-        return Err(if matches!(e.http_status, Some(401 | 403)) {
-            RunError::ModelAuth
-        } else {
-            RunError::ModelOutage
+        return Err(match (e.attempts, e.http_status) {
+            // The call was never attempted: the service had no credential to make it with. That
+            // is a misconfigured secret row, not an outage, and saying so is the difference
+            // between a five-minute fix and three burnt attempts.
+            (0, _) => RunError::Env(e.reason),
+            (_, Some(401 | 403)) => RunError::ModelAuth,
+            _ => RunError::ModelOutage,
         });
     }
 
@@ -405,12 +408,11 @@ pub fn evaluate(
         attestation,
     })?;
 
-    // No result without a stored bundle: one retry, then fail.
+    // No result without a stored bundle. The retry lives in the store implementation, which knows
+    // which failures are worth repeating; retrying here as well sent the whole bundle up to four
+    // times, twice for statuses the store had already judged final.
     let bundle_hex = hex(&built.bundle_hash);
-    let mut outcome = svc.store.put_if_absent(&bundle_hex, &built.bundle_bytes);
-    if outcome.is_err() {
-        outcome = svc.store.put_if_absent(&bundle_hex, &built.bundle_bytes);
-    }
+    let outcome = svc.store.put_if_absent(&bundle_hex, &built.bundle_bytes);
     match outcome.map_err(|e| RunError::Service(e.0))? {
         PutOutcome::Created | PutOutcome::Exists => {}
         PutOutcome::Conflict => return Err(RunError::Service("bundle store holds other bytes")),
