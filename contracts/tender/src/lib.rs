@@ -4,6 +4,7 @@
 //! withdrawals, cancellation, views, events. Close/evaluate is T04, award/payout T08.
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
+mod award;
 mod bids;
 pub mod constants;
 pub mod evaluate;

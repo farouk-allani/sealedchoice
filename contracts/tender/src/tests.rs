@@ -1061,7 +1061,7 @@ fn evaluator_hash_must_be_sha256_hex() {
 
 /// The full public method list. A new method must be added here and to README.md, and must
 /// not change rubric_json, rubric_hash, evaluator, committee, deadline_ns or bond (I1).
-const METHODS: [&str; 29] = [
+const METHODS: [&str; 36] = [
     "new",
     "add_evaluator",
     "create_tender",
@@ -1078,6 +1078,14 @@ const METHODS: [&str; 29] = [
     "close_and_evaluate",
     "retry_evaluate",
     "on_evaluate",
+    // award.rs (T08)
+    "propose_award",
+    "approve_award",
+    "close_without_award",
+    "accept_award",
+    "lapse_award",
+    "retry_payout",
+    "on_payout",
     "version",
     "get_config",
     "get_evaluators",
@@ -1094,7 +1102,14 @@ const METHODS: [&str; 29] = [
 ];
 
 /// Files holding `#[near] impl` blocks, in the order METHODS lists their methods.
-const CONTRACT_FILES: [&str; 5] = ["lib.rs", "tender.rs", "bids.rs", "evaluate.rs", "views.rs"];
+const CONTRACT_FILES: [&str; 6] = [
+    "lib.rs",
+    "tender.rs",
+    "bids.rs",
+    "evaluate.rs",
+    "award.rs",
+    "views.rs",
+];
 
 fn public_methods() -> Vec<String> {
     let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
@@ -1310,3 +1325,6 @@ mod evaluate_tests;
 
 #[path = "tests_rubric.rs"]
 mod rubric_tests;
+
+#[path = "tests_award.rs"]
+mod award_tests;
