@@ -1,1 +1,105 @@
 @import "tailwindcss";
+
+/*
+ * Design tokens — "steel + indigo rim".
+ *
+ * The rule that keeps this from reading as a crypto casino: indigo is a *light*, not a fill.
+ * It appears on metal edges, focus rings and hairlines. It never fills a large area.
+ * Green and amber mean exactly one thing each: a check passed, a bid was flagged.
+ */
+@theme {
+  --color-ink: #07080a;
+  --color-surface: #0e1014;
+  --color-raised: #14171d;
+  --color-line: #1e222a;
+  --color-line-strong: #2b313c;
+
+  --color-steel-900: #2a2d34;
+  --color-steel-700: #3f444e;
+  --color-steel-500: #595f6b;
+  --color-steel-300: #737a87;
+  --color-steel-100: #8a8f99;
+
+  --color-rim: #6c78ff;
+  --color-rim-dim: #3d44a8;
+
+  --color-pass: #3dd68c;
+  --color-flag: #f5a524;
+
+  --color-fg: #f4f5f7;
+  --color-muted: #8b9099;
+  --color-faint: #5d636d;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Display sizes for the scroll acts. Tight tracking is what makes a grotesk look expensive. */
+  /*
+   * Sized against the *height* as well as the width. A 1440x900 laptop leaves ~650px of
+   * viewport, and an act has to fit a title, a paragraph and three facts inside it.
+   */
+  --text-display: clamp(2.5rem, min(6.4vw, 9.5vh), 5.25rem);
+  --text-display--line-height: 0.94;
+  --text-display--letter-spacing: -0.042em;
+
+  --text-act: clamp(1.5rem, min(3.1vw, 4.6vh), 2.6rem);
+  --text-act--line-height: 1.06;
+  --text-act--letter-spacing: -0.028em;
+
+  --ease-vault: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  html {
+    /*
+     * GSAP ScrollTrigger drives every scroll animation. CSS smooth scrolling fights it, so
+     * anchor jumps are handled in JS instead.
+     */
+    scroll-behavior: auto;
+    background-color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    color: var(--color-fg);
+    background-color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-rim) 35%, transparent);
+    color: var(--color-fg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-rim);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
+@layer components {
+  /* A hairline that catches the rim light, used on cards and the nav. */
+  .edge {
+    border: 1px solid var(--color-line);
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--color-fg) 4%, transparent),
+      transparent 45%
+    );
+  }
+}
+
+/*
+ * Anyone who asks for less motion gets the whole story as a plain, static document.
+ * Nothing below the fold may depend on an animation having run.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
