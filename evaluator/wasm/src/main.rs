@@ -30,7 +30,18 @@ fn main() -> ExitCode {
     code
 }
 
-#[cfg(not(feature = "offline"))]
+/// The release build: real services over wasi-http (T05 part 2). Building them cannot fail - each
+/// keeps its own missing-secret error and raises it on use - so `derive_pubkey`, which calls no
+/// service, still answers on a run configured with nothing but the master secret.
+#[cfg(all(not(feature = "offline"), target_family = "wasm"))]
+fn run(stdin: &[u8], env: &dyn Environment) -> Result<Vec<u8>, evaluator_wasm::error::RunError> {
+    let live = evaluator_wasm::live::Live::from_env(env);
+    evaluator_wasm::run(stdin, env, &live.services())
+}
+
+/// Host builds (unit tests, `cargo clippy`): there is no wasi-http, so the services refuse and
+/// `evaluate` stops at `E_SERVICE` before printing anything. `derive_pubkey` needs none of them.
+#[cfg(all(not(feature = "offline"), not(target_family = "wasm")))]
 fn run(stdin: &[u8], env: &dyn Environment) -> Result<Vec<u8>, evaluator_wasm::error::RunError> {
     evaluator_wasm::run(
         stdin,

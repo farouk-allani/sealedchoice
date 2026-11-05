@@ -19,6 +19,7 @@ use evaluator_core::merkle::{hex, sha256};
 use evaluator_wasm::env_names;
 use evaluator_wasm::testkit::{self, CONTRACT};
 use serde_json::{Value, json};
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use wasmtime::component::{Component, Linker, ResourceTable};
@@ -26,6 +27,10 @@ use wasmtime::{Engine, Store};
 use wasmtime_wasi::p2::bindings::sync::Command;
 use wasmtime_wasi::p2::pipe::{MemoryInputPipe, MemoryOutputPipe};
 use wasmtime_wasi::{FsPerms, WasiCtx, WasiCtxView, WasiView};
+use wasmtime_wasi_http::{
+    Error as HttpError, RequestOptions, WasiBody, WasiHttpCtx, WasiHttpCtxView, WasiHttpHooks,
+    WasiHttpView,
+};
 
 fn workspace() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -63,9 +68,55 @@ fn release_wasm() -> &'static PathBuf {
     P.get_or_init(|| build(&[], "harness-wasm-release"))
 }
 
+/// No-op wasi:http hooks. The crate ships `default_hooks` only with its "default-send-request"
+/// feature, which pulls a rustls version that conflicts with the one near-sdk 5.29.1 pins, so the
+/// harness supplies its own. Every method of the trait has a default body; none of them sends
+/// anything, which is the point: the harness must never reach the network.
+struct NoHooks;
+
+impl WasiHttpHooks for NoHooks {
+    /// The one method without a default body. Refusing here is the point: the harness must give
+    /// the same answer on every machine, so a run that tried to reach NEAR AI or the bundle store
+    /// has to fail loudly rather than succeed on a connected laptop and fail in CI.
+    fn send_request(
+        &mut self,
+        _request: http::Request<WasiBody>,
+        _options: Option<RequestOptions>,
+        _fut: Box<dyn Future<Output = Result<(), HttpError>> + Send>,
+    ) -> Box<
+        dyn Future<
+                Output = Result<
+                    (
+                        http::Response<WasiBody>,
+                        Box<dyn Future<Output = Result<(), HttpError>> + Send>,
+                    ),
+                    HttpError,
+                >,
+            > + Send,
+    > {
+        Box::new(async { Err(HttpError::ConnectionRefused) })
+    }
+}
+
 struct State {
     ctx: WasiCtx,
+    http: WasiHttpCtx,
+    hooks: NoHooks,
     table: ResourceTable,
+}
+
+/// The release WASM imports wasi:http (src/live.rs) and cannot be instantiated unless the linker
+/// knows the interface. The dependency is built without the crate's "default-send-request"
+/// feature, so an outbound call fails instead of reaching the network: the harness stays offline
+/// by construction, which is what keeps its results reproducible.
+impl WasiHttpView for State {
+    fn http(&mut self) -> WasiHttpCtxView<'_> {
+        WasiHttpCtxView {
+            hooks: &mut self.hooks,
+            table: &mut self.table,
+            ctx: &mut self.http,
+        }
+    }
 }
 
 impl WasiView for State {
@@ -94,6 +145,7 @@ fn run_wasm(
     let component = Component::from_file(&engine, wasm).unwrap();
     let mut linker = Linker::<State>::new(&engine);
     wasmtime_wasi::p2::add_to_linker_sync(&mut linker).unwrap();
+    wasmtime_wasi_http::p2::add_only_http_to_linker_sync(&mut linker).unwrap();
     let stdout = MemoryOutputPipe::new(1 << 20);
     let stderr = MemoryOutputPipe::new(1 << 20);
     let mut b = WasiCtx::builder();
@@ -115,6 +167,8 @@ fn run_wasm(
         &engine,
         State {
             ctx: b.build(),
+            http: WasiHttpCtx::default(),
+            hooks: NoHooks,
             table: ResourceTable::new(),
         },
     );
