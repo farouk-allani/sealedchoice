@@ -162,6 +162,25 @@ fn check_against_expected(case: &testkit::Case, compact: &Value, bundle: &Value)
     }
 }
 
+/// D-029: the bundle reports the evaluator the **tender pinned**, not anything the WASM measured
+/// about itself. A verifier compares it with `get_tender` and with the attestation's
+/// `executed_wasm_sha256`, so the two must travel from the input untouched.
+#[test]
+fn the_bundle_reports_the_pinned_evaluator() {
+    let mut case = testkit::case("scoring-3-bids-injection.json", 1);
+    let pinned = "a".repeat(64);
+    case.input["evaluator"]["wasm_sha256"] = json!(pinned);
+    case.input["evaluator"]["source_tag"] = json!("evaluator-v9.9.9");
+    let (_, bundle) = evaluate(&case).unwrap();
+    assert_eq!(bundle["evaluator"]["wasm_sha256"], json!(pinned));
+    assert_eq!(bundle["evaluator"]["source_tag"], json!("evaluator-v9.9.9"));
+    // The repo is the build's own identity and is not taken from the input.
+    assert_eq!(
+        bundle["evaluator"]["source_repo"],
+        json!(crate::report::SOURCE_REPO)
+    );
+}
+
 #[test]
 fn three_bid_injection_vector_end_to_end() {
     let case = testkit::case("scoring-3-bids-injection.json", 1);
@@ -269,6 +288,15 @@ fn refuses_a_wrong_root_rubric_attempt_or_sender() {
     refuse(&|i| i["attempt"] = json!(0), "E_ATTEMPT");
     refuse(&|i| i["attempt"] = json!(4), "E_ATTEMPT");
     refuse(&|i| i["contract_id"] = json!("other.testnet"), "E_CALLER");
+    // D-029: the pinned hash is input, so a malformed one is an input error, not a service one.
+    refuse(
+        &|i| i["evaluator"]["wasm_sha256"] = json!("nothex"),
+        "E_INPUT",
+    );
+    refuse(
+        &|i| i["evaluator"]["wasm_sha256"] = json!("AA".repeat(32)),
+        "E_INPUT",
+    );
     // AI never sees prices: a rubric that would show price_minor to a model is refused.
     refuse(
         &|i| {
@@ -558,10 +586,6 @@ impl BundleStore for Counting {
     }
 }
 impl crate::services::ExecutionInfo for Counting {
-    fn wasm_sha256(&self) -> Result<String, ServiceError> {
-        self.calls.set(self.calls.get() + 1);
-        Err(ServiceError("counting"))
-    }
     fn request_id(&self) -> Result<Value, ServiceError> {
         self.calls.set(self.calls.get() + 1);
         Err(ServiceError("counting"))

@@ -33,6 +33,18 @@ pub struct EvaluateInput {
     pub bids_root: String,
     pub bids: Vec<InputBid>,
     pub committee: Vec<InputMember>,
+    pub evaluator: InputEvaluator,
+}
+
+/// What the tender pinned at creation. The WASM cannot measure its own hash, so the bundle
+/// records what the contract pinned and a verifier checks that against the attestation's
+/// `executed_wasm_sha256` (docs/06 check 4, D-029). Self-reporting here is safe precisely
+/// because the bundle is not the authority on what ran.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InputEvaluator {
+    pub wasm_sha256: String,
+    pub source_tag: String,
 }
 
 #[derive(Debug, Deserialize)]

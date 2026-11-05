@@ -135,10 +135,13 @@ Input (`input_data`, built by the contract, never by a person):
  "rubric_json": "<the exact JCS string stored at creation>", "bids_root": "<hex>",
  "bids": [{"index": 0, "bidder": "vendor-a.testnet", "submitted_at_ns": "1762000000000000000",
            "ciphertext_b64": "...", "debrief_pubkey": "02..."}],
- "committee": [{"account": "buyer.testnet", "pubkey": "03..."}]}
+ "committee": [{"account": "buyer.testnet", "pubkey": "03..."}],
+ "evaluator": {"wasm_sha256": "<the hash this tender pinned>", "source_tag": "evaluator-v1.0.0"}}
 ```
 
-Secrets (released by OutLayer only to this WASM hash, only when the caller is the tender contract): `MASTER_SECRET` (generated inside the TEE, never seen by anyone), `NEARAI_API_KEY`, `BUNDLE_STORE_TOKEN`.
+`evaluator` carries what the tender pinned at creation. The WASM cannot measure its own hash — OutLayer exposes no such variable (G1 enumerated all 27) and a binary cannot contain its own digest — so the bundle records the pinned hash and a verifier checks it against the attestation's `executed_wasm_sha256` and against `get_tender` (docs/06 check 4). The bundle is not the authority on what ran, which is why self-reporting it is safe (D-029).
+
+Secrets (released by OutLayer only to this WASM hash, only when the caller is the tender contract): `PROTECTED_MASTER_SECRET` (generated inside the TEE, never seen by anyone), `NEARAI_API_KEY`, `BUNDLE_STORE_TOKEN`. The caller is checked with **`NEAR_PREDECESSOR_ID`**, never `NEAR_SENDER_ID` (G1).
 
 How the contract sends it (`close_and_evaluate`, `retry_evaluate`; docs/03 has the details, `contracts/tender/src/constants.rs` the numbers, ⚠️ = provisional until G1):
 

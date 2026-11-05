@@ -150,6 +150,9 @@ pub fn case_from(v: &Value, attempt: u8) -> Case {
         "bids_root": hex(&root),
         "bids": bids,
         "committee": committee().iter().map(|(a, pk, _)| json!({"account": a, "pubkey": pk})).collect::<Vec<_>>(),
+        // What the tender pinned (D-029). The fixture `ExecutionInfo` reports the same hash, so a
+        // test can tell "the contract pinned X" apart from "X actually ran".
+        "evaluator": {"wasm_sha256": FIXTURE_WASM_SHA256, "source_tag": "evaluator-test"},
     });
     let fixtures = json!({
         "wasm_sha256": FIXTURE_WASM_SHA256,

@@ -112,9 +112,11 @@ pub trait BundleStore {
     fn put_if_absent(&self, sha256_hex: &str, body: &[u8]) -> Result<PutOutcome, ServiceError>;
 }
 
+/// Facts about this OutLayer execution that the WASM cannot compute. It deliberately does **not**
+/// offer the executing WASM hash: OutLayer exposes no such variable (G1 enumerated all 27) and a
+/// binary cannot contain its own digest. The bundle records the hash the tender pinned, which the
+/// contract passes in the input, and a verifier checks that against the attestation (D-029).
 pub trait ExecutionInfo {
-    /// sha256 (lowercase hex) of the WASM being executed.
-    fn wasm_sha256(&self) -> Result<String, ServiceError>;
     /// OutLayer's id for this execution request.
     fn request_id(&self) -> Result<Value, ServiceError>;
 }
@@ -170,9 +172,6 @@ impl BundleStore for Unavailable {
     }
 }
 impl ExecutionInfo for Unavailable {
-    fn wasm_sha256(&self) -> Result<String, ServiceError> {
-        Err(NOT_YET)
-    }
     fn request_id(&self) -> Result<Value, ServiceError> {
         Err(NOT_YET)
     }
