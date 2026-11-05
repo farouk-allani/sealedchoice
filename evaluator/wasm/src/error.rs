@@ -8,8 +8,8 @@ use std::fmt;
 pub enum RunError {
     /// stdin is not the JSON shape of a known action.
     Input(&'static str),
-    /// `NEAR_SENDER_ID` is not the input's `contract_id`.
-    SenderMismatch,
+    /// `NEAR_PREDECESSOR_ID` (the calling contract) is not the input's `contract_id`.
+    CallerMismatch,
     /// A secret or environment value is missing or malformed (the value is never printed).
     Env(&'static str),
     /// `rubric_json` is not its own JCS form, or not a rubric.
@@ -36,7 +36,7 @@ impl RunError {
     pub fn code(&self) -> &'static str {
         match self {
             RunError::Input(_) => "E_INPUT",
-            RunError::SenderMismatch => "E_SENDER",
+            RunError::CallerMismatch => "E_CALLER",
             RunError::Env(_) => "E_ENV",
             RunError::Rubric(_) => "E_RUBRIC",
             RunError::RootMismatch => "E_ROOT_MISMATCH",
@@ -59,7 +59,7 @@ impl RunError {
             | RunError::Scoring(d)
             | RunError::Service(d)
             | RunError::NotImplemented(d) => d,
-            RunError::SenderMismatch => "NEAR_SENDER_ID is not the input contract_id",
+            RunError::CallerMismatch => "NEAR_PREDECESSOR_ID is not the input contract_id",
             RunError::RootMismatch => "bids do not hash to bids_root",
             RunError::Attempt => "attempt outside 1..=3",
             RunError::ModelAuth => "the model API refused a call for authorization",

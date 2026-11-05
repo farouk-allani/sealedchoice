@@ -173,11 +173,11 @@ impl Environment for MapEnv {
     }
 }
 
-/// `NEAR_SENDER_ID` = the contract, master secret = the FAKE vector secret.
+/// `NEAR_PREDECESSOR_ID` = the calling contract, master secret = the FAKE vector secret.
 pub fn env() -> MapEnv {
     MapEnv(BTreeMap::from([
         (
-            crate::env_names::SENDER_ID.to_string(),
+            crate::env_names::PREDECESSOR_ID.to_string(),
             CONTRACT.to_string(),
         ),
         (

@@ -47,15 +47,15 @@ fn derive_pubkey_refuses_without_the_contract_or_the_secret() {
     let svc = Unavailable::services();
     let mut env = testkit::env();
     env.0
-        .insert(env_names::SENDER_ID.into(), "someone.testnet".into());
+        .insert(env_names::PREDECESSOR_ID.into(), "someone.testnet".into());
     assert_eq!(
         run(&derive_input("1"), &env, &svc),
-        Err(RunError::SenderMismatch)
+        Err(RunError::CallerMismatch)
     );
-    env.0.remove(env_names::SENDER_ID);
+    env.0.remove(env_names::PREDECESSOR_ID);
     assert_eq!(
         run(&derive_input("1"), &env, &svc),
-        Err(RunError::SenderMismatch)
+        Err(RunError::CallerMismatch)
     );
 
     let mut env = testkit::env();
@@ -268,7 +268,7 @@ fn refuses_a_wrong_root_rubric_attempt_or_sender() {
     );
     refuse(&|i| i["attempt"] = json!(0), "E_ATTEMPT");
     refuse(&|i| i["attempt"] = json!(4), "E_ATTEMPT");
-    refuse(&|i| i["contract_id"] = json!("other.testnet"), "E_SENDER");
+    refuse(&|i| i["contract_id"] = json!("other.testnet"), "E_CALLER");
     // AI never sees prices: a rubric that would show price_minor to a model is refused.
     refuse(
         &|i| {
@@ -578,7 +578,7 @@ fn refusals_happen_before_any_service_is_called() {
         i["rubric_json"] = json!(String::from_utf8(jcs(&r).unwrap()).unwrap());
     }
     let mutations: [Mutation<'_>; 7] = [
-        ("E_SENDER", &|i| i["contract_id"] = json!("other.testnet")),
+        ("E_CALLER", &|i| i["contract_id"] = json!("other.testnet")),
         ("E_ATTEMPT", &|i| i["attempt"] = json!(4)),
         ("E_RUBRIC", &|i| {
             let r = i["rubric_json"].as_str().unwrap().replacen('{', "{ ", 1);

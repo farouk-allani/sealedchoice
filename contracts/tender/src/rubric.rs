@@ -198,12 +198,12 @@ pub fn parse_rubric(rubric_json: &str, committee_len: usize) -> Result<ParsedRub
     if head.criteria.is_empty() || weights != Some(BP) {
         return Err("E_RUBRIC_WEIGHTS");
     }
-    if head.models.len() != 3
-        || head.models.iter().any(String::is_empty)
-        || head.models[0] == head.models[1]
-        || head.models[0] == head.models[2]
-        || head.models[1] == head.models[2]
-    {
+    // Two or three (D-028): only two NEAR AI models sign `provider_tee`, so a three-family rubric
+    // cannot be built without sending bid text outside a TEE. `evaluator_wasm::pipeline::check_rubric`
+    // carries the same bound, so the contract refuses exactly what the evaluator refuses (I14).
+    let models = &head.models;
+    let distinct = (1..models.len()).all(|i| models[..i].iter().all(|m| *m != models[i]));
+    if !(2..=3).contains(&models.len()) || models.iter().any(String::is_empty) || !distinct {
         return Err("E_RUBRIC_MODELS");
     }
     let budget_cap = parse_amount(&head.budget_cap_minor).ok_or("E_RUBRIC_CAP")?;

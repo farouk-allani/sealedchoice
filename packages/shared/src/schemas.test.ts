@@ -56,7 +56,11 @@ crossCheck("rubric", rubricSchema, [
   { name: "a budget cap with a leading zero", value: { ...rubric, budget_cap_minor: "015000000000" }, valid: false },
   { name: "a decimal budget cap", value: { ...rubric, budget_cap_minor: "15000.5" }, valid: false },
   { name: "an unknown top-level field", value: { ...rubric, owner_can_edit: true }, valid: false },
-  { name: "two models only", value: { ...rubric, models: (rubric.models as string[]).slice(0, 2) }, valid: false },
+  // D-028: two or three. Only two NEAR AI models sign `provider_tee`, so two is the demo's shape.
+  { name: "two models only", value: { ...rubric, models: (rubric.models as string[]).slice(0, 2) }, valid: true },
+  { name: "one model only", value: { ...rubric, models: (rubric.models as string[]).slice(0, 1) }, valid: false },
+  { name: "four models", value: { ...rubric, models: ["a", "b", "c", "d"] }, valid: false },
+  { name: "the same model twice, of two", value: { ...rubric, models: ["m", "m"] }, valid: false },
   { name: "the same model twice", value: { ...rubric, models: ["m", "m", "n"] }, valid: false },
   { name: "a different tie-break order", value: { ...rubric, tie_break: ["price_asc", "total_desc", "index_asc"] }, valid: false },
   {

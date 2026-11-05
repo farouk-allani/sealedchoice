@@ -76,9 +76,13 @@ export const rubricSchema = z
       require_delivery_lte_max: z.boolean(),
       required_fields: z.array(z.enum(["price_minor", "delivery_days", "methodology", "track_record"])),
     }),
+    // Two or three (D-028): only two NEAR AI models sign `provider_tee`, and a `gateway`-signed
+    // model would see bid text outside a TEE. Same bound as rubric.schema.json, the contract's
+    // `parse_rubric` and the evaluator's `check_rubric` (I14).
     models: z
       .array(text(1))
-      .length(3)
+      .min(2)
+      .max(3)
       .refine((m) => new Set(m).size === m.length, "models must be different"),
     aggregation: z.strictObject({
       qualitative: z.literal("lower_median"),

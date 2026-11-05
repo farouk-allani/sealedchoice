@@ -278,6 +278,19 @@ fn rubric_error(mutate: impl FnOnce(&mut Value)) -> &'static str {
     parse_rubric(&canonical(&v), 2).unwrap_err()
 }
 
+/// D-028: two models is the demo's rubric shape, so the contract must accept it.
+#[test]
+fn two_models_are_accepted() {
+    call(BUYER, NearToken::from_yoctonear(0), NOW);
+    let mut v = rubric_value();
+    v["models"] = json!(["Qwen/Qwen3.6-35B-A3B-FP8", "z-ai/glm-5.3-flash"]);
+    v["aggregation"]["min_valid_outputs"] = json!(2);
+    // `ParsedRubric` keeps only what the contract stores, so the assertion is that it parses at
+    // all: before D-028 this exact rubric was refused with E_RUBRIC_MODELS.
+    let parsed = parse_rubric(&canonical(&v), 2).expect("two distinct models are valid");
+    assert_eq!(parsed.approvals_required, 1);
+}
+
 #[test]
 fn rubric_rules_each_have_an_error_code() {
     assert_eq!(rubric_error(|v| v["v"] = json!(2)), "E_RUBRIC_VERSION");
@@ -289,8 +302,14 @@ fn rubric_rules_each_have_an_error_code() {
         rubric_error(|v| v["criteria"] = json!([])),
         "E_RUBRIC_WEIGHTS"
     );
+    // D-028: two or three distinct ids. Two is the demo's shape, because only two NEAR AI models
+    // sign `provider_tee`; one is too few to aggregate and four is beyond the schema.
     assert_eq!(
-        rubric_error(|v| v["models"] = json!(["a", "b"])),
+        rubric_error(|v| v["models"] = json!(["a"])),
+        "E_RUBRIC_MODELS"
+    );
+    assert_eq!(
+        rubric_error(|v| v["models"] = json!(["a", "b", "c", "d"])),
         "E_RUBRIC_MODELS"
     );
     assert_eq!(
@@ -298,7 +317,15 @@ fn rubric_rules_each_have_an_error_code() {
         "E_RUBRIC_MODELS"
     );
     assert_eq!(
+        rubric_error(|v| v["models"] = json!(["a", "b", "a"])),
+        "E_RUBRIC_MODELS"
+    );
+    assert_eq!(
         rubric_error(|v| v["models"] = json!(["a", "b", ""])),
+        "E_RUBRIC_MODELS"
+    );
+    assert_eq!(
+        rubric_error(|v| v["models"] = json!(["a", "a"])),
         "E_RUBRIC_MODELS"
     );
     assert_eq!(
