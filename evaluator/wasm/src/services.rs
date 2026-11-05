@@ -7,8 +7,9 @@
 //! - `AttestationSource`: the attestation report(s) for this run's nonce (G1/G3 find the path).
 //! - `BundleStore`: the content-addressed bundle store; same contract as apps/web's
 //!   `BundleBackend.putIfAbsent` (T06, D-021).
-//! - `ExecutionInfo`: facts about this OutLayer execution the WASM cannot compute (its own WASM
-//!   hash, the request id). G1 finds how OutLayer exposes them.
+//! - `ExecutionInfo`: facts about this OutLayer execution the WASM cannot compute - the request
+//!   id and the block height. **Not** its own WASM hash: no OutLayer variable carries it and a
+//!   binary cannot contain its own digest, so the contract passes what it pinned (D-029).
 //!
 //! `Unavailable` implements all of them by refusing: the default build has no real service until
 //! part 2. The `offline` feature adds fixture-backed implementations for the harness only.

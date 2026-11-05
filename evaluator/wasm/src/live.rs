@@ -250,8 +250,15 @@ impl SignatureSource for NearAiSignatures {
         if chat_id.is_empty() {
             return Err(ServiceError("no chat id to fetch a signature for"));
         }
+        // The chat id is whatever the model response carried, so it is upstream-chosen text in a
+        // path we send a bearer token to. Percent-encoding keeps it one path segment: without it
+        // an id like `../check_api_key` re-points this GET at another endpoint and puts that
+        // answer, verbatim, into a public bundle.
         let key = self.api_key.as_ref().map_err(Clone::clone)?;
-        let url = format!("{NEARAI_BASE}/signature/{chat_id}?signing_algo=ecdsa");
+        let url = format!(
+            "{NEARAI_BASE}/signature/{}?signing_algo=ecdsa",
+            urlencode(chat_id)
+        );
         let mut last = send(Method::GET, &url, Some(key), None);
         if worth_retrying(&last) {
             last = send(Method::GET, &url, Some(key), None);
@@ -353,7 +360,14 @@ impl HttpBundleStore {
     pub fn from_env(env: &dyn Environment) -> Self {
         Self {
             base: match env.var(env_names::BUNDLE_STORE_URL) {
-                Some(u) if !u.trim().is_empty() => Ok(u.trim_end_matches('/').to_string()),
+                // https only: `put_if_absent` sends BUNDLE_STORE_TOKEN as a bearer, and an
+                // `http://` row would put it on the wire in cleartext.
+                Some(u) if u.trim().starts_with("https://") => {
+                    Ok(u.trim().trim_end_matches('/').to_string())
+                }
+                Some(u) if !u.trim().is_empty() => {
+                    Err(ServiceError("BUNDLE_STORE_URL is not https"))
+                }
                 _ => Err(ServiceError("BUNDLE_STORE_URL is not set")),
             },
             token: secret(

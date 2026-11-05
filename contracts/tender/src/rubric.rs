@@ -160,8 +160,13 @@ fn check_evaluable(value: &Value) -> Result<(), &'static str> {
     {
         return Err("E_RUBRIC_SOURCE_FIELDS");
     }
-    // At least two models' answers behind every result (D-024 outage rule); 3 models exactly.
-    if !(2..=3).contains(&scoring.aggregation.min_valid_outputs) {
+    // At least two models' answers behind every result (D-024 outage rule), and never more than
+    // the rubric has models: `evaluator_wasm::pipeline::check_rubric` carries both halves, and a
+    // rubric that passes here but not there is a tender that takes bids and bonds and can never be
+    // evaluated (I14). Before D-028 `models.len()` was always 3, so `2..=3` implied the second
+    // half; with two models allowed it does not.
+    let min_valid = scoring.aggregation.min_valid_outputs;
+    if !(2..=3).contains(&min_valid) || min_valid as usize > scoring.models.len() {
         return Err("E_RUBRIC_AGGREGATION");
     }
     let renders = |c: &PromptCriterion| {
