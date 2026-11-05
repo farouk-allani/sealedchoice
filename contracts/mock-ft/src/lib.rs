@@ -1,7 +1,11 @@
-//! Minimal NEP-141 + NEP-145 token for sandbox tests, after near-sdk's fungible-token example.
-//! Test infrastructure only: never deployed outside a sandbox.
+//! Minimal NEP-141 + NEP-145 + NEP-148 token, after near-sdk's fungible-token example. Used by the
+//! sandbox suite and deployed on **testnet** as the demo's tUSDC (T07). Never on mainnet: it mints
+//! its whole supply to one owner at init and has no other issuance control.
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
+use near_contract_standards::fungible_token::metadata::{
+    FT_METADATA_SPEC, FungibleTokenMetadata, FungibleTokenMetadataProvider,
+};
 use near_contract_standards::fungible_token::{
     FungibleToken, FungibleTokenCore, FungibleTokenResolver,
 };
@@ -21,14 +25,26 @@ enum StorageKey {
 #[derive(PanicOnDefault)]
 pub struct MockFt {
     token: FungibleToken,
+    metadata: FungibleTokenMetadata,
 }
 
 #[near]
 impl MockFt {
+    /// `decimals` is the rubric's `currency.decimals`: the demo uses 6, like real USDC, so a
+    /// `budget_cap_minor` of "15000000000" reads as 15,000 tokens everywhere.
     #[init]
-    pub fn new(owner_id: AccountId, total_supply: U128) -> Self {
+    pub fn new(owner_id: AccountId, total_supply: U128, symbol: String, decimals: u8) -> Self {
         let mut this = Self {
             token: FungibleToken::new(StorageKey::FungibleToken),
+            metadata: FungibleTokenMetadata {
+                spec: FT_METADATA_SPEC.to_string(),
+                name: format!("SealedChoice demo {symbol}"),
+                symbol,
+                icon: None,
+                reference: None,
+                reference_hash: None,
+                decimals,
+            },
         };
         this.token.internal_register_account(&owner_id);
         this.token.internal_deposit(&owner_id, total_supply.0);
@@ -106,5 +122,12 @@ impl StorageManagement for MockFt {
 
     fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
         self.token.storage_balance_of(account_id)
+    }
+}
+
+#[near]
+impl FungibleTokenMetadataProvider for MockFt {
+    fn ft_metadata(&self) -> FungibleTokenMetadata {
+        self.metadata.clone()
     }
 }

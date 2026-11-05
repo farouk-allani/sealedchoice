@@ -36,3 +36,6 @@ next-env.d.ts
 
 # local bundle store (apps/web, BUNDLE_STORE_BACKEND=local)
 .bundle-store/
+
+# deploy artifacts copied out of WSL and transaction logs (T07)
+scripts/testnet/evidence/

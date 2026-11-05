@@ -144,7 +144,7 @@ async fn setup(vendor_names: &[&str]) -> R<Env> {
     check(
         token
             .call("new")
-            .args_json(json!({"owner_id": buyer.id(), "total_supply": (10 * CAP).to_string()}))
+            .args_json(json!({"owner_id": buyer.id(), "total_supply": (10 * CAP).to_string(), "symbol": "tUSDC", "decimals": 6}))
             .transact()
             .await?,
         "token new",
