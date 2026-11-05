@@ -130,7 +130,7 @@ fn run_wasm(
 
 fn base_env() -> Vec<(&'static str, String)> {
     vec![
-        (env_names::SENDER_ID, CONTRACT.to_string()),
+        (env_names::PREDECESSOR_ID, CONTRACT.to_string()),
         (env_names::MASTER_SECRET, testkit::keys().master_secret_hex),
         (env_names::BLOCK_HEIGHT, "123456".to_string()),
     ]
@@ -376,7 +376,7 @@ fn evaluate_refuses_a_wrong_sender_with_an_error_object() {
         ],
     );
     assert!(!r.ok);
-    assert_eq!(r.stdout, br#"{"error":"E_SENDER","v":1}"#);
+    assert_eq!(r.stdout, br#"{"error":"E_CALLER","v":1}"#);
     assert_eq!(
         std::fs::read_dir(&store_dir).unwrap().count(),
         0,

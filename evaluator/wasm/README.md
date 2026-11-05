@@ -35,7 +35,7 @@ On refusal: `{"error":"E_…","v":1}` and exit code 1. stderr carries fixed code
 | Code | Meaning |
 |---|---|
 | `E_INPUT` | stdin is not the JSON of a known action, has unknown fields, bad base64, or bid indices are not 0..n−1 |
-| `E_SENDER` | `NEAR_PREDECESSOR_ID` missing or not the input's `contract_id` |
+| `E_CALLER` | `NEAR_PREDECESSOR_ID` (the calling contract) missing or not the input's `contract_id` |
 | `E_ENV` | master secret missing or not 64 hex characters |
 | `E_RUBRIC` | `rubric_json` not canonical JCS, not a rubric in either shape (scoring core, prompt), weights not 10000, `budget_cap_minor` not a positive integer string, a criterion id not matching `^[a-z][a-z0-9_]{1,31}$`, a qualitative criterion reads a non-text field, or `min_valid_outputs` not 2 or 3 (or above the model count). `pipeline::check_rubric`, before any service; the contract refuses the same rubrics (I14) |
 | `E_ROOT_MISMATCH` | the bids do not hash to `bids_root` |

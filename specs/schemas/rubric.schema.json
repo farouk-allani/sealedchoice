@@ -63,9 +63,9 @@
       }
     },
     "models": {
-      "type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true,
+      "type": "array", "minItems": 2, "maxItems": 3, "uniqueItems": true,
       "items": {"type": "string", "minLength": 1},
-      "description": "Exact NEAR AI Cloud model ids, pinned at creation. Use three different model families."
+      "description": "Exact NEAR AI Cloud model ids, pinned at creation. Use models from different families, and only models whose responses sign `provider_tee`: a `gateway`-signed model runs outside a TEE and would see bid text on a third party's infrastructure (G3, D-028)."
     },
     "aggregation": {
       "type": "object", "additionalProperties": false,

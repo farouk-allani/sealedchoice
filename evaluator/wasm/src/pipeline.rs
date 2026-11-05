@@ -35,11 +35,13 @@ pub fn is_criterion_id(id: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_')
 }
 
-/// The caller of `request_execution` must be the tender contract named in the input.
-fn check_sender(env: &dyn Environment, contract_id: &str) -> Result<(), RunError> {
-    match env.var(env_names::SENDER_ID) {
-        Some(sender) if sender == contract_id => Ok(()),
-        _ => Err(RunError::SenderMismatch),
+/// The caller of `request_execution` must be the tender contract named in the input. That is
+/// `NEAR_PREDECESSOR_ID`, never `NEAR_SENDER_ID`: G1 measured the latter as the transaction
+/// signer, so checking it would refuse every honest run (request 6845).
+fn check_caller(env: &dyn Environment, contract_id: &str) -> Result<(), RunError> {
+    match env.var(env_names::PREDECESSOR_ID) {
+        Some(caller) if caller == contract_id => Ok(()),
+        _ => Err(RunError::CallerMismatch),
     }
 }
 
@@ -71,7 +73,7 @@ pub fn derive_pubkey(
     input: &DerivePubkeyInput,
     env: &dyn Environment,
 ) -> Result<Vec<u8>, RunError> {
-    check_sender(env, &input.contract_id)?;
+    check_caller(env, &input.contract_id)?;
     let sk = derive_tender_key(env, &input.contract_id, &input.tender_id)?;
     let pk = sk
         .public_compressed()
@@ -149,6 +151,12 @@ pub fn check_rubric(rubric_json: &str) -> Result<CheckedRubric, RunError> {
             "a qualitative criterion reads a non-text field",
         ));
     }
+    // Same bound as `contracts/tender/src/rubric.rs` (I14, D-028): two or three distinct ids.
+    let models = &rubric.models;
+    let distinct = (1..models.len()).all(|i| models[..i].iter().all(|m| *m != models[i]));
+    if !(2..=3).contains(&models.len()) || models.iter().any(String::is_empty) || !distinct {
+        return Err(RunError::Rubric("models must be two or three distinct ids"));
+    }
     let min_valid = rubric.aggregation.min_valid_outputs;
     if !(2..=3).contains(&min_valid) || min_valid > rubric.models.len() {
         return Err(RunError::Rubric(
@@ -189,7 +197,7 @@ pub fn evaluate(
     env: &dyn Environment,
     svc: &Services<'_>,
 ) -> Result<Vec<u8>, RunError> {
-    check_sender(env, &input.contract_id)?;
+    check_caller(env, &input.contract_id)?;
     if !(1..=LAST_ATTEMPT).contains(&input.attempt) {
         return Err(RunError::Attempt);
     }
