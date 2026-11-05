@@ -9,7 +9,7 @@ publish.workspace = true
 # Heavy test-only dependencies sit behind the `run` feature, so `cargo test --workspace` never
 # compiles wasmtime. Run with: cargo test -p evaluator-harness --features run
 [features]
-run = ["dep:wasmtime", "dep:wasmtime-wasi", "dep:jsonschema", "dep:base64", "dep:evaluator-wasm"]
+run = ["dep:wasmtime", "dep:wasmtime-wasi", "dep:wasmtime-wasi-http", "dep:http", "dep:jsonschema", "dep:base64", "dep:evaluator-wasm"]
 
 [dependencies]
 evaluator-core = { path = "../core" }
@@ -17,6 +17,13 @@ serde_json = { workspace = true }
 evaluator-wasm = { path = "../wasm", features = ["testkit"], optional = true }
 wasmtime = { version = "=50.0.0", optional = true }
 wasmtime-wasi = { version = "=50.0.0", optional = true }
+# The release WASM imports wasi:http (src/live.rs). The harness never lets a call out - no
+# outbound handler is configured - but the component cannot be instantiated unless the linker
+# knows the interface, and the harness must be able to load the real artifact.
+# default-features = false drops its rustls/TLS stack: the harness makes no outbound call, and
+# rustls 0.23 conflicts with the near-crypto version near-sdk 5.29.1 pins.
+wasmtime-wasi-http = { version = "=50.0.0", optional = true, default-features = false, features = ["p2"] }
+http = { version = "1.5.0", optional = true }
 jsonschema = { version = "=0.58.6", default-features = false, optional = true }
 base64 = { version = "0.22.1", optional = true }
 

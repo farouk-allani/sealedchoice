@@ -8,6 +8,11 @@
 pub mod env_names;
 pub mod error;
 pub mod input;
+/// The real services. WASI only: they are built on `wasi-http`, and a host build has no such
+/// thing. `cargo test` therefore exercises the pipeline against fixtures, and the live path is
+/// exercised by the wasmtime harness and by the OutLayer run itself.
+#[cfg(all(target_family = "wasm", not(feature = "offline")))]
+pub mod live;
 #[cfg(any(feature = "offline", feature = "testkit", test))]
 pub mod offline;
 pub mod pipeline;
