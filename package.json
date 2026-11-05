@@ -11,7 +11,8 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "verify": "tsx scripts/verify.ts",
-    "env-status": "tsx scripts/env-status.ts"
+    "env-status": "tsx scripts/env-status.ts",
+    "e2e": "tsx scripts/e2e-testnet.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
