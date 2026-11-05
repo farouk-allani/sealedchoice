@@ -337,7 +337,13 @@ pub fn build(c: &Context<'_>) -> Result<Built, RunError> {
     let mut evaluator = Map::new();
     evaluator.insert("wasm_sha256".into(), Value::String(c.wasm_sha256.clone()));
     evaluator.insert("source_repo".into(), Value::String(SOURCE_REPO.into()));
-    evaluator.insert("source_tag".into(), Value::String(SOURCE_TAG.into()));
+    // The tag the tender pinned, not this build's own: they must agree, and a verifier that
+    // finds them different has found a mismatch worth seeing (D-029). `SOURCE_TAG` stays the
+    // build's own identity and is compared in a test.
+    evaluator.insert(
+        "source_tag".into(),
+        Value::String(c.input.evaluator.source_tag.clone()),
+    );
     evaluator.insert("outlayer_request_id".into(), c.request_id.clone());
     evaluator.insert("attempt".into(), json!(c.input.attempt));
     if let Some(h) = c.block_height {

@@ -235,6 +235,7 @@ fn evaluate_input_has_the_docs_04_shape() {
             "bids_root",
             "committee",
             "contract_id",
+            "evaluator",
             "rubric_json",
             "tender_id"
         ]

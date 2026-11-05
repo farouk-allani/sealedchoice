@@ -357,6 +357,14 @@ impl Contract {
             "bids_root": frozen.root,
             "bids": bids,
             "committee": committee,
+            // What this tender pinned at creation. The WASM cannot measure its own hash - OutLayer
+            // exposes no such variable (G1 listed all 27) and a binary cannot contain its own
+            // digest - so the bundle carries the hash the contract pinned, and a verifier checks
+            // it against the attestation's `executed_wasm_sha256` (docs/06 check 4, D-029).
+            "evaluator": {
+                "wasm_sha256": t.evaluator.wasm_sha256,
+                "source_tag": t.evaluator.source_tag,
+            },
         })
         .to_string()
     }

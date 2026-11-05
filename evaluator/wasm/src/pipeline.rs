@@ -233,11 +233,17 @@ pub fn evaluate(
         return Err(RunError::RootMismatch);
     }
 
+    // The hash this tender pinned (D-029). The WASM cannot measure its own: OutLayer exposes no
+    // such variable and a binary cannot contain its own digest. Self-reporting is safe because the
+    // bundle is not the authority - a verifier compares this with `get_tender` and with the
+    // attestation's `executed_wasm_sha256` (docs/06 check 4).
+    let wasm_sha256 = input.evaluator.wasm_sha256.clone();
+    if evaluator_core::merkle::parse_hash(&wasm_sha256).is_none() {
+        return Err(RunError::Input(
+            "evaluator.wasm_sha256 is not 64 lowercase hex",
+        ));
+    }
     // What only OutLayer knows; asked before any work so a build without it stops here.
-    let wasm_sha256 = svc
-        .execution
-        .wasm_sha256()
-        .map_err(|e| RunError::Service(e.0))?;
     let request_id = svc
         .execution
         .request_id()

@@ -3,7 +3,7 @@
 //! its hash (the one the contract pins and the secrets are bound to) contains none of this code.
 //!
 //! The fixture file (path in `EVALUATOR_FIXTURES`):
-//! `{"wasm_sha256": hex, "request_id": string|int, "model_outputs": {"<bid index>": [output|null per
+//! `{"request_id": string|int, "model_outputs": {"<bid index>": [output|null per
 //! model]}}`. A `null` output is a failed call. Request and response bytes are fixture JSON, not
 //! NEAR AI's format (G3 fixes that); signatures and attestation reports are marked as fixtures.
 
@@ -19,7 +19,6 @@ use std::io::Write;
 use std::path::PathBuf;
 
 pub struct Fixtures {
-    wasm_sha256: String,
     request_id: Value,
     model_outputs: BTreeMap<String, Vec<Value>>,
 }
@@ -40,7 +39,6 @@ impl Fixtures {
         let model_outputs = serde_json::from_value(v["model_outputs"].clone())
             .map_err(|_| ServiceError("offline: model_outputs"))?;
         Ok(Fixtures {
-            wasm_sha256: v["wasm_sha256"].as_str().unwrap_or_default().to_string(),
             request_id: v["request_id"].clone(),
             model_outputs,
         })
@@ -113,9 +111,6 @@ impl AttestationSource for Fixtures {
 }
 
 impl ExecutionInfo for Fixtures {
-    fn wasm_sha256(&self) -> Result<String, ServiceError> {
-        Ok(self.wasm_sha256.clone())
-    }
     fn request_id(&self) -> Result<Value, ServiceError> {
         Ok(self.request_id.clone())
     }
