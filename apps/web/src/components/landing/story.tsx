@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ACTS } from "../../content/landing.ts";
+import { Foundation } from "./foundation.tsx";
 import { ProtocolAssembly, STAGE_STEP } from "./protocol-assembly.tsx";
 
 /**
@@ -99,28 +100,6 @@ export function Story() {
     return () => motionless.removeEventListener("change", sync);
   }, []);
 
-  const foundation = (
-    <div className="protocol-foundation">
-      <span>BUILT ON</span>
-      <strong>
-        NEAR<span className="foundation-symbol">↗</span>
-      </strong>
-      <span className="foundation-divider" />
-      <strong>
-        OutLayer <small>Trusted execution</small>
-      </strong>
-      <span className="foundation-divider" />
-      <strong>
-        NEAR AI <small>Signed model calls</small>
-      </strong>
-      <p>
-        Encrypted in the browser.
-        <br />
-        Recorded on the chain.
-      </p>
-    </div>
-  );
-
   if (mode !== "scrubbed") {
     return (
       <section id="story" className="protocol-section section-shell">
@@ -150,7 +129,7 @@ export function Story() {
             ))}
           </ol>
         </div>
-        {foundation}
+        <Foundation />
       </section>
     );
   }
@@ -189,7 +168,7 @@ export function Story() {
           </div>
         </div>
       </div>
-      {foundation}
+      <Foundation />
     </section>
   );
 }
