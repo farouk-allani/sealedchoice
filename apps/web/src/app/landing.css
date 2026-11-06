@@ -12,8 +12,7 @@ body {
   background: var(--landing-bg);
   color: var(--landing-text);
 }
-/* Moving seals enter from outside the viewport without creating a sideways scrollbar.
-   clip preserves the viewport scroll container used by the sticky vault. */
+/* Preserve the viewport scroll container used by the sticky vault. */
 main#top {
   overflow-x: clip;
 }
@@ -269,10 +268,10 @@ button {
   font-size: 18px;
 }
 .result-cards {
-  margin-top: 145px;
+  margin-top: 58px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px;
+  gap: 18px;
 }
 .result-card {
   position: relative;
@@ -280,38 +279,63 @@ button {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 175px 20px 36px;
-  border: 1px solid #46404f;
-  border-radius: 9px;
-  background: #171620;
-  min-height: 420px;
+  padding: 0 24px 32px;
+  border-radius: 12px;
+  background: #15161e;
+  overflow: hidden;
+  min-height: 440px;
 }
-.rendered-seal {
-  position: absolute;
-  width: 96%;
-  max-width: 280px;
-  height: auto;
-  left: 50%;
-  top: -99px;
-  translate: -50% 0;
+.result-art {
+  width: calc(100% + 48px);
+  aspect-ratio: 1.16;
+  margin-bottom: 8px;
+  background: radial-gradient(ellipse at 50% 45%, #29303b 0%, transparent 68%);
   pointer-events: none;
+}
+.result-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.result-card-awarded .result-art {
+  background: radial-gradient(ellipse at 50% 45%, #203830 0%, transparent 68%);
+}
+.result-card-flagged .result-art {
+  background: radial-gradient(ellipse at 50% 45%, #382e24 0%, transparent 68%);
+}
+.audit-card .result-art {
+  background: radial-gradient(ellipse at 50% 45%, #302941 0%, transparent 68%);
+}
+.result-cards[data-artwork="vault"] .result-card {
+  background: #12121c;
+}
+.result-cards[data-artwork="vault"] .result-art {
+  background: radial-gradient(ellipse at 50% 45%, #222031 0%, transparent 70%);
+}
+.result-cards[data-artwork="vault"] .audit-card:hover {
+  background: #1b1928;
 }
 .result-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 5px 11px;
-  border: 1px solid currentColor;
-  border-radius: 30px;
+  padding: 7px 10px;
+  background: #23352f;
+  border-radius: 5px;
   font-size: 13px;
   line-height: 1.2;
 }
 .result-status strong {
-  font-weight: 400;
+  font-weight: 600;
 }
 .result-status > span {
   font-size: 11px;
+  font-weight: 600;
+}
+.result-status.is-flag {
+  background: #392e20;
 }
 .is-pass {
   color: #61d9a1;
@@ -322,26 +346,31 @@ button {
 .result-card h3 {
   margin-top: 23px;
   font-size: 31px;
-  font-weight: 400;
+  font-weight: 600;
   letter-spacing: -0.6px;
   line-height: 1.1;
 }
 .result-card h3 > span {
   display: block;
-  font-size: 21px;
+  font-size: 17px;
+  font-weight: 400;
   margin-top: 8px;
   line-height: 1.35;
   letter-spacing: -0.3px;
 }
 .result-card > p {
-  color: #9891a3;
-  font-size: 12px;
+  color: #aaa6b4;
+  font-size: 13px;
   line-height: 1.55;
   margin-top: 20px;
   max-width: 220px;
 }
 .audit-card:hover {
-  border-color: #b6a5ce;
+  background: #1e1c2a;
+}
+.audit-card:focus-visible {
+  outline: 2px solid #b6a5ce;
+  outline-offset: 4px;
 }
 .result-receipt {
   display: flex;
@@ -383,15 +412,33 @@ button {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+/* Scroll length for the six-stage cycle, plus one viewport the sticky stage is held for.
+   ScrollTrigger's "bottom bottom" end lands exactly where the sticky stage releases. */
 .protocol-section {
-  padding-top: 80px;
-  padding-bottom: 80px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+/* Scroll length for the six-stage cycle. The sticky stage inside is held for all but the
+   last viewport of it, which is where ScrollTrigger's "bottom bottom" end lands. */
+.protocol-scroll {
+  position: relative;
+  height: 400vh;
+}
+.protocol-sticky {
+  position: sticky;
+  top: 0;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* Clears the fixed nav island (top: 35px plus its own height). */
+  padding: 132px 0 44px;
 }
 .protocol-grid {
   display: grid;
-  grid-template-columns: 1.05fr 1fr;
-  min-height: 790px;
-  gap: 20px;
+  grid-template-columns: 1fr 1.12fr;
+  min-height: 0;
+  gap: 36px;
   align-items: center;
 }
 .protocol-copy {
@@ -401,87 +448,133 @@ button {
 .protocol-copy .section-title {
   font-size: clamp(48px, 5.5vw, 86px);
 }
-.protocol-tabs {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 42px;
-  max-width: 560px;
-  border-bottom: 1px solid #ffffff26;
-}
-.protocol-tabs button {
-  color: #81798e;
-  padding: 10px 0 13px;
-  font-size: 12px;
-  border-bottom: 1px solid transparent;
-}
-.protocol-tabs button > span {
-  display: none;
-}
-.protocol-tabs button[aria-selected="true"] {
-  color: #eeeaf5;
-  border-bottom-color: #ddd2ee;
-}
-.protocol-tabs button:hover {
-  color: #eeeaf5;
-}
-.protocol-panel {
-  margin-top: 25px;
-  min-height: 265px;
-  max-width: 520px;
-}
-.protocol-panel h3 {
-  font-size: 21px;
-  font-weight: 400;
-  letter-spacing: -0.3px;
-}
-.protocol-panel > p {
-  font-size: 16px;
-  line-height: 1.7;
-  margin-top: 17px;
-  color: #a39aaa;
-}
-.protocol-panel dl {
+.protocol-steps {
   display: flex;
   flex-direction: column;
-  margin-top: 25px;
-  gap: 9px;
+  margin-top: 38px;
+  max-width: 520px;
+  border-left: 1px solid #ffffff1f;
 }
-.protocol-panel dl > div {
+.protocol-steps button {
   display: flex;
-  gap: 20px;
   align-items: baseline;
+  gap: 16px;
+  margin-left: -1px;
+  padding: 11px 0 11px 20px;
+  border-left: 2px solid transparent;
+  color: #6f6880;
+  text-align: left;
+  transition:
+    color 220ms ease,
+    border-color 220ms ease;
+}
+.protocol-steps button:hover {
+  color: #b8b0c6;
+}
+.protocol-steps button:focus-visible {
+  outline: 2px solid #b6a5ce;
+  outline-offset: 3px;
+}
+.protocol-steps button[aria-selected="true"] {
+  color: #f1ecf8;
+  border-left-color: #b9a6e4;
+}
+.protocol-step-index {
+  flex-shrink: 0;
   font-size: 11px;
+  font-weight: 600;
+  color: #6b6380;
+  font-variant-numeric: tabular-nums;
 }
-.protocol-panel dt {
-  color: #746b82;
-  min-width: 100px;
+.protocol-steps button[aria-selected="true"] .protocol-step-index {
+  color: #a892d8;
 }
-.protocol-panel dd {
-  color: #a499b5;
+.protocol-step-title {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.protocol-line {
+  margin-top: 24px;
+  padding-left: 21px;
+  max-width: 440px;
+  min-height: 52px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #a39aaa;
 }
 .protocol-visual {
   position: relative;
-  align-self: stretch;
-  min-height: 740px;
-  margin-right: -6vw;
+  min-width: 0;
+  margin: 0;
 }
-.podium-art {
-  position: absolute;
-  width: 100%;
+.protocol-assembly {
+  position: relative;
+  width: min(100%, 70svh);
+  margin: 0 auto;
   aspect-ratio: 1;
-  left: 0;
-  bottom: 0;
+  background: radial-gradient(ellipse at 50% 48%, #1b192b 0%, transparent 65%);
 }
-.podium-render {
-  object-fit: contain;
+.protocol-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
-.podium-seal {
+/* The still stack is the reduced-motion presentation only; the canvas carries the cycle. */
+.protocol-stills {
+  display: none;
   position: absolute;
-  width: 44%;
-  height: auto;
-  left: 28%;
-  top: 0;
+  inset: 0;
+}
+.protocol-render {
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 320ms ease;
+}
+.protocol-render.is-active {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .protocol-scroll {
+    height: auto;
+  }
+  .protocol-sticky {
+    position: static;
+    min-height: 0;
+    padding: 0;
+  }
+  .protocol-steps button {
+    transition: none;
+  }
+  .protocol-canvas {
+    display: none;
+  }
+  .protocol-stills {
+    display: block;
+  }
+}
+/* A one-viewport stage has to fit the shortest common laptop, not just a tall desktop. */
+@media (max-height: 840px) {
+  .protocol-sticky {
+    padding: 108px 0 28px;
+  }
+  .protocol-copy .section-title {
+    font-size: clamp(38px, 3.8vw, 56px);
+  }
+  .protocol-steps {
+    margin-top: 22px;
+  }
+  .protocol-steps button {
+    padding: 8px 0 8px 18px;
+  }
+  .protocol-step-title {
+    font-size: 16px;
+  }
+  .protocol-line {
+    margin-top: 16px;
+    min-height: 42px;
+    font-size: 14px;
+  }
 }
 .protocol-foundation {
   display: flex;
@@ -839,11 +932,11 @@ summary::-webkit-details-marker {
     gap: 15px;
   }
   .result-card {
-    padding: 140px 15px 28px;
+    padding: 0 15px 28px;
     min-height: 380px;
   }
-  .rendered-seal {
-    top: -75px;
+  .result-art {
+    width: calc(100% + 30px);
   }
   .result-card h3 {
     font-size: 26px;
@@ -859,12 +952,15 @@ summary::-webkit-details-marker {
     font-size: 9px;
   }
   .protocol-grid {
-    min-height: 650px;
+    min-height: min(560px, 62svh);
   }
   .protocol-visual {
-    min-height: 650px;
+    min-width: 0;
   }
-  .protocol-panel > p {
+  .protocol-step-title {
+    font-size: 17px;
+  }
+  .protocol-line {
     font-size: 14px;
   }
   .limits-grid,
@@ -1011,18 +1107,16 @@ summary::-webkit-details-marker {
   }
   .result-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 88px 12px;
-    margin-top: 108px;
+    gap: 14px 12px;
+    margin-top: 34px;
   }
   .result-card {
-    padding: 93px 12px 24px;
+    padding: 0 12px 24px;
     min-height: 295px;
     border-radius: 7px;
   }
-  .rendered-seal {
-    top: -68px;
-    width: 105%;
-    max-width: 220px;
+  .result-art {
+    width: calc(100% + 24px);
   }
   .result-status {
     font-size: 10px;
@@ -1042,7 +1136,7 @@ summary::-webkit-details-marker {
     margin-top: 8px;
   }
   .result-card > p {
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.5;
     margin-top: 17px;
   }
@@ -1071,40 +1165,42 @@ summary::-webkit-details-marker {
     flex-direction: column;
     gap: 0;
   }
+  .protocol-copy {
+    display: contents;
+  }
   .protocol-copy .section-title {
-    font-size: 46px;
+    font-size: 34px;
+    width: 100%;
+    order: 0;
   }
-  .protocol-tabs {
-    margin-top: 30px;
-    gap: 5px;
+  .protocol-steps {
+    margin-top: 16px;
+    width: 100%;
+    order: 2;
   }
-  .protocol-tabs button {
-    font-size: 10px;
+  .protocol-steps button {
+    gap: 12px;
+    padding: 7px 0 7px 14px;
   }
-  .protocol-panel {
-    margin-top: 22px;
-    min-height: 265px;
+  .protocol-step-title {
+    font-size: 15px;
   }
-  .protocol-panel h3 {
-    font-size: 21px;
-  }
-  .protocol-panel > p {
-    font-size: 14px;
-    line-height: 1.65;
-  }
-  .protocol-panel dl > div {
-    font-size: 10px;
-  }
-  .protocol-panel dt {
-    min-width: 95px;
+  .protocol-line {
+    margin-top: 14px;
+    padding-left: 15px;
+    min-height: 40px;
+    font-size: 13px;
+    width: 100%;
+    order: 3;
   }
   .protocol-visual {
-    margin: 10px -5vw 0;
-    min-height: 430px;
-    width: calc(100% + 10vw);
+    margin: 0;
+    width: 100%;
+    order: 1;
   }
-  .podium-render {
-    object-position: center;
+  .protocol-assembly {
+    width: min(100%, 34svh);
+    margin: 0 auto;
   }
   .protocol-foundation {
     flex-wrap: wrap;
