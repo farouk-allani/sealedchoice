@@ -1,12 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import gsap from "gsap";
 import { ACTS } from "../../content/landing.ts";
-import {
-  ProtocolAssembly,
-  type ProtocolControls,
-} from "./protocol-assembly.tsx";
+import { ProtocolAssembly, STAGE_STEP } from "./protocol-assembly.tsx";
 
 /**
  * One short headline per stage, plus a single supporting line. This is the landing page,
@@ -40,129 +37,159 @@ const STEPS = [
   },
 ];
 
+const HEADING = "Pinned evaluator. Private inputs.";
+const SPAN = STEPS.length - 1;
+/**
+ * A caption holds full strength across this much of its window, then fades out. Two
+ * captions crossing in the same place is unreadable however the opacities are tuned, so
+ * they also travel: the outgoing one leaves upward as the next arrives from below, clipped
+ * by the caption window. At the boundary they are 110px apart and a third as strong.
+ */
+const HOLD = 0.34;
+const FADE = 0.58;
+const TRAVEL = 110;
+
 export function Story() {
   const [active, setActive] = useState(0);
-  const panelRef = useRef<HTMLParagraphElement>(null);
-  const controls = useRef<ProtocolControls | null>(null);
   /**
-   * Scroll owns the stage: the steps are a way to jump within the cycle, not a separate
-   * selection. Under reduced motion no ScrollTrigger exists, so `controls` stays null and
-   * the click simply selects a still.
+   * "unknown" until the motion preference is read. The server renders the static sequence
+   * without its stills, so a reader who then gets the scrubbed stage fetches none of them:
+   * lazy loading alone was not enough, Chrome pulled the first three anyway.
    */
-  const select = (index: number) => {
-    setActive(index);
-    controls.current?.scrollToStage(index);
-  };
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const context = gsap.context(() => {
-      gsap.fromTo(
-        panelRef.current,
-        { opacity: 0, y: 8 },
-        { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" },
-      );
+  const [mode, setMode] = useState<"unknown" | "static" | "scrubbed">(
+    "unknown",
+  );
+  const captions = useRef<Array<HTMLDivElement | null>>([]);
+  const fill = useRef<HTMLSpanElement>(null);
+
+  /**
+   * Scroll position drives the captions directly rather than through React state: a caption
+   * is at full strength while its stage is the one being read, then crosses over fast near
+   * the boundary. State changes only when the nearest stage changes, which the counter needs.
+   */
+  const paint = (progress: number) => {
+    captions.current.forEach((node, index) => {
+      if (!node) return;
+      const offset = progress * SPAN - index;
+      const distance = Math.abs(offset);
+      const strength =
+        distance <= HOLD
+          ? 1
+          : distance >= FADE
+            ? 0
+            : (FADE - distance) / (FADE - HOLD);
+      node.style.opacity = `${strength}`;
+      node.style.visibility = strength > 0.01 ? "visible" : "hidden";
+      node.style.transform = `translate3d(0, ${(offset * -TRAVEL).toFixed(1)}px, 0)`;
     });
-    return () => context.revert();
-  }, [active]);
-  const act = ACTS[active]!;
-  const step = STEPS[active]!;
+    if (fill.current) fill.current.style.transform = `scaleX(${progress})`;
+  };
+
+  /**
+   * The static sequence is the baseline: it is what a reader without JavaScript keeps and
+   * what a reader who asks for less motion gets. The scrubbed stage replaces it only once
+   * motion is known to be welcome. Its stills are the cycle's own stage frames, so the two
+   * presentations cannot drift apart when the scene is re-rendered.
+   */
+  useEffect(() => {
+    const motionless = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setMode(motionless.matches ? "static" : "scrubbed");
+    sync();
+    motionless.addEventListener("change", sync);
+    return () => motionless.removeEventListener("change", sync);
+  }, []);
+
+  const foundation = (
+    <div className="protocol-foundation">
+      <span>BUILT ON</span>
+      <strong>
+        NEAR<span className="foundation-symbol">↗</span>
+      </strong>
+      <span className="foundation-divider" />
+      <strong>
+        OutLayer <small>Trusted execution</small>
+      </strong>
+      <span className="foundation-divider" />
+      <strong>
+        NEAR AI <small>Signed model calls</small>
+      </strong>
+      <p>
+        Encrypted in the browser.
+        <br />
+        Recorded on the chain.
+      </p>
+    </div>
+  );
+
+  if (mode !== "scrubbed") {
+    return (
+      <section id="story" className="protocol-section section-shell">
+        <div className="protocol-static">
+          <h2 className="protocol-heading">{HEADING}</h2>
+          <ol className="protocol-sequence">
+            {STEPS.map((step, index) => (
+              <li key={step.title} data-stage={ACTS[index]!.id}>
+                {mode === "static" ? (
+                  <Image
+                    src={`/visuals/blender/protocol-seq-${String(index * STAGE_STEP).padStart(4, "0")}.webp`}
+                    alt=""
+                    width={860}
+                    height={622}
+                    sizes="(max-width: 760px) 86vw, 30vw"
+                    unoptimized
+                  />
+                ) : null}
+                <div>
+                  <span className="protocol-count">
+                    <strong>{ACTS[index]!.index}</strong>
+                  </span>
+                  <h3>{step.title}</h3>
+                  <p>{step.line}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        {foundation}
+      </section>
+    );
+  }
+
   return (
     <section id="story" className="protocol-section section-shell">
       <div className="protocol-scroll">
         <div className="protocol-sticky">
-          <div className="section-topline">
-            <span className="eyebrow">01 / INSIDE THE PROTOCOL</span>
-            <span className="section-aside">
-              CONFIDENTIAL INPUTS. INSPECTABLE OUTPUTS.
-            </span>
-          </div>
-          <div className="protocol-grid">
-            <div className="protocol-copy">
-              <h2 className="section-title">
-                Pinned evaluator.
-                <br />
-                <span>Private inputs.</span>
-              </h2>
-              <div
-                className="protocol-steps"
-                role="tablist"
-                aria-label="Tender lifecycle"
-              >
-                {ACTS.map((item, index) => (
-                  <button
-                    type="button"
-                    role="tab"
-                    id={`step-${index}`}
-                    aria-controls="protocol-panel"
-                    aria-selected={active === index}
-                    tabIndex={active === index ? 0 : -1}
-                    key={item.id}
-                    onClick={() => select(index)}
-                    onKeyDown={(event) => {
-                      const next =
-                        event.key === "ArrowDown" || event.key === "ArrowRight"
-                          ? (active + 1) % ACTS.length
-                          : event.key === "ArrowUp" || event.key === "ArrowLeft"
-                            ? (active + ACTS.length - 1) % ACTS.length
-                            : event.key === "Home"
-                              ? 0
-                              : event.key === "End"
-                                ? ACTS.length - 1
-                                : null;
-                      if (next !== null) {
-                        event.preventDefault();
-                        select(next);
-                        document.getElementById(`step-${next}`)?.focus();
-                      }
-                    }}
-                  >
-                    <span className="protocol-step-index">{item.index}</span>
-                    <span className="protocol-step-title">
-                      {STEPS[index]!.title}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <p
-                id="protocol-panel"
-                role="tabpanel"
-                aria-labelledby={`step-${active}`}
-                tabIndex={0}
-                ref={panelRef}
-                className="protocol-line"
-              >
-                {step.line}
-              </p>
+          <div className="protocol-stage" data-stage={ACTS[active]!.id}>
+            <h2 className="protocol-heading">{HEADING}</h2>
+            <ProtocolAssembly onStage={setActive} onProgress={paint} />
+            <div className="protocol-captions">
+              {STEPS.map((step, index) => (
+                <div
+                  className="protocol-caption"
+                  key={step.title}
+                  ref={(node) => {
+                    captions.current[index] = node;
+                  }}
+                >
+                  <h3>{step.title}</h3>
+                  <p>{step.line}</p>
+                </div>
+              ))}
             </div>
-            <figure className="protocol-visual" data-stage={act.id}>
-              <ProtocolAssembly
-                stage={active}
-                onStage={setActive}
-                controls={controls}
-              />
-            </figure>
+            <div className="protocol-progress">
+              <span className="protocol-count">
+                <strong>{ACTS[active]!.index}</strong>
+                <span>of {String(STEPS.length).padStart(2, "0")}</span>
+              </span>
+              <span className="protocol-track">
+                <span className="protocol-track-fill" ref={fill} />
+              </span>
+              <span className="protocol-stage-name">{ACTS[active]!.id}</span>
+            </div>
           </div>
         </div>
       </div>
-      <div className="protocol-foundation">
-        <span>BUILT ON</span>
-        <strong>
-          NEAR<span className="foundation-symbol">↗</span>
-        </strong>
-        <span className="foundation-divider" />
-        <strong>
-          OutLayer <small>Trusted execution</small>
-        </strong>
-        <span className="foundation-divider" />
-        <strong>
-          NEAR AI <small>Signed model calls</small>
-        </strong>
-        <p>
-          Encrypted in the browser.
-          <br />
-          Recorded on the chain.
-        </p>
-      </div>
+      {foundation}
     </section>
   );
 }
