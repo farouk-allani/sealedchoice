@@ -757,9 +757,13 @@ summary::-webkit-details-marker {
 .details-toggle {
   color: #c7b7d8;
   font-size: 25px;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.limit-accordions details[open] .details-toggle {
+.limit-accordions details[open]:not([data-expanded="false"]) .details-toggle {
   transform: rotate(45deg);
+}
+.limit-panel {
+  overflow: hidden;
 }
 .limit-body {
   padding: 0 0 28px 34px;

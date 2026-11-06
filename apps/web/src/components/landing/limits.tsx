@@ -33,28 +33,30 @@ export function Limits() {
                   +
                 </span>
               </summary>
-              <div className="limit-body">
-                <p>{item.body}</p>
-                {index === 0 && (
-                  <div className="run-comparison">
-                    <div className="run-comparison-title">
-                      BID A / THREE RECORDED RUNS
-                    </div>
-                    {PRIOR_RUNS.map((run) => (
-                      <div key={run.tender}>
-                        <span>Tender {run.tender}</span>
-                        <div className="run-bar">
-                          <i style={{ width: `${run.scores[0]! / 100}%` }} />
-                        </div>
-                        <strong>
-                          {run.scores[0]!.toLocaleString("en-US")}{" "}
-                          <small>bp</small>
-                        </strong>
+              <div className="limit-panel">
+                <div className="limit-body">
+                  <p>{item.body}</p>
+                  {index === 0 && (
+                    <div className="run-comparison">
+                      <div className="run-comparison-title">
+                        BID A / THREE RECORDED RUNS
                       </div>
-                    ))}
-                    <p>Same rubric and bid text. Temperature 0, seed 1.</p>
-                  </div>
-                )}
+                      {PRIOR_RUNS.map((run) => (
+                        <div key={run.tender}>
+                          <span>Tender {run.tender}</span>
+                          <div className="run-bar">
+                            <i style={{ width: `${run.scores[0]! / 100}%` }} />
+                          </div>
+                          <strong>
+                            {run.scores[0]!.toLocaleString("en-US")}{" "}
+                            <small>bp</small>
+                          </strong>
+                        </div>
+                      ))}
+                      <p>Same rubric and bid text. Temperature 0, seed 1.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </details>
           ))}
