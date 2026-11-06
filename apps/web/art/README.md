@@ -57,6 +57,92 @@ WebP output is loaded by the site. The script uses CUDA when present and falls b
 
 ## Assets
 
+### Protocol assembly
+
+`build_protocol_assets.py` renders a single conceptual evaluator assembly in six stages.
+Sealed cartridges occupy the input side; a gate freezes that set; the cover lifts to show
+the TEE; scoring produces records; the committee's selected record rises; and the final
+stage binds the evidence records. The model illustrates the data flow, not real OutLayer
+hardware. No bid plaintext is depicted outside the isolated core.
+
+```powershell
+& 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe' --background --factory-startup --python apps/web/art/build_protocol_assets.py -- --size 1200 --samples 64
+python apps/web/art/export_webp.py --source scratch/landing-preview/protocol
+```
+
+Use `--stage sealed|closed|opened|scored|awarded|verified` for a single stage. Editable
+scenes are `production/protocol-*.blend`; transparent stills are
+`public/visuals/blender/protocol-*-poster.webp`. These six stills are now the reduced-motion
+presentation of the section: the tabs select one and no sequence is fetched. The original
+podium and seal scenes and assets remain available.
+
+### Protocol cycle (scroll sequence)
+
+`build_protocol_sequence.py` renders the same assembly as one continuous machine cycle
+instead of six separate stills. It builds the scene once, keyframes it, and renders 61
+frames. Every change is physical motion: cartridges seat into the input slots, the gate
+rises and stays up, the cover lifts on telescoping guides, the core lights, criterion
+channels emerge, records rise out of the output deck, the selected record lifts with its
+mark, and the evidence binding closes around the deck. Nothing appears from nowhere; parts
+that are not yet in play wait inside the chassis volume, where it occludes them.
+
+```powershell
+& 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe' --background --factory-startup --python apps/web/art/build_protocol_sequence.py -- --size 900 --samples 24
+python apps/web/art/export_webp.py --source scratch/landing-preview/protocol-seq
+```
+
+`--step` sets the frames between stage keyframes (default 12, so stages land on frames
+0, 12, 24, 36, 48 and 60). `--start` and `--end` render a sub-range while iterating.
+`STAGE_STEP` and `FRAME_COUNT` in `src/components/landing/protocol-assembly.tsx` must match.
+The editable scene is `production/protocol-sequence.blend`; 61 transparent 900 x 900 WebP
+frames totalling 1,857,594 bytes are exported to `public/visuals/blender/protocol-seq-*.webp`.
+
+The section scrolls as a sticky stage: `.protocol-scroll` provides the scroll length
+(400vh), `.protocol-sticky` is held in view, and ScrollTrigger scrubs the frame index across
+it. Frames stream four at a time once the section is approached, and the canvas cross-blends
+consecutive frames so a slow scrub stays continuous. Under reduced motion none of this runs:
+the track collapses to content height, the canvas is hidden, and the six posters are shown
+with the steps selecting between them.
+
+The copy beside it is a vertical stepper: six short headlines, the active one lit, and one
+supporting line underneath. The steps are a tablist, so they keep arrow, Home and End
+navigation, but scroll owns the selection and clicking a step scrolls to that stage. The
+stage is one viewport, so the square assembly is bounded by `70svh` rather than by column
+width, and a `max-height: 840px` block scales the copy for short laptops. Keep it this way:
+the measured numbers belong in the result and verify sections, not here.
+
+### Recorded tender cards
+
+`build_result_assets.py` creates four distinct Cycles stills with a shared orthographic
+camera and studio rig. The objects describe the card outcomes: a selected document,
+stacked score records, a submission marked for review, and an exploded TEE package.
+The chip is a conceptual illustration, not a diagram of OutLayer hardware. Decorative
+record bars do not encode scores; the adjacent HTML supplies the real values.
+
+```powershell
+& 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe' --background --factory-startup --python apps/web/art/build_result_assets.py -- --size 960 --samples 64
+python apps/web/art/export_webp.py --source scratch/landing-preview/results
+```
+
+Use `--asset award|ranked|flagged|evidence` to rebuild one object. Editable scenes are
+saved as `production/result-*.blend`; transparent 960 x 816 WebP stills are exported to
+`public/visuals/blender/result-*-poster.webp`. The ranking cards use these stills, with
+a small scroll entrance that respects reduced motion, instead of loading the seal sequence.
+
+The darker **vault** variant uses the same geometry with blackened steel, smoked titanium,
+and narrow violet studio lights matched to the hero. Its files have a `-vault` suffix,
+so the original studio WebPs and `.blend` scenes remain untouched.
+
+```powershell
+& 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe' --background --factory-startup --python apps/web/art/build_result_assets.py -- --theme vault --size 960 --samples 64
+python apps/web/art/export_webp.py --source scratch/landing-preview/results-vault
+```
+
+**Revert the entire card art treatment:** set `RESULT_ARTWORK` to `"studio"` in
+`src/components/landing/ranking.tsx`. That single setting selects both the original
+image URLs and the original CSS lighting. `"vault"` selects the darker version.
+The builder defaults to `--theme studio` to reproduce the first version.
+
 | Asset | Used for |
 |---|---|
 | `vault` | The scroll sequence and its poster — the whole first act of the page. |
