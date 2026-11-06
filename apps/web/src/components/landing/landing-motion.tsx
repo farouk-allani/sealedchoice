@@ -20,11 +20,10 @@ export function LandingMotion() {
         },
       });
       gsap.utils
-        .toArray<HTMLElement>(".rendered-seal")
-        .forEach((seal, index) => {
-          gsap.from(seal, {
-            x: (index - 1.5) * 60,
-            y: -60,
+        .toArray<HTMLElement>(".result-art img")
+        .forEach((art) => {
+          gsap.from(art, {
+            y: 18,
             ease: "none",
             scrollTrigger: {
               trigger: ".result-cards",
@@ -34,18 +33,8 @@ export function LandingMotion() {
             },
           });
         });
-      gsap.from(".podium-art", {
-        y: 170,
-        ease: "none",
-        scrollTrigger: {
-          trigger: "#story",
-          start: "top 90%",
-          end: "top 15%",
-          scrub: 0.8,
-        },
-      });
-      gsap.from(".podium-seal", {
-        y: -80,
+      gsap.from(".protocol-assembly", {
+        y: 28,
         ease: "none",
         scrollTrigger: {
           trigger: "#story",

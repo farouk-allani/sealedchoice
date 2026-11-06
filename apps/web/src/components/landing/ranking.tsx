@@ -1,4 +1,4 @@
-import { BlenderSeal } from "./blender-seal.tsx";
+import Image from "next/image";
 import {
   CHAIN,
   DEMO_RANKING,
@@ -8,6 +8,11 @@ import {
   tokensToString,
 } from "../../config/evidence.ts";
 
+// Switch to "studio" to restore the original brighter renders and card lighting.
+const RESULT_ARTWORK: "studio" | "vault" = "vault";
+const artworkSource = (asset: string) =>
+  `/visuals/blender/result-${asset}${{ studio: "", vault: "-vault" }[RESULT_ARTWORK]}-poster.webp`;
+
 export function Ranking() {
   return (
     <section id="result" className="results-section section-shell">
@@ -15,16 +20,22 @@ export function Ranking() {
         <h2 className="section-title">Every bid. On the record.</h2>
         <p>A completed confidential tender on NEAR {CHAIN.network}.</p>
       </header>
-      <div className="result-cards">
-        {DEMO_RANKING.map((row, index) => (
+      <div className="result-cards" data-artwork={RESULT_ARTWORK}>
+        {DEMO_RANKING.map((row) => (
           <article
-            className={`result-card ${row.flagged ? "result-card-flag" : ""}`}
+            className={`result-card result-card-${row.outcome}`}
             key={row.label}
           >
-            <BlenderSeal
-              className={`rendered-seal seal-${index}`}
-              variant={index}
-            />
+            <div className="result-art" aria-hidden="true">
+              <Image
+                src={artworkSource(row.outcome === "awarded" ? "award" : row.outcome)}
+                alt=""
+                width={960}
+                height={816}
+                sizes="(max-width: 760px) 50vw, 25vw"
+                unoptimized
+              />
+            </div>
             <div
               className={`result-status ${row.flagged ? "is-flag" : "is-pass"}`}
             >
@@ -51,7 +62,16 @@ export function Ranking() {
           </article>
         ))}
         <a className="result-card audit-card" href="#verify">
-          <BlenderSeal className="rendered-seal seal-audit" variant={3} />
+          <div className="result-art" aria-hidden="true">
+            <Image
+              src={artworkSource("evidence")}
+              alt=""
+              width={960}
+              height={816}
+              sizes="(max-width: 760px) 50vw, 25vw"
+              unoptimized
+            />
+          </div>
           <div className="result-status is-pass">
             <strong>
               {DEMO_TENDER.evidenceChecks}/{DEMO_TENDER.evidenceChecks}
