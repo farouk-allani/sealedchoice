@@ -97,19 +97,38 @@ python apps/web/art/export_webp.py --source scratch/landing-preview/protocol-seq
 The editable scene is `production/protocol-sequence.blend`; 61 transparent 900 x 900 WebP
 frames totalling 1,857,594 bytes are exported to `public/visuals/blender/protocol-seq-*.webp`.
 
-The section scrolls as a sticky stage: `.protocol-scroll` provides the scroll length
-(400vh), `.protocol-sticky` is held in view, and ScrollTrigger scrubs the frame index across
-it. Frames stream four at a time once the section is approached, and the canvas cross-blends
-consecutive frames so a slow scrub stays continuous. Under reduced motion none of this runs:
-the track collapses to content height, the canvas is hidden, and the six posters are shown
-with the steps selecting between them.
+A camera arc runs across the whole cycle, keyed linearly at every stage so equal scroll
+buys equal camera movement. It is there for a measured reason. With a fixed camera the
+mean per-frame change over the five segments was 0.38 / 1.55 / 0.37 / 0.25 / 0.50 (mean
+absolute RGB difference at 160 x 160): scrolling through the award segment moved the image
+about a sixth as much as the segment where the cover lifts, which read as the page
+scrolling rather than the machine working. The arc raises that floor everywhere, and the
+quiet segments were given real travel as well: the cartridges fall further, the criterion
+channels rise further, and at the award the selected record lifts clear while the other
+two settle.
 
-The copy beside it is a vertical stepper: six short headlines, the active one lit, and one
-supporting line underneath. The steps are a tablist, so they keep arrow, Home and End
-navigation, but scroll owns the selection and clicking a step scrolls to that stage. The
-stage is one viewport, so the square assembly is bounded by `70svh` rather than by column
-width, and a `max-height: 840px` block scales the copy for short laptops. Keep it this way:
-the measured numbers belong in the result and verify sections, not here.
+The section scrolls as a sticky stage: `.protocol-scroll` provides the scroll length
+(400vh), `.protocol-sticky` is held in view, and ScrollTrigger scrubs the frame index
+across it. Frames stream four at a time once the section is approached, and the canvas
+cross-blends consecutive frames so a slow scrub stays continuous.
+
+The layout is one centred column: a small label, the machine, the caption for the stage it
+has reached, and a 1px progress rule with a counter. The six captions share one box and are
+driven straight from scroll position rather than from React state, each at full strength
+across the middle of its window and crossing over fast at the boundary. There is no list of
+steps and nothing to click. The machine is bounded on both axes (`min(100%, 60svh)`, square)
+and the column is natural height inside a centred sticky, so slack splits evenly instead of
+pushing the heading behind the nav island; a `max-height: 860px` block scales it for short
+laptops. Keep the copy this way: the measured numbers belong in the result and verify
+sections, not here.
+
+Reduced motion gets a different component, not the same markup restyled. `Story` renders a
+static sequence of the six stage posters with their captions, which is also what the server
+renders and what a reader without JavaScript keeps. The scrubbed stage replaces it only
+once the motion preference is known, and the posters are rendered only once that resolves
+the other way: marking them lazy was not enough, Chrome pulled the first three regardless.
+So a reader with motion fetches 61 frames and no posters, and a reader without fetches six
+posters and no frames.
 
 ### Recorded tender cards
 
