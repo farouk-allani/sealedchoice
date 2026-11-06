@@ -6,14 +6,13 @@ import { CHAIN, explorerAccount } from "../../config/evidence.ts";
 
 export function BrandMark() {
   return (
-    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path
-        d="M23 11V5H7v22h11M7 5H4v22h3M23 5h4v10"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path d="M21 21h7v7h-7z" fill="currentColor" />
+    <svg
+      viewBox="0 0 32 32"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M2.036 17A14 14 0 0 1 29.077 11H8L14 17Z" />
+      <path d="M29.964 15A14 14 0 0 1 2.923 21H24L18 15Z" />
     </svg>
   );
 }
