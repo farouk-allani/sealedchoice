@@ -33,16 +33,6 @@ export function LandingMotion() {
             },
           });
         });
-      gsap.from(".protocol-assembly", {
-        y: 28,
-        ease: "none",
-        scrollTrigger: {
-          trigger: "#story",
-          start: "top 90%",
-          end: "top 15%",
-          scrub: 0.8,
-        },
-      });
       gsap.utils
         .toArray<HTMLElement>(
           ".limits-section .section-title, .verify-copy .section-title",

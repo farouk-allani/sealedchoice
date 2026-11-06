@@ -427,92 +427,41 @@ button {
 .protocol-sticky {
   position: sticky;
   top: 0;
-  min-height: 100svh;
+  height: 100svh;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  /* Clears the fixed nav island (top: 35px plus its own height). */
-  padding: 132px 0 44px;
-}
-.protocol-grid {
-  display: grid;
-  grid-template-columns: 1fr 1.12fr;
-  min-height: 0;
-  gap: 36px;
   align-items: center;
+  /* Clears the fixed nav island (top: 35px plus its own height). */
+  padding: 112px 0 34px;
 }
-.protocol-copy {
-  position: relative;
-  z-index: 2;
-}
-.protocol-copy .section-title {
-  font-size: clamp(48px, 5.5vw, 86px);
-}
-.protocol-steps {
+/* One centred column: label, the machine, the caption for the stage it has reached, and how
+   far through the cycle the scroll is. The machine is the only thing that holds its place. */
+.protocol-stage {
   display: flex;
   flex-direction: column;
-  margin-top: 38px;
-  max-width: 520px;
-  border-left: 1px solid #ffffff1f;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  text-align: center;
 }
-.protocol-steps button {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  margin-left: -1px;
-  padding: 11px 0 11px 20px;
-  border-left: 2px solid transparent;
-  color: #6f6880;
-  text-align: left;
-  transition:
-    color 220ms ease,
-    border-color 220ms ease;
-}
-.protocol-steps button:hover {
-  color: #b8b0c6;
-}
-.protocol-steps button:focus-visible {
-  outline: 2px solid #b6a5ce;
-  outline-offset: 3px;
-}
-.protocol-steps button[aria-selected="true"] {
-  color: #f1ecf8;
-  border-left-color: #b9a6e4;
-}
-.protocol-step-index {
+.protocol-heading {
   flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 600;
-  color: #6b6380;
-  font-variant-numeric: tabular-nums;
-}
-.protocol-steps button[aria-selected="true"] .protocol-step-index {
-  color: #a892d8;
-}
-.protocol-step-title {
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.3px;
-}
-.protocol-line {
-  margin-top: 24px;
-  padding-left: 21px;
-  max-width: 440px;
-  min-height: 52px;
-  font-size: 15px;
-  line-height: 1.65;
-  color: #a39aaa;
-}
-.protocol-visual {
-  position: relative;
-  min-width: 0;
   margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.9px;
+  text-transform: uppercase;
+  color: #857ca0;
 }
+/* The machine is bounded on both axes: by the viewport height on a wide screen and by the
+   column width on a phone. Letting it take the stage's leftover height instead made it
+   overflow a phone sideways, then float in dead space once capped. The column is natural
+   height and the sticky centres it, so any slack splits evenly. The ratio is the render's:
+   the frames are cropped to the band the cycle actually occupies, not a square. */
 .protocol-assembly {
   position: relative;
-  width: min(100%, 70svh);
-  margin: 0 auto;
-  aspect-ratio: 1;
+  flex-shrink: 0;
+  width: min(100%, 79svh, 780px);
+  aspect-ratio: 860 / 622;
   background: radial-gradient(ellipse at 50% 48%, #1b192b 0%, transparent 65%);
 }
 .protocol-canvas {
@@ -520,61 +469,142 @@ button {
   width: 100%;
   height: 100%;
 }
-/* The still stack is the reduced-motion presentation only; the canvas carries the cycle. */
-.protocol-stills {
-  display: none;
+/* Every caption occupies the same box, so the column does not reflow as they change, and
+   the box clips them: a caption leaves through the top as the next arrives from below. */
+.protocol-captions {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  width: 100%;
+  max-width: 660px;
+  height: 126px;
+}
+.protocol-caption {
   position: absolute;
   inset: 0;
-}
-.protocol-render {
-  object-fit: contain;
   opacity: 0;
-  transition: opacity 320ms ease;
+  will-change: opacity, transform;
 }
-.protocol-render.is-active {
+.protocol-caption:first-child {
   opacity: 1;
 }
-@media (prefers-reduced-motion: reduce) {
-  .protocol-scroll {
-    height: auto;
-  }
-  .protocol-sticky {
-    position: static;
-    min-height: 0;
-    padding: 0;
-  }
-  .protocol-steps button {
-    transition: none;
-  }
-  .protocol-canvas {
-    display: none;
-  }
-  .protocol-stills {
-    display: block;
-  }
+.protocol-caption h3 {
+  margin: 0;
+  font-size: clamp(26px, 2.5vw, 38px);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -1px;
+  color: #f4f0fb;
+}
+.protocol-caption p {
+  margin: 12px auto 0;
+  max-width: 480px;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: #a39aaa;
+}
+.protocol-progress {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 660px;
+}
+.protocol-count {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: #6f6880;
+  font-variant-numeric: tabular-nums;
+}
+.protocol-count strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: #cbbcea;
+}
+/* A real 1px rule, filled by scroll. Not a row of markers. */
+.protocol-track {
+  flex: 1 1 auto;
+  height: 1px;
+  background: #ffffff24;
+}
+.protocol-track-fill {
+  display: block;
+  height: 100%;
+  background: #b9a6e4;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.protocol-stage-name {
+  flex-shrink: 0;
+  min-width: 72px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #857ca0;
 }
 /* A one-viewport stage has to fit the shortest common laptop, not just a tall desktop. */
-@media (max-height: 840px) {
+@media (max-height: 860px) {
   .protocol-sticky {
-    padding: 108px 0 28px;
+    padding: 110px 0 22px;
   }
-  .protocol-copy .section-title {
-    font-size: clamp(38px, 3.8vw, 56px);
+  .protocol-stage {
+    gap: 12px;
   }
-  .protocol-steps {
-    margin-top: 22px;
+  .protocol-captions {
+    height: 106px;
   }
-  .protocol-steps button {
-    padding: 8px 0 8px 18px;
+  .protocol-caption h3 {
+    font-size: clamp(22px, 2.1vw, 30px);
   }
-  .protocol-step-title {
-    font-size: 16px;
-  }
-  .protocol-line {
-    margin-top: 16px;
-    min-height: 42px;
+  .protocol-caption p {
+    margin-top: 8px;
     font-size: 14px;
   }
+}
+/* The reduced-motion presentation: the same six stages as a static sequence. No scroll
+   track, no canvas, no frame sequence, nothing to interact with. */
+.protocol-static {
+  padding: 120px 0 40px;
+}
+.protocol-sequence {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 44px 36px;
+  margin: 38px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.protocol-sequence li {
+  min-width: 0;
+}
+.protocol-sequence img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: radial-gradient(ellipse at 50% 48%, #1b192b 0%, transparent 65%);
+}
+.protocol-sequence h3 {
+  margin: 8px 0 0;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  color: #f4f0fb;
+}
+.protocol-sequence p {
+  margin: 10px 0 0;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: #a39aaa;
 }
 .protocol-foundation {
   display: flex;
@@ -951,17 +981,14 @@ summary::-webkit-details-marker {
   .result-status > span {
     font-size: 9px;
   }
-  .protocol-grid {
-    min-height: min(560px, 62svh);
+  .protocol-captions {
+    max-width: 560px;
   }
-  .protocol-visual {
-    min-width: 0;
+  .protocol-progress {
+    max-width: 560px;
   }
-  .protocol-step-title {
-    font-size: 17px;
-  }
-  .protocol-line {
-    font-size: 14px;
+  .protocol-sequence {
+    grid-template-columns: repeat(2, 1fr);
   }
   .limits-grid,
   .verify-grid {
@@ -1156,51 +1183,40 @@ summary::-webkit-details-marker {
   .results-note {
     font-size: 10px;
   }
-  .protocol-section {
-    padding-top: 40px;
-    padding-bottom: 40px;
+  .protocol-sticky {
+    padding: 92px 0 22px;
   }
-  .protocol-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
+  .protocol-stage {
+    gap: 10px;
   }
-  .protocol-copy {
-    display: contents;
+  .protocol-captions {
+    height: 126px;
+    max-width: none;
   }
-  .protocol-copy .section-title {
-    font-size: 34px;
-    width: 100%;
-    order: 0;
+  .protocol-caption h3 {
+    font-size: 24px;
+    letter-spacing: -0.6px;
   }
-  .protocol-steps {
-    margin-top: 16px;
-    width: 100%;
-    order: 2;
+  .protocol-caption p {
+    margin-top: 8px;
+    font-size: 14px;
   }
-  .protocol-steps button {
+  .protocol-progress {
     gap: 12px;
-    padding: 7px 0 7px 14px;
+    max-width: none;
   }
-  .protocol-step-title {
-    font-size: 15px;
+  .protocol-stage-name {
+    display: none;
   }
-  .protocol-line {
-    margin-top: 14px;
-    padding-left: 15px;
-    min-height: 40px;
-    font-size: 13px;
-    width: 100%;
-    order: 3;
+  .protocol-static {
+    padding: 96px 0 24px;
   }
-  .protocol-visual {
-    margin: 0;
-    width: 100%;
-    order: 1;
+  .protocol-sequence {
+    grid-template-columns: 1fr;
+    gap: 34px;
   }
-  .protocol-assembly {
-    width: min(100%, 34svh);
-    margin: 0 auto;
+  .protocol-sequence img {
+    max-width: 320px;
   }
   .protocol-foundation {
     flex-wrap: wrap;
