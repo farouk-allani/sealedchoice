@@ -12,6 +12,7 @@ Geometry illustrates data flow, not the physical architecture of OutLayer hardwa
 """
 import argparse
 import sys
+from math import cos, radians, sin
 from pathlib import Path
 
 import bpy
@@ -302,26 +303,31 @@ gate = [box('Frozen input gate', (-1.41, 0, .37), (.15, 2.96, .18), amber, .035)
 for y in [-1.35, 1.35]:
     box('Gate anchor', (-1.41, y, .11), (.31, .28, .47), titanium, .05)
 
-channels = [box('Criterion channel', (-.42 + i * .42, 0, .82), (.17, .63 + i * .14, .04), violet, .025) for i in range(3)]
+channels = [box('Criterion channel', (-.42 + i * .42, 0, 1.02), (.17, .63 + i * .14, .04), violet, .025) for i in range(3)]
 
 selection = [wire('Committee selection', [(2.35, .70, .24), (2.43, .63, .24), (2.58, .82, .24)], mint, .025)]
 
 binding = frame_ring('Evidence record binding', 5.58, 3.30, -.045, titanium)
 
 # ---------------------------------------------------------------- the machine cycle
-# Cartridges arrive raised, then seat into the input slots as the deadline closes.
-lift(cartridges, [(SEALED, .115), (CLOSED, 0), (LAST, 0)])
+# Cartridges arrive well clear of the deck, then descend into the input slots as the
+# deadline closes. The drop is deliberately long: this segment is read while scrolling,
+# and a seating movement of a tenth of a unit was not visible at page scale.
+lift(cartridges, [(SEALED, .62), (CLOSED, 0), (LAST, 0)])
 # The gate rises out of the deck and stays up: the bid set is frozen from the deadline on.
 lift(gate, [(SEALED, -.57), (CLOSED, 0), (LAST, 0)])
 # The cover lifts on its guide rods and stays open for the rest of the cycle.
 lift(lid, [(CLOSED, 0), (OPENED, LID_UP - LID_DOWN), (LAST, LID_UP - LID_DOWN)])
 grow_z(posts, [(CLOSED, .001), (OPENED, 1), (LAST, 1)])
 # Criterion channels emerge from under the core cap while scoring runs.
-lift(channels, [(OPENED, -.26), (SCORED, 0), (LAST, 0)])
+lift(channels, [(OPENED, -.46), (SCORED, 0), (LAST, 0)])
 # Records rise out of the output deck once scoring has produced them.
 lift(receipts, [(OPENED, -.62), (SCORED, 0), (LAST, 0)])
-# The selected record lifts clear of the other two, with its mark.
-lift([receipts[0], selection], [(SCORED, 0), (AWARDED, .30), (LAST, .30)])
+# The selected record lifts well clear of the other two, with its mark. The other two
+# settle a little, so the award segment reads as two movements in opposite directions
+# rather than one small nudge.
+lift([receipts[0], selection], [(SCORED, 0), (AWARDED, .82), (LAST, .82)])
+lift(receipts[1:], [(SCORED, 0), (AWARDED, -.10), (LAST, -.10)])
 grow(selection, [(SCORED, .001), (AWARDED, 1), (LAST, 1)])
 # The archive layer and the binding close the cycle.
 lift(archives, [(AWARDED, -.95), (VERIFIED, 0)])
@@ -331,20 +337,62 @@ lift(binding, [(AWARDED, -.215), (VERIFIED, 0)])
 emit_key(corelight, CLOSED, 0)
 emit_key(corelight, OPENED, 1.8)
 emit_key(violet_out, OPENED, 0)
-emit_key(violet_out, SCORED, .35)
+emit_key(violet_out, SCORED, .55)
 emit_key(mint, SCORED, 0)
-emit_key(mint, AWARDED, .15)
+emit_key(mint, AWARDED, .85)
 
 area('Vault overhead strip', (-4, 2, 8), 1150, (.86, .85, 1), 3, 1.5)
 area('Violet edge strip', (5, 2, 4), 1450, (.46, .32, 1), 1.5, 6)
 area('Left reflection', (-5, -2, 4), 500, (.62, .66, 1), 1.6, 5)
 area('Front readability', (1, -6, 6), 240, (.86, .85, 1), 4, 4)
+# ---------------------------------------------------------------- camera
+# The camera arcs slowly across the whole cycle and pushes in a little. Without it the
+# quiet segments of the mechanism produced almost no change on screen, so scrolling through
+# them read as the page moving rather than the machine working. Measured per-frame change
+# across the five segments was 0.38 / 1.55 / 0.37 / 0.25 / 0.50; the arc raises the floor.
+CAM_TARGET = Vector((0, 0, .55))
+CAM_RADIUS, CAM_FROM, CAM_TO = 12.21, -61.0, -43.0
+CAM_HEIGHT = (9.7, 8.4)
+CAM_ORTHO = (8.15, 7.45)
+
 bpy.ops.object.camera_add(location=(7, -10, 9))
 camera = bpy.context.object
-camera.rotation_euler = (Vector((0, 0, .55)) - camera.location).to_track_quat('-Z', 'Y').to_euler()
 camera.data.type = 'ORTHO'
-camera.data.ortho_scale = 7.75
 scene.camera = camera
+
+
+def camera_key(frame, t):
+    """Place the camera at fraction t along the arc and aim it at the same point."""
+    angle = radians(CAM_FROM + (CAM_TO - CAM_FROM) * t)
+    camera.location = Vector((
+        CAM_RADIUS * cos(angle),
+        CAM_RADIUS * sin(angle),
+        CAM_HEIGHT[0] + (CAM_HEIGHT[1] - CAM_HEIGHT[0]) * t,
+    ))
+    camera.rotation_euler = (CAM_TARGET - camera.location).to_track_quat('-Z', 'Y').to_euler()
+    camera.data.ortho_scale = CAM_ORTHO[0] + (CAM_ORTHO[1] - CAM_ORTHO[0]) * t
+    camera.keyframe_insert('location', frame=frame)
+    camera.keyframe_insert('rotation_euler', frame=frame)
+    camera.data.keyframe_insert('ortho_scale', frame=frame)
+
+
+# Linear, so equal scroll buys equal camera movement. Bezier easing would have slowed the
+# first and last stages, which are already the quiet ones.
+bpy.context.preferences.edit.keyframe_new_interpolation_type = 'LINEAR'
+for stage in range(6):
+    camera_key(stage * STEP, stage / 5)
+bpy.context.preferences.edit.keyframe_new_interpolation_type = 'BEZIER'
+
+# The machine is wide and shallow in this isometric view, so a square frame wasted 35% of
+# its height. Render only the band the whole cycle occupies, measured as the union of every
+# frame's alpha bounding box plus an 18px margin: 860 x 622 of the 900 x 900 frame.
+if args.size == 900:
+    scene.render.use_border = True
+    scene.render.use_crop_to_border = True
+    scene.render.border_min_x = 20 / 900
+    scene.render.border_max_x = 880 / 900
+    scene.render.border_min_y = 117 / 900
+    scene.render.border_max_y = 739 / 900
 
 scene.frame_start = args.start
 scene.frame_end = LAST if args.end < 0 else args.end
