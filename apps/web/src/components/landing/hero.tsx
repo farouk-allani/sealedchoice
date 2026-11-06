@@ -1,85 +1,82 @@
-import { HERO } from "../../content/landing.ts";
-import { CHAIN, DEMO_TENDER, explorerAccount } from "../../config/evidence.ts";
-import { HeroVault } from "./hero-vault.tsx";
+"use client";
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { CHAIN, DEMO_TENDER } from "../../config/evidence.ts";
+import { BlenderVault } from "./blender-vault.tsx";
 
 export function Hero() {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const media = gsap.matchMedia();
+    media.add("(prefers-reduced-motion: no-preference)", () => {
+      const context = gsap.context(() => {
+        gsap.from(".hero-copy > *", {
+          y: 22,
+          autoAlpha: 0,
+          duration: 1.1,
+          stagger: 0.12,
+          ease: "power3.out",
+        });
+        const timeline = gsap.timeline({
+          scrollTrigger: {
+            trigger: ref.current,
+            start: "top top",
+            end: "bottom bottom",
+            scrub: 0.65,
+          },
+        });
+        timeline
+          .to(".hero-copy", { y: -90, autoAlpha: 0, duration: 0.4 }, 0.05)
+          .to(".hero-bottom", { autoAlpha: 0, duration: 0.25 }, 0)
+          .to(
+            ".cinema-vault",
+            { yPercent: 35, scale: 0.68, ease: "none", duration: 1 },
+            0,
+          );
+      }, ref);
+      return () => context.revert();
+    });
+    return () => media.revert();
+  }, []);
   return (
-    <header className="relative isolate flex min-h-screen flex-col justify-center overflow-hidden px-6 pb-28 pt-28 sm:px-10">
-      {/* The door, shut. In iteration 3 this and the story share one canvas so it never cuts. */}
-      <HeroVault />
-
-      {/*
-        Two scrims, not one. The inner one darkens just the band the headline sits in so white
-        type stays legible over steel; the outer one sinks the vault into the page edges.
-      */}
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(ellipse 58% 40% at 50% 42%, rgba(7,8,10,0.78) 0%, rgba(7,8,10,0.35) 55%, transparent 78%)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(ellipse 72% 72% at 50% 46%, transparent 42%, rgba(7,8,10,0.82) 82%, var(--color-ink) 100%)",
-        }}
-      />
-
-      <div className="relative mx-auto w-full max-w-5xl text-center">
-        <h1 className="text-display font-semibold text-fg">
-          {HERO.lines.map((line, i) => (
-            <span key={line} className={i === HERO.lines.length - 1 ? "block text-steel-100" : "block"}>
-              {line}
-            </span>
-          ))}
-        </h1>
-
-        <p className="mx-auto mt-7 max-w-[58ch] text-balance text-[15px] leading-relaxed text-muted sm:text-base">
-          {HERO.lead}
-        </p>
-
-        <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <a
-            href={HERO.primary.href}
-            className="rounded-full bg-fg px-7 py-3.5 text-sm font-medium text-ink transition-colors hover:bg-white"
-          >
-            {HERO.primary.label}
-          </a>
-          <a
-            href={HERO.secondary.href}
-            className="edge rounded-full px-7 py-3.5 text-sm font-medium text-fg transition-colors hover:border-line-strong hover:bg-raised"
-          >
-            {HERO.secondary.label}
-          </a>
+    <section id="vault-experience" className="vault-experience" ref={ref}>
+      <div className="hero-stage">
+        <BlenderVault />
+        <div className="hero-copy">
+          <h1>
+            Sealed tenders.
+            <br />
+            Verifiable awards.
+          </h1>
+          <div className="hero-actions">
+            <a href="#result" className="button button-light">
+              Explore demo tender
+            </a>
+            <a href="#verify" className="button button-outline">
+              Verify {DEMO_TENDER.evidenceChecks}/{DEMO_TENDER.evidenceChecks}
+            </a>
+          </div>
         </div>
-
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-mono text-[11px] tracking-wide text-faint">
-          <span className="flex items-center gap-2">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pass opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-pass" />
-            </span>
-            Live on NEAR {CHAIN.network}
-          </span>
-          <a
-            href={explorerAccount(CHAIN.tenderContract)}
-            target="_blank"
-            rel="noreferrer"
-            className="underline decoration-line-strong underline-offset-4 transition-colors hover:text-steel-100"
-          >
-            {CHAIN.tenderContract} ↗
+        <div className="hero-bottom">
+          <p>
+            Encrypted in your browser.
+            <br />
+            Evaluated inside a TEE.
+            <br />
+            Recorded on NEAR {CHAIN.network}.
+          </p>
+          <a href="#result" className="scroll-cue">
+            Scroll to explore <span aria-hidden="true">&#8595;</span>
           </a>
-          <span>{DEMO_TENDER.evidenceChecks} of {DEMO_TENDER.evidenceChecks} evidence checks pass</span>
+          <p>
+            Confidential bids.
+            <br />
+            An inspectable decision.
+          </p>
         </div>
       </div>
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-8 flex justify-center">
-        <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-faint">
-          {HERO.scrollHint}
-        </span>
-      </div>
-    </header>
+    </section>
   );
 }

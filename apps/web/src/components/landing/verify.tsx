@@ -1,102 +1,130 @@
+import {
+  CHAIN,
+  DEMO_TENDER,
+  PRIOR_RUNS,
+  explorerAccount,
+  outlayerRequest,
+  short,
+} from "../../config/evidence.ts";
 import { VERIFY } from "../../content/landing.ts";
-import { CHAIN, DEMO_TENDER, PRIOR_RUNS, explorerTx, outlayerRequest, short } from "../../config/evidence.ts";
 import { CopyCommand } from "./copy-command.tsx";
 
-/** Checks the verifier actually makes, named individually (D-032). */
 const CHECKS = [
-  "The stored bundle's bytes hash to the result's bundle field.",
-  "The bundle validates against evidence-bundle.schema.json.",
-  "The result echoes the frozen Merkle root and the rubric hash.",
-  "Every model call carries a provider_tee signature over its own request and response bytes.",
-  "The attestation's executed_wasm_sha256 equals the evaluator build pinned on the contract.",
-  "The public bundle contains no bid text.",
-  "Every bidder's debrief and every committee copy opens with its own key.",
-] as const;
-
+  "Bundle hash and schema",
+  "Frozen bid set and rubric",
+  "Signed model call evidence",
+  "Pinned evaluator attestation",
+  "No plaintext in the public bundle",
+];
 export function Verify() {
   return (
-    <section id="verify" className="mx-auto max-w-5xl px-6 py-28 sm:px-10">
-      <div className="flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.22em]">
-        <span className="text-pass">{VERIFY.kicker}</span>
-        <span className="h-px w-8 bg-line-strong" />
-        <span className="text-faint">Nothing here needs trusting</span>
+    <section id="verify" className="verify-section section-shell">
+      <div className="section-topline">
+        <span className="eyebrow">04 / INDEPENDENT VERIFICATION</span>
+        <span className="section-aside">THE RECORD IS OPEN.</span>
       </div>
-
-      <h2 className="mt-5 max-w-[20ch] text-balance text-act font-semibold">{VERIFY.title}</h2>
-      <p className="mt-6 max-w-[58ch] text-[15px] leading-relaxed text-muted">{VERIFY.lead}</p>
-
-      <div className="mt-14 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-        <div>
-          <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
-            {DEMO_TENDER.evidenceChecks} checks against a tender&apos;s own evidence — among them
-          </h3>
-          <ul className="mt-5 space-y-3.5">
-            {CHECKS.map((check) => (
-              <li key={check} className="flex gap-3.5 text-[14px] leading-relaxed text-muted">
-                <span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-pass" />
-                <span>{check}</span>
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-9">
-            <CopyCommand command={VERIFY.command} />
-            <p className="mt-3 text-[12px] text-faint">
-              The same checks run in the browser on each tender&apos;s verify page.
-            </p>
+      <div className="verify-grid">
+        <div className="verify-copy">
+          <p className="eyebrow is-pass">LESS TRUST. MORE PROOF.</p>
+          <h2 className="section-title">
+            Don’t take
+            <br />
+            <span>our word for it.</span>
+          </h2>
+          <p className="section-description">
+            Inspect the contract, the evaluator and the recorded model calls.
+            The result should stand up to more than a landing page.
+          </p>
+          <a
+            className="button button-light"
+            href={explorerAccount(CHAIN.tenderContract)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open the contract <span>↗</span>
+          </a>
+          <div className="verify-build">
+            <span>PINNED EVALUATOR BUILD</span>
+            <code title={CHAIN.evaluatorBuild}>
+              {short(CHAIN.evaluatorBuild, 14, 10)}
+            </code>
           </div>
         </div>
-
-        <div className="rounded-2xl border border-line bg-surface p-7">
-          <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
-            Live right now
-          </h3>
-
-          <dl className="mt-6 space-y-4 font-mono text-[12px]">
-            {[
-              { term: "Tender contract", value: CHAIN.tenderContract },
-              { term: "Code hash", value: short(CHAIN.codeHash, 10, 6) },
-              { term: "Evaluator build", value: short(CHAIN.evaluatorBuild, 10, 6) },
-              { term: "Escrow token", value: `${CHAIN.tokenContract} · ${DEMO_TENDER.tokenSymbol}` },
-              { term: "Gas, whole tender", value: `${DEMO_TENDER.tgas} TGas` },
-            ].map((row) => (
-              <div key={row.term} className="flex items-baseline justify-between gap-4 border-b border-line pb-3.5">
-                <dt className="shrink-0 uppercase tracking-wider text-faint">{row.term}</dt>
-                <dd className="min-w-0 truncate text-right text-steel-100">{row.value}</dd>
-              </div>
-            ))}
-          </dl>
-
-          <h3 className="mt-8 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
-            Evaluations in the TEE
-          </h3>
-          <ul className="mt-4 space-y-2.5 font-mono text-[12px]">
-            {PRIOR_RUNS.filter((run) => run.request !== null).map((run) => (
-              <li key={run.tender} className="flex items-center justify-between gap-3">
-                <span className="text-faint">Tender {run.tender}</span>
-                <span className="flex items-center gap-3">
-                  <a
-                    href={outlayerRequest(run.request!)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-steel-100 underline decoration-line-strong underline-offset-4 hover:decoration-rim"
-                  >
-                    request {run.request}
-                  </a>
-                  <a
-                    href={explorerTx(run.closeTx!)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-steel-100 underline decoration-line-strong underline-offset-4 hover:decoration-rim"
-                  >
-                    {short(run.closeTx!, 6, 4)} ↗
-                  </a>
-                </span>
-              </li>
-            ))}
-          </ul>
+        <div className="evidence-terminal">
+          <div className="terminal-top">
+            <span className="terminal-dots">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span>sealedchoice / evidence</span>
+            <span>↗</span>
+          </div>
+          <div className="terminal-content">
+            <div className="terminal-heading">
+              <span>RECORDED DEMO / TENDER {DEMO_TENDER.id}</span>
+              <span className="is-pass">COMPLETE</span>
+            </div>
+            <div className="terminal-total">
+              {DEMO_TENDER.evidenceChecks}
+              <span>/ {DEMO_TENDER.evidenceChecks}</span>
+              <small>evidence checks passed</small>
+            </div>
+            <ul>
+              {CHECKS.map((check) => (
+                <li key={check}>
+                  <span className="terminal-check">✓</span>
+                  <span>{check}</span>
+                  <span className="is-pass">PASS</span>
+                </li>
+              ))}
+            </ul>
+            <div className="terminal-meta">
+              <span>
+                Evaluation{" "}
+                <strong>{(DEMO_TENDER.evalMs / 1000).toFixed(1)}s</strong>
+              </span>
+              <span>
+                Signed calls{" "}
+                <strong>
+                  {DEMO_TENDER.modelCalls}/{DEMO_TENDER.modelCalls}
+                </strong>
+              </span>
+              <span>
+                Result <strong>{DEMO_TENDER.resultBytes} bytes</strong>
+              </span>
+            </div>
+          </div>
+          <div className="terminal-bottom">
+            PUBLIC EVIDENCE. PRIVATE BID TEXT.
+            <span className="status-dot" />
+          </div>
         </div>
       </div>
+      <div className="evidence-links">
+        <span>INSPECT RECORDED EXECUTIONS</span>
+        {PRIOR_RUNS.filter((run) => run.request !== null).map((run) => (
+          <a
+            key={run.tender}
+            href={outlayerRequest(run.request!)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Tender {run.tender} <span>OutLayer #{run.request} ↗</span>
+          </a>
+        ))}
+      </div>
+      <details className="developer-command">
+        <summary>
+          For developers <span>+</span>
+        </summary>
+        <p>
+          Verifier command from the repository. The full verification CLI is
+          still under development; use the contract and recorded execution links
+          above to inspect the demo today.
+        </p>
+        <CopyCommand command={VERIFY.command} />
+      </details>
     </section>
   );
 }
