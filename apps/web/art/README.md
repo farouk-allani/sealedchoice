@@ -1,7 +1,7 @@
-# Landing artwork
+# Website artwork
 
-Original geometry, modelled procedurally in `build_assets.py` and rendered with Cycles. No
-purchased assets, no external textures, no generated meshes. `production/*.blend` holds the
+Original geometry, modelled procedurally in the `build_*.py` scripts and rendered with Cycles. No
+purchased assets, external textures or third-party meshes. `production/*.blend` holds the
 editable scenes the script last wrote, including materials, camera and lights.
 
 The site composites Cycles-rendered WebP frames rather than running WebGL. GSAP maps scroll
@@ -170,3 +170,29 @@ The builder defaults to `--theme studio` to reproduce the first version.
 
 These are decorative. Every number and claim on the page comes from `src/config/evidence.ts`
 and `src/content/landing.ts`, never from the artwork.
+
+## Tender creation artwork
+
+`build_creation_assets.py` models four original product stills for the creation flow. The brief
+is a layered document on a titanium clipboard with a machined pen; scoring is a three-channel
+control deck; committee is three review credentials around a shared submission; review is a
+bound dossier with a pressed check seal. They share an orthographic camera, a soft violet studio
+rig, brushed graphite and titanium, anodised violet controls, and porcelain paper. The brand
+mark is extruded from the same two circular-arrow paths used by the SVG component.
+
+```powershell
+& 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe' --background --factory-startup --python apps/web/art/build_creation_assets.py -- --size 960 --samples 96
+python apps/web/art/export_webp.py --source scratch/creation-art
+```
+
+Use `--asset brief|scoring|committee|review` for one still. Source scenes are
+`production/create-*.blend`; temporary RGBA PNGs go to ignored `scratch/creation-art/`; the
+website uses transparent 960 x 720 WebP images at `public/visuals/blender/create-*-poster.webp`.
+Rendering uses Cycles with denoising and a transparent contact-shadow catcher. The studio is
+set up for the app's light background rather than the landing page's dark canvas.
+
+`CreationArtwork` selects the image for the current creation step. The figure has reserved
+dimensions, is outside the form controls, and is decorative for assistive technology. On narrow
+screens it becomes a small illustration beside the title. There is no WebGL or animation to
+load, and scoring positions, credential count and seal markings are conceptual rather than
+live tender data. The form and summary remain the sources of all user-entered values.
