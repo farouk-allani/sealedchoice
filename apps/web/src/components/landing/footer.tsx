@@ -24,7 +24,7 @@ export function Footer() {
         {BRAND.name}
       </div>
       <div className="footer-bottom">
-        <span>BUILT FOR THE NEAR HACKATHON · 2026</span>
+        <span>BUILT FOR THE NEAR HACKATHON 2026</span>
         <div>
           <a
             href={explorerAccount(CHAIN.tenderContract)}
@@ -38,7 +38,7 @@ export function Footer() {
             Back to top <span aria-hidden="true">↑</span>
           </a>
           <span>
-            <i className="status-dot" /> {CHAIN.network} / no real funds
+            {CHAIN.network} / no real funds
           </span>
         </div>
       </div>

@@ -52,7 +52,7 @@ export const easeInOut = (t: number): number => {
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 };
 
-/** Fast start, long settle — how a heavy part that has been released actually moves. */
+/** Fast start, long settle: how a heavy part that has been released actually moves. */
 export const easeOut = (t: number): number => 1 - Math.pow(1 - clamp01(t), 3);
 
 export const actIndexAt = (progress: number): number => {

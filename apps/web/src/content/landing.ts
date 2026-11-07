@@ -1,8 +1,8 @@
 /**
  * Every word on the landing page.
  *
- * Wording rules (CLAUDE.md): allowed — "sealed", "encrypted to a TEE", "recorded", "verifiable",
- * "checked by code", "published before bidding". Banned — "fair", "unriggable", "trustless",
+ * Wording rules (CLAUDE.md): allowed: "sealed", "encrypted to a TEE", "recorded", "verifiable",
+ * "checked by code", "published before bidding". Banned: "fair", "unriggable", "trustless",
  * "tamper-proof", "impossible to cheat", "first ever", "revolutionary". Limits are stated
  * plainly, not buried (docs/07-threat-model.md).
  *
@@ -15,7 +15,7 @@ export const HERO = {
   lines: ["Sealed bids.", "Opened once.", "On the record."],
   lead:
     "Suppliers encrypt each bid to a key that exists only inside a TEE. After the deadline the " +
-    "tender contract has them opened and scored once — and every step is recorded on NEAR for " +
+    "tender contract has them opened and scored once, and every step is recorded on NEAR for " +
     "anyone to check.",
   // Until T09 ships /tenders/[id], the primary action opens the story rather than claiming a
   // page that does not exist. The explorer link beside it is real today.
@@ -43,7 +43,7 @@ export const ACTS: ReadonlyArray<Act> = [
     body:
       "Each supplier encrypts their bid in their own browser, to a public key the tender contract " +
       "published before bidding opened. The matching private key is derived inside an OutLayer " +
-      "TEE and never leaves it. What reaches the chain is ciphertext and a hash — the buyer can " +
+      "TEE and never leaves it. What reaches the chain is ciphertext and a hash. The buyer can " +
       "count the bids, and read none of them.",
     facts: [
       { label: "Tender key", value: "published before bidding" },
@@ -59,7 +59,7 @@ export const ACTS: ReadonlyArray<Act> = [
     body:
       "No bid is accepted at or after the deadline, and no evaluation can start before it. " +
       "Closing writes a Merkle root over the bid set, so the list that gets evaluated is the " +
-      "list that was sealed — nothing added late, nothing quietly dropped.",
+      "list that was sealed: nothing added late, nothing quietly dropped.",
     facts: [
       { label: "Frozen with", value: "a Merkle root" },
       { label: "Bids after close", value: "refused" },
@@ -72,7 +72,7 @@ export const ACTS: ReadonlyArray<Act> = [
     kicker: "Opened",
     title: "The contract asks. Not a person.",
     body:
-      "The tender contract calls the evaluator it pinned at creation — the buyer cannot swap it, " +
+      "The tender contract calls the evaluator it pinned at creation. The buyer cannot swap it, " +
       "and neither can we. The run happens inside the TEE, at most three times, and exactly one " +
       "result is ever accepted. That result has to echo the tender id, the frozen root, the " +
       "rubric hash and the attempt number, or the contract rejects it.",
@@ -88,7 +88,7 @@ export const ACTS: ReadonlyArray<Act> = [
     kicker: "Scored",
     title: "Code scores the numbers. Models read the words. Code checks the models.",
     body:
-      "Price, eligibility and the ranking are integer arithmetic in basis points — no floats and " +
+      "Price, eligibility and the ranking are integer arithmetic in basis points: no floats and " +
       "no model anywhere near them. Three NEAR AI Cloud models score the written criteria and " +
       "never see a price. Every passage a model claims to quote is checked against the bid text, " +
       "and a bid whose text tries to instruct the scorer is flagged by code, whatever it scored.",
@@ -106,7 +106,7 @@ export const ACTS: ReadonlyArray<Act> = [
     body:
       "A committee makes the call on chain. Deviating from the ranking requires a written " +
       "rationale, an ineligible bid can never be awarded at all, and the escrowed budget pays " +
-      "the winner's target once — with the remainder returning to the buyer in the same " +
+      "the winner's target once, with the remainder returning to the buyer in the same " +
       "transaction.",
     facts: [
       { label: "Award", value: "committee only" },
@@ -133,7 +133,7 @@ export const ACTS: ReadonlyArray<Act> = [
 
 /**
  * The section that decides whether a technical judge believes the rest. Each limit is real and
- * already written down in the repo — stating them here is the point, not a disclaimer.
+ * already written down in the repo. Stating them here is the point, not a disclaimer.
  */
 export const LIMITS = {
   title: "What this does not claim",
@@ -145,7 +145,7 @@ export const LIMITS = {
       title: "Model scores are not reproducible.",
       body:
         "The same rubric and the same bid text, at temperature 0 with a fixed seed, scored 8,166 / " +
-        "8,666 / 8,666 basis points across three real runs — and on the third run the ranking " +
+        "8,666 / 8,666 basis points across three real runs, and on the third run the ranking " +
         "order moved. What is reproducible is the check: a verifier re-reads what the models " +
         "actually said, from the stored bytes, and recomputes everything code decided.",
     },
