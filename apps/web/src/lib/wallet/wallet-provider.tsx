@@ -4,8 +4,8 @@
 // signMessage, because a bidder cannot take part without NEP-413 (docs/05, reader keys).
 //
 // Everything read-only must work with no wallet at all (.claude/rules/web.md), so nothing here
-// runs until a component asks for it: the connector is constructed on the client, after mount,
-// and a page that never calls `useWallet().connect` never loads it.
+// loads for a first-time reader. A returning wallet session is restored after mount; otherwise
+// the connector and its remote wallet manifest load only when someone chooses to connect.
 import {
   createContext,
   useCallback,
@@ -37,13 +37,17 @@ export interface FunctionCallAction {
 
 export interface WalletState {
   /** "loading" only until the stored session has been looked up. */
-  status: "loading" | "disconnected" | "connected";
+  status: "loading" | "disconnected" | "connecting" | "connected";
   accountId: string | null;
   walletName: string | null;
   error: string | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
-  signMessage: (params: { message: string; recipient: string; nonce: Uint8Array }) => Promise<SignedMessage>;
+  signMessage: (params: {
+    message: string;
+    recipient: string;
+    nonce: Uint8Array;
+  }) => Promise<SignedMessage>;
   signAndSend: (params: {
     receiverId: string;
     actions: FunctionCallAction[];
@@ -56,16 +60,19 @@ export interface SentTransaction {
   result: unknown;
 }
 
-
 /**
  * A contract's return value sits base64 in the outcome's `SuccessValue`. A failure is reported
  * there too, and a wallet that reports it as success would otherwise look like an empty return,
  * so a Failure is raised rather than swallowed.
  */
 function decodeReturnValue(outcome: unknown): unknown {
-  const status = (outcome as { status?: { SuccessValue?: string; Failure?: unknown } }).status;
+  const status = (
+    outcome as { status?: { SuccessValue?: string; Failure?: unknown } }
+  ).status;
   if (status?.Failure !== undefined) {
-    throw new Error(`the transaction failed: ${JSON.stringify(status.Failure).slice(0, 300)}`);
+    throw new Error(
+      `the transaction failed: ${JSON.stringify(status.Failure).slice(0, 300)}`,
+    );
   }
   const raw = status?.SuccessValue;
   if (!raw) return null;
@@ -85,7 +92,7 @@ export const MAX_GAS = "300000000000000";
 export const TGAS = (n: number): string => `${BigInt(n) * 1_000_000_000_000n}`;
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const connectorRef = useRef<NearConnector | null>(null);
+  const connectorRef = useRef<Promise<NearConnector> | null>(null);
   const [status, setStatus] = useState<WalletState["status"]>("loading");
   const [accountId, setAccountId] = useState<string | null>(null);
   const [walletName, setWalletName] = useState<string | null>(null);
@@ -93,17 +100,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const getConnector = useCallback(async (): Promise<NearConnector> => {
     if (connectorRef.current) return connectorRef.current;
-    const { NearConnector } = await import("@hot-labs/near-connect");
-    const connector = new NearConnector({
-      network: NETWORK,
-      autoConnect: true,
-      // A bidder must be able to sign a NEP-413 message, so a wallet that cannot is not offered.
-      // On testnet the connector narrows this further to wallets whose manifest declares testnet,
-      // which is why MyNearWallet does not appear there (G5).
-      features: { signMessage: true },
-    });
-    connectorRef.current = connector;
-    return connector;
+    connectorRef.current = import("@hot-labs/near-connect")
+      .then(
+        ({ NearConnector }) =>
+          new NearConnector({
+            network: NETWORK,
+            autoConnect: true,
+            // A bidder must be able to sign a NEP-413 message, so a wallet that cannot is not offered.
+            // On testnet the connector narrows this further to wallets whose manifest declares testnet,
+            // which is why MyNearWallet does not appear there (G5).
+            features: { signMessage: true },
+          }),
+      )
+      .catch((error: unknown) => {
+        connectorRef.current = null;
+        throw error;
+      });
+    return connectorRef.current;
   }, []);
 
   // Restore a session the user already had, including after a wallet that signs by redirecting
@@ -112,6 +125,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
+        // Verified against the pinned 0.12.0 LocalStorage adapter and getConnectedWallet.
+        // No selected wallet means there is no session to restore or manifest to fetch.
+        if (!localStorage.getItem("selected-wallet")) {
+          if (!cancelled) setStatus("disconnected");
+          return;
+        }
         const connector = await getConnector();
         const { wallet, accounts } = await connector.getConnectedWallet();
         if (cancelled) return;
@@ -133,6 +152,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(async () => {
     setError(null);
+    setStatus("connecting");
     try {
       const connector = await getConnector();
       const wallet = await connector.connect();
@@ -186,12 +206,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         receiverId,
         actions: actions.map((a) => ({
           type: "FunctionCall" as const,
-          params: { methodName: a.methodName, args: a.args, gas: a.gas, deposit: a.deposit },
+          params: {
+            methodName: a.methodName,
+            args: a.args,
+            gas: a.gas,
+            deposit: a.deposit,
+          },
         })),
       });
       const hash =
         (outcome as { transaction?: { hash?: string } }).transaction?.hash ??
-        (outcome as { transaction_outcome?: { id?: string } }).transaction_outcome?.id;
+        (outcome as { transaction_outcome?: { id?: string } })
+          .transaction_outcome?.id;
       if (!hash) throw new Error("the wallet returned no transaction hash");
       return { hash, result: decodeReturnValue(outcome) };
     },
@@ -199,16 +225,37 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<WalletState>(
-    () => ({ status, accountId, walletName, error, connect, disconnect, signMessage, signAndSend }),
-    [status, accountId, walletName, error, connect, disconnect, signMessage, signAndSend],
+    () => ({
+      status,
+      accountId,
+      walletName,
+      error,
+      connect,
+      disconnect,
+      signMessage,
+      signAndSend,
+    }),
+    [
+      status,
+      accountId,
+      walletName,
+      error,
+      connect,
+      disconnect,
+      signMessage,
+      signAndSend,
+    ],
   );
 
-  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
+  return (
+    <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
+  );
 }
 
 export function useWallet(): WalletState {
   const context = useContext(WalletContext);
-  if (!context) throw new Error("useWallet must be used inside <WalletProvider>");
+  if (!context)
+    throw new Error("useWallet must be used inside <WalletProvider>");
   return context;
 }
 
