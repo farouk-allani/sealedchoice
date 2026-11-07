@@ -2,7 +2,7 @@
 
 `apps/web`: Next.js (App Router) + TypeScript strict + Tailwind. Deployed on Vercel at sealedchoice.com (domain to be registered by the human) or a Vercel preview URL until then. Reads chain state through NEAR RPC (testnet / mainnet by env). No backend database: the chain and the bundle store are the data.
 
-Wallet: the NEAR connector recommended by docs.near.org at T00 (candidates: `@hot-labs/near-connect`, `@near-wallet-selector/*`). Hard requirement: supports `signMessage` (NEP-413) for reader keys and works with at least MyNearWallet and Meteor on testnet. Optional: an any-wallet path (e.g. Aurora Intent Connect) if time allows; not required.
+Wallet: **`@hot-labs/near-connect` 0.12.0** (NEAR Connect), chosen at G5. Hard requirement: supports `signMessage` (NEP-413) for reader keys and works with Meteor on testnet, which G5 measured. **Not** MyNearWallet: the connector drops every wallet whose shared-manifest entry lacks `features.testnet`, which on testnet leaves Meteor, Intear, Ledger, Nightly and NEAR CLI (G5, docs/references.md). Optional: an any-wallet path (e.g. Aurora Intent Connect) if time allows; not required.
 
 Design: load the `frontend-design` skill before building pages. Tone: calm, institutional, legible. Think "public notice board", not "crypto casino". Show hashes shortened with copy buttons and explorer links; never make the user read hex to understand a status.
 
