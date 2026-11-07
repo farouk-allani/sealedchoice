@@ -22,6 +22,7 @@ import { TextAreaField, TextField } from "../ui/field.tsx";
 import { CopyButton } from "../ui/copy-button.tsx";
 import { Notice } from "./transaction-notice.tsx";
 import { FlowSteps } from "./flow-steps.tsx";
+import { CreationArtwork } from "./creation-artwork.tsx";
 import { Icon } from "../ui/icon.tsx";
 import {
   CONTRACT_ID,
@@ -70,14 +71,15 @@ export function CreateTenderForm({ initialNextId }: { initialNextId: number }) {
   const [step, setStep] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
   const formContent = useRef<HTMLDivElement>(null);
+  const intro = useRef<HTMLDivElement>(null);
   const stepLabels = ["The brief", "Scoring", "Committee", "Review"];
 
   function goToStep(next: number) {
     setStepError(null);
     setStep(next);
     requestAnimationFrame(() => {
-      formContent.current?.focus();
-      formContent.current?.scrollIntoView({
+      formContent.current?.focus({ preventScroll: true });
+      intro.current?.scrollIntoView({
         block: "start",
         behavior: "instant",
       });
@@ -355,103 +357,121 @@ export function CreateTenderForm({ initialNextId }: { initialNextId: number }) {
     }
   }
 
+  const introduction = (
+    <div className="create-intro" ref={intro}>
+      <div className="page-head">
+        <h1>Create a tender</h1>
+        <p>
+          Set the brief, decide how bids will be scored, and choose your
+          committee. You will review everything before publishing.
+        </p>
+      </div>
+      <CreationArtwork step={step} />
+    </div>
+  );
+
   if (created) {
     return (
-      <div className="panel ui-paper">
-        <div className="completion-heading">
-          <Icon name={funded ? "check" : "lock"} size={28} />
-          <h2>
-            {funded
-              ? "Your tender is funded"
-              : "One more step: fund the budget"}
-          </h2>
-        </div>
-        <Notice
-          tone={funded ? "success" : "info"}
-          title={`Tender ${created.id} created`}
-        >
-          {funded
-            ? "The escrow is funded. Once the TEE returns the tender key, bidding opens."
-            : "The tender exists and the TEE has been asked for its key. It takes no bids until the budget is in escrow."}
-        </Notice>
-
-        {idMismatch && (
+      <>
+        {introduction}
+        <div className="panel ui-paper">
+          <div className="completion-heading">
+            <Icon name={funded ? "check" : "lock"} size={28} />
+            <h2>
+              {funded
+                ? "Your tender is funded"
+                : "One more step: fund the budget"}
+            </h2>
+          </div>
           <Notice
-            tone="danger"
-            title="The committee keys are for the wrong tender"
+            tone={funded ? "success" : "info"}
+            title={`Tender ${created.id} created`}
           >
-            Another tender was created between signing and this one landing, so
-            this is tender {idMismatch.got} while the committee keys were
-            derived for {idMismatch.expected}. The committee could not open the
-            report. Cancel this tender before funding it and create it again.
+            {funded
+              ? "The escrow is funded. Once the TEE returns the tender key, bidding opens."
+              : "The tender exists and the TEE has been asked for its key. It takes no bids until the budget is in escrow."}
           </Notice>
-        )}
 
-        <dl className="facts">
-          <dt>Tender</dt>
-          <dd>
-            <Link className="inline-link" href={`/tenders/${created.id}`}>
-              Tender {created.id}
-            </Link>
-          </dd>
-          <dt>Creation</dt>
-          <dd>
-            <a
-              className="inline-link"
-              href={explorerTx(created.tx)}
-              target="_blank"
-              rel="noreferrer noopener"
+          {idMismatch && (
+            <Notice
+              tone="danger"
+              title="The committee keys are for the wrong tender"
             >
-              {shortHash(created.tx)}
-            </a>
-          </dd>
-          {funded && (
-            <>
-              <dt>Funding</dt>
-              <dd>
-                <a
-                  className="inline-link"
-                  href={explorerTx(funded)}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                >
-                  {shortHash(funded)}
-                </a>
-              </dd>
-            </>
+              Another tender was created between signing and this one landing,
+              so this is tender {idMismatch.got} while the committee keys were
+              derived for {idMismatch.expected}. The committee could not open
+              the report. Cancel this tender before funding it and create it
+              again.
+            </Notice>
           )}
-          <dt>Rubric hash</dt>
-          <dd>
-            <span className="mono">{shortHash(draft?.hash ?? "")}</span>
-          </dd>
-        </dl>
 
-        {error && (
-          <Notice tone="danger" title="The last step failed">
-            {error}
-          </Notice>
-        )}
+          <dl className="facts">
+            <dt>Tender</dt>
+            <dd>
+              <Link className="inline-link" href={`/tenders/${created.id}`}>
+                Tender {created.id}
+              </Link>
+            </dd>
+            <dt>Creation</dt>
+            <dd>
+              <a
+                className="inline-link"
+                href={explorerTx(created.tx)}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                {shortHash(created.tx)}
+              </a>
+            </dd>
+            {funded && (
+              <>
+                <dt>Funding</dt>
+                <dd>
+                  <a
+                    className="inline-link"
+                    href={explorerTx(funded)}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    {shortHash(funded)}
+                  </a>
+                </dd>
+              </>
+            )}
+            <dt>Rubric hash</dt>
+            <dd>
+              <span className="mono">{shortHash(draft?.hash ?? "")}</span>
+            </dd>
+          </dl>
 
-        <div className="form-actions">
-          {!funded && !idMismatch && (
-            <Button onClick={() => void fund()} loading={busy === "funding"}>
-              Fund {formatUnits(budgetMinor ?? 0n, TOKEN_DECIMALS)}{" "}
-              {TOKEN_SYMBOL} into escrow
-            </Button>
+          {error && (
+            <Notice tone="danger" title="The last step failed">
+              {error}
+            </Notice>
           )}
-          <Link
-            className="ui-button ui-button--secondary ui-button--medium"
-            href={`/tenders/${created.id}`}
-          >
-            Open the tender
-          </Link>
+
+          <div className="form-actions">
+            {!funded && !idMismatch && (
+              <Button onClick={() => void fund()} loading={busy === "funding"}>
+                Fund {formatUnits(budgetMinor ?? 0n, TOKEN_DECIMALS)}{" "}
+                {TOKEN_SYMBOL} into escrow
+              </Button>
+            )}
+            <Link
+              className="ui-button ui-button--secondary ui-button--medium"
+              href={`/tenders/${created.id}`}
+            >
+              Open the tender
+            </Link>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
     <>
+      {introduction}
       <FlowSteps labels={stepLabels} current={step} onChange={goToStep} />
       <div className="create-columns">
         <div

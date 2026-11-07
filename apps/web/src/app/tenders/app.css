@@ -1103,6 +1103,30 @@
 }
 
 /* Step controls describe a real sequence; values remain in memory between steps. */
+.create-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.48fr);
+  align-items: center;
+  gap: 22px;
+  margin-bottom: 18px;
+}
+.create-intro .page-head {
+  margin: 0;
+  padding-top: 0;
+}
+.create-artwork {
+  width: min(100%, 340px);
+  height: 210px;
+  margin: 0;
+  justify-self: center;
+  pointer-events: none;
+}
+.create-artwork img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 .flow-steps {
   display: flex;
   list-style: none;
@@ -1423,6 +1447,13 @@
   .flow-steps {
     gap: 10px;
   }
+  .create-intro {
+    gap: 16px;
+    grid-template-columns: minmax(0, 1fr) 200px;
+  }
+  .create-artwork {
+    height: 170px;
+  }
   .flow-steps button {
     flex-direction: column;
     align-items: start;
@@ -1437,6 +1468,30 @@
   }
 }
 @media (max-width: 560px) {
+  .create-intro {
+    grid-template-columns: minmax(0, 1fr) 96px;
+    gap: 10px 12px;
+    margin-bottom: 24px;
+  }
+  .create-intro .page-head {
+    display: contents;
+  }
+  .create-intro h1 {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .create-intro .page-head p {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-top: 0;
+    font-size: 14px;
+  }
+  .create-artwork {
+    grid-column: 2;
+    grid-row: 1;
+    width: 96px;
+    height: 96px;
+  }
   .app-header-inner {
     gap: 10px;
   }
