@@ -188,8 +188,9 @@ python apps/web/art/export_webp.py --source scratch/creation-art
 Use `--asset brief|scoring|committee|review` for one still. Source scenes are
 `production/create-*.blend`; temporary RGBA PNGs go to ignored `scratch/creation-art/`; the
 website uses transparent 960 x 720 WebP images at `public/visuals/blender/create-*-poster.webp`.
-Rendering uses Cycles with denoising and a transparent contact-shadow catcher. The studio is
-set up for the app's light background rather than the landing page's dark canvas.
+Rendering uses Cycles with denoising and a transparent background, without a ground plane or
+shadow catcher. Object self-shading preserves the depth while the surrounding pixels stay
+fully transparent, so the image edges blend into the app's light background.
 
 `CreationArtwork` selects the image for the current creation step. The figure has reserved
 dimensions, is outside the form controls, and is decorative for assistive technology. On narrow

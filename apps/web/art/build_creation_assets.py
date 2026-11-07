@@ -290,11 +290,8 @@ for asset in (["brief", "scoring", "committee", "review"] if args.asset == "all"
     lavender_metal = material("Brushed violet titanium", (.47, .34, .65), .75, .23, True)
     globals()[asset]()
     root.rotation_euler.z = math.radians(-7 if asset == "brief" else 0)
-    bpy.ops.mesh.primitive_plane_add(size=200, location=(0, 0, -.105))
-    floor = bpy.context.object
-    floor.name = "Transparent contact-shadow catcher"
-    floor.is_shadow_catcher = True
-    floor.data.materials.append(material("Studio floor", (.74, .72, .80), 0, .6))
+    # Keep only the object silhouette in alpha. A ground-shadow catcher leaves
+    # a visible rectangular haze where the image ends on the app background.
     area("Key / broad porcelain reflection", (-3, -4, 7), 650, (.94, .92, 1), 4.5)
     area("Rim / violet strip", (4, 2, 4), 850, (.68, .54, 1), 2, 5)
     area("Fill / neutral longbox", (-4, 2, 3), 450, (.86, .88, 1), 3, 4)
