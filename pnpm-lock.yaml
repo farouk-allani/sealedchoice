@@ -334,6 +334,9 @@ importers:
       '@tender/shared':
         specifier: workspace:*
         version: link:../shared
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: 22.20.5
@@ -353,6 +356,9 @@ importers:
       '@tender/shared':
         specifier: workspace:*
         version: link:../packages/shared
+      '@tender/verify':
+        specifier: workspace:*
+        version: link:../packages/verify
       dotenv:
         specifier: 18.0.9
         version: 18.0.9

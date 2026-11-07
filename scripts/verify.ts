@@ -1,21 +1,110 @@
-// Public verification CLI: `pnpm verify --tender <id> [--network testnet|mainnet]`.
-// Placeholder until T10, which runs the checks from packages/verify and exits non-zero on any FAIL.
-import { BRAND } from "@tender/shared";
+// Public verification CLI (docs/06-evidence-and-verification.md).
+//
+//   pnpm verify --tender 3 [--network testnet] [--no-artifact] [--json]
+//
+// Runs the same ten checks from `@tender/verify` that the `/tenders/<id>/verify` page runs, over
+// the same evidence object. Exits 0 only when all ten pass; any FAIL or SKIP exits non-zero, so
+// this is usable in CI and a judge can trust the exit code rather than reading the table.
+//
+// It needs no secrets and no `.env`: everything it reads is public. Contract and bundle store
+// default to the deployment in `.env` when there is one, and to the demo deployment otherwise, so
+// a fresh clone can run it.
+import { loadEvidence, runChecks, summarise } from "@tender/verify";
+import type { CheckResult } from "@tender/verify";
 import { EnvError, loadEnv } from "./lib/env.ts";
 
-function main(): number {
-  const { cli } = loadEnv(process.argv.slice(2));
-  console.error(`${BRAND.name} verify (${cli.network}): not implemented yet.`);
-  return 2;
+const DEFAULTS = {
+  testnet: {
+    contractId: "tenders.sealedchoice.testnet",
+    rpc: "https://test.rpc.fastnear.com",
+    explorer: "https://testnet.nearblocks.io",
+  },
+  mainnet: {
+    contractId: "",
+    rpc: "https://free.rpc.fastnear.com",
+    explorer: "https://nearblocks.io",
+  },
+} as const;
+
+const BUNDLE_STORE = "https://sealedchoice-lab.vercel.app";
+
+function flagValue(args: readonly string[], name: string): string | undefined {
+  const i = args.indexOf(`--${name}`);
+  if (i >= 0) return args[i + 1];
+  const eq = args.find((a) => a.startsWith(`--${name}=`));
+  return eq?.slice(name.length + 3);
+}
+
+function render(results: readonly CheckResult[]): string {
+  const width = Math.max(...results.map((r) => r.name.length));
+  const lines: string[] = [];
+  for (const r of results) {
+    const mark = r.pass ? "PASS" : r.skipped ? "SKIP" : "FAIL";
+    lines.push(`${String(r.id).padStart(2)}  ${mark}  ${r.name.padEnd(width)}  ${r.details}`);
+    for (const l of r.links) lines.push(`${" ".repeat(width + 12)}${l.label}: ${l.href}`);
+  }
+  return lines.join("\n");
+}
+
+async function main(): Promise<number> {
+  const { cli, env } = loadEnv(process.argv.slice(2));
+  const args = cli.args;
+  const raw = flagValue(args, "tender") ?? args.find((a) => /^\d+$/.test(a));
+  const tenderId = Number(raw);
+  if (!Number.isInteger(tenderId) || tenderId < 0) {
+    console.error("usage: pnpm verify --tender <id> [--network testnet|mainnet] [--no-artifact] [--json]");
+    return 2;
+  }
+
+  const d = DEFAULTS[cli.network];
+  const contractId = flagValue(args, "contract") ?? env.CONTRACT_ID ?? d.contractId;
+  if (!contractId) {
+    console.error(`verify: no contract id for ${cli.network}; pass --contract <account>`);
+    return 2;
+  }
+  const rpcUrl = flagValue(args, "rpc") ?? env.NEAR_RPC_URL ?? d.rpc;
+  const bundleStoreUrl = flagValue(args, "bundle-store") ?? env.BUNDLE_STORE_URL ?? BUNDLE_STORE;
+  const wantJson = args.includes("--json");
+
+  if (!wantJson) {
+    console.log(`verifying tender ${tenderId} on ${contractId} (${cli.network})`);
+    console.log(`  rpc ${rpcUrl}`);
+    console.log(`  bundle store ${bundleStoreUrl}\n`);
+  }
+
+  const { evidence, artifact } = await loadEvidence({
+    contractId,
+    tenderId,
+    rpcUrl,
+    bundleStoreUrl,
+    explorerBase: d.explorer,
+    network: cli.network,
+    fetchArtifact: !args.includes("--no-artifact"),
+  });
+  const results = runChecks(evidence, artifact);
+  const { passed, total, allPassed } = summarise(results);
+
+  if (wantJson) {
+    console.log(JSON.stringify({ tenderId, contractId, network: cli.network, passed, total, results }, null, 2));
+  } else {
+    console.log(render(results));
+    console.log(`\n${passed}/${total} checks passed`);
+    if (!allPassed) {
+      const bad = results.filter((r) => !r.pass).map((r) => `${r.id} ${r.name}`);
+      console.log(`not passing: ${bad.join(", ")}`);
+    }
+  }
+  return allPassed ? 0 : 1;
 }
 
 try {
-  process.exitCode = main();
+  process.exitCode = await main();
 } catch (e) {
   if (e instanceof EnvError) {
     console.error(`verify: ${e.message}`);
-    process.exitCode = 1;
+    process.exitCode = 2;
   } else {
-    throw e;
+    console.error(`verify: ${e instanceof Error ? e.message : String(e)}`);
+    process.exitCode = 2;
   }
 }
