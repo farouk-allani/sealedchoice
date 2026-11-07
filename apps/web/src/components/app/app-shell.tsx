@@ -51,6 +51,7 @@ function WalletButton() {
       <Button
         variant="primary"
         size="small"
+        loading={wallet.status === "connecting"}
         onClick={() => void wallet.connect()}
       >
         Connect wallet
