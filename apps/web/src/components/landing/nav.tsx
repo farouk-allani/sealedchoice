@@ -25,20 +25,20 @@ export function Nav() {
         </div>
       </div>
       <div className="nav-island nav-actions">
-        <Link href="/tenders" className="nav-verify">
-          Browse tenders
-        </Link>
         <a href="#verify" className="nav-verify">
           Verifier
         </a>
         <a
-          className="nav-explorer"
+          className="nav-verify"
           href={explorerAccount(CHAIN.tenderContract)}
           target="_blank"
-          rel="noreferrer"
+          rel="noreferrer noopener"
         >
           Explorer <span aria-hidden="true">↗</span>
         </a>
+        <Link href="/tenders" className="nav-app">
+          Open app
+        </Link>
         <button
           className="mobile-menu-toggle"
           type="button"
@@ -53,13 +53,21 @@ export function Nav() {
       {open && (
         <div id="mobile-nav" className="mobile-nav">
           {[
-            ["Browse tenders", "/tenders"],
             ["Protocol", "#story"],
             ["Demo tender", "#result"],
             ["Limits", "#limits"],
             ["Verifier", "#verify"],
+            ["Explorer", explorerAccount(CHAIN.tenderContract)],
           ].map(([label, href]) => (
-            <a key={href} href={href} onClick={() => setOpen(false)}>
+            <a
+              key={href}
+              href={href}
+              onClick={() => setOpen(false)}
+              target={href?.startsWith("https://") ? "_blank" : undefined}
+              rel={
+                href?.startsWith("https://") ? "noreferrer noopener" : undefined
+              }
+            >
               {label}
               <span aria-hidden="true">↗</span>
             </a>

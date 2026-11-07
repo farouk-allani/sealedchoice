@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { CHAIN, DEMO_TENDER } from "../../config/evidence.ts";
+import { CHAIN } from "../../config/evidence.ts";
 import { BlenderVault } from "./blender-vault.tsx";
 
 export function Hero() {
@@ -51,11 +52,11 @@ export function Hero() {
             Verifiable awards.
           </h1>
           <div className="hero-actions">
-            <a href="#result" className="button button-light">
+            <Link href="/tenders" className="button button-light">
+              Open app
+            </Link>
+            <a href="#result" className="button button-outline">
               Explore demo tender
-            </a>
-            <a href="#verify" className="button button-outline">
-              Verify {DEMO_TENDER.evidenceChecks}/{DEMO_TENDER.evidenceChecks}
             </a>
           </div>
         </div>
