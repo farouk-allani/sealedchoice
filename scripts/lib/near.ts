@@ -8,10 +8,15 @@
 import { Account, JsonRpcProvider, teraToGas } from "near-api-js";
 import type { Env, Network } from "./env.ts";
 
-/** Public RPC per network. `NEAR_RPC_URL` overrides it. */
+/**
+ * Public RPC per network. `NEAR_RPC_URL` overrides it.
+ *
+ * FastNEAR, because `rpc.testnet.near.org` and `rpc.mainnet.near.org` were retired and now
+ * answer every request with `-429 THIS ENDPOINT IS DEPRECATED` (measured 2026-11-07, T09).
+ */
 const DEFAULT_RPC: Record<Network, string> = {
-  testnet: "https://rpc.testnet.near.org",
-  mainnet: "https://rpc.mainnet.near.org",
+  testnet: "https://test.rpc.fastnear.com",
+  mainnet: "https://free.rpc.fastnear.com",
 };
 
 export function provider(env: Env, network: Network): JsonRpcProvider {

@@ -39,3 +39,6 @@ next-env.d.ts
 
 # deploy artifacts copied out of WSL and transaction logs (T07)
 scripts/testnet/evidence/
+
+# Playwright smoke-test output (scripts/qa/web-smoke.py)
+apps/web/test-results/
