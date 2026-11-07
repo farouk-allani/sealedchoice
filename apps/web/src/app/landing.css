@@ -1027,13 +1027,6 @@ summary::-webkit-details-marker {
   display: flex;
   gap: 28px;
 }
-.status-dot {
-  width: 4px;
-  height: 4px;
-  display: inline-block;
-  border-radius: 50%;
-  background: #7ea38d;
-}
 @media (min-width: 1700px) {
   .cinema-vault {
     width: min(147vh, 1800px);

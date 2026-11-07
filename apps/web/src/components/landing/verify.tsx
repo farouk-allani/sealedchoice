@@ -97,7 +97,6 @@ export function Verify() {
           </div>
           <div className="terminal-bottom">
             PUBLIC EVIDENCE. PRIVATE BID TEXT.
-            <span className="status-dot" />
           </div>
         </div>
       </div>

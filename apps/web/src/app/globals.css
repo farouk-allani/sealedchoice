@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — "steel + indigo rim".
+ * Design tokens: "steel + indigo rim".
  *
  * The rule that keeps this from reading as a crypto casino: indigo is a *light*, not a fill.
  * It appears on metal edges, focus rings and hairlines. It never fills a large area.

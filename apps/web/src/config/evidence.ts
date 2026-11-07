@@ -1,5 +1,5 @@
 // Every number and hash the landing page shows comes from here, and every value here was
-// measured on testnet — see PROGRESS.md (log 2026-11-05) and docs/DECISIONS.md D-032.
+// measured on testnet. See PROGRESS.md (log 2026-11-05) and docs/DECISIONS.md D-032.
 //
 // Rule for this file: if a value is not on chain or in a recorded run, it does not go on the
 // page. No rounded-up numbers, no "up to", no placeholders that survive into a commit.
@@ -28,7 +28,7 @@ export const CHAIN = {
   codeHash: "9ZrrKTELGfATeTqEmJcY4aFHH3vEuSrHZFrbR6v83iXD",
   /**
    * sha256 of the evaluator WASM pinned on the contract (D-030). The full value, not the
-   * elided `b5e34a07…e0811fb6` the docs print — `short()` does the eliding at render time.
+   * elided `b5e34a07…e0811fb6` the docs print, and `short()` does the eliding at render time.
    */
   evaluatorBuild: "b5e34a07e647059ef89753b63aeea17bd1a7ccfae17db6ecc0a2190be0811fb6",
   bundleStore: "https://sealedchoice-lab.vercel.app",

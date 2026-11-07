@@ -18,7 +18,7 @@ const CHAMBER_RINGS = 7;
 const SPOKE_COUNT = 4;
 
 /**
- * Brushed steel. A conic gradient around the disc is what sells turned metal — a linear one
+ * Brushed steel. A conic gradient around the disc is what sells turned metal. A linear one
  * reads as plastic however many stops it has. The light sits upper-left and everything else
  * (specular, occlusion, rim) agrees with it.
  */
@@ -138,8 +138,12 @@ export const VaultFigure = forwardRef<VaultHandle, { className?: string }>(funct
                   style={{
                     inset: `${inset}%`,
                     transform: `translateZ(${-60 - t * 320}px)`,
-                    border: "1px solid rgba(132,144,190,0.16)",
-                    background: `radial-gradient(circle at 50% 44%, rgba(108,120,255,${0.1 * t}) 0%, rgba(7,8,11,${0.5 + t * 0.4}) 72%)`,
+                    // The rim is two hard stops in the ring's own fill, not a hairline border:
+                    // the banned styling rules separate surfaces by background value only.
+                    background:
+                      `radial-gradient(circle at 50% 44%, rgba(108,120,255,${0.1 * t}) 0%, ` +
+                      `rgba(7,8,11,${0.5 + t * 0.4}) 72%, rgba(7,8,11,${0.5 + t * 0.4}) 97.5%, ` +
+                      `rgba(132,144,190,0.16) 97.5%, rgba(132,144,190,0.16) 100%)`,
                   }}
                 />
               );
@@ -164,7 +168,7 @@ export const VaultFigure = forwardRef<VaultHandle, { className?: string }>(funct
           >
             {/*
               A vault door's thickness is the whole visual. CSS 3D gives a plane no volume, so
-              the slab is built from stacked discs at increasing depth — edge-on they read as
+              the slab is built from stacked discs at increasing depth, and edge-on they read as
               one machined cylinder, which is exactly the moment the door swings open.
             */}
             {Array.from({ length: DOOR_SLICES }, (_, i) => {
@@ -239,7 +243,7 @@ export const VaultFigure = forwardRef<VaultHandle, { className?: string }>(funct
                 </radialGradient>
               </defs>
 
-              {/* Turned rings. Thin, low contrast, two tones — this is what reads as machined. */}
+              {/* Turned rings. Thin, low contrast, two tones: this is what reads as machined. */}
               {[232, 214, 198, 156].map((r, i) => (
                 <g key={r}>
                   <circle cx="300" cy="300" r={r} fill="none" stroke="#000" strokeWidth="1.5" opacity="0.5" />
@@ -320,7 +324,7 @@ export const VaultFigure = forwardRef<VaultHandle, { className?: string }>(funct
                   fontFamily="var(--font-mono)"
                   opacity="0.85"
                 >
-                  {`${DEMO_TENDER.bids} BIDS · ATTEMPT ${DEMO_TENDER.attempt}`}
+                  {`${DEMO_TENDER.bids} BIDS, ATTEMPT ${DEMO_TENDER.attempt}`}
                 </text>
               </g>
 
