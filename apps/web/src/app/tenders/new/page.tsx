@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Icon } from "../../../components/ui/icon.tsx";
 import { getConfig } from "../../../lib/near/views.ts";
 import { CreateTenderForm } from "../../../components/app/create-tender-form.tsx";
 
@@ -24,8 +26,9 @@ export default async function NewTenderPage() {
         <h2>The chain could not be read</h2>
         <p>{error}</p>
         <p>
-          A tender cannot be prepared without it: the committee keys are bound to the id the
-          contract will assign next, which has to be read from the contract.
+          A tender cannot be prepared without it: the committee keys are bound
+          to the id the contract will assign next, which has to be read from the
+          contract.
         </p>
       </div>
     );
@@ -33,12 +36,16 @@ export default async function NewTenderPage() {
 
   return (
     <>
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <Link href="/tenders">Tenders</Link>
+        <Icon name="chevron" size={15} />
+        <span aria-current="page">Create tender</span>
+      </nav>
       <div className="page-head">
         <h1>Create a tender</h1>
         <p>
-          Everything on this page is fixed at creation: the rubric, the deadline, the bond, the
-          committee and the evaluator build. None of it can be changed afterwards, by anyone,
-          which is what lets a bidder trust a rubric published before bidding.
+          Set the brief, decide how bids will be scored, and choose your
+          committee. You will review everything before publishing.
         </p>
       </div>
       <CreateTenderForm initialNextId={nextId} />
