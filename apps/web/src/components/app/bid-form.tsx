@@ -6,7 +6,7 @@
 //
 // The debrief key is derived from a NEP-413 signature (docs/05, measured at G5) and its private
 // half never leaves this component. The bid text never leaves it either, except as ciphertext.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import {
@@ -27,10 +27,21 @@ import { Button } from "../ui/button.tsx";
 import { TextAreaField, TextField } from "../ui/field.tsx";
 import { CopyButton } from "../ui/copy-button.tsx";
 import { Notice } from "./transaction-notice.tsx";
-import { CONTRACT_ID, TOKEN_DECIMALS, TOKEN_SYMBOL } from "../../config/demo.ts";
+import { FlowSteps } from "./flow-steps.tsx";
+import { Icon } from "../ui/icon.tsx";
+import {
+  CONTRACT_ID,
+  TOKEN_DECIMALS,
+  TOKEN_SYMBOL,
+} from "../../config/demo.ts";
 import { explorerTx } from "../../config/evidence.ts";
 import { bidReceiptSchema } from "../../lib/near/schemas.ts";
-import { formatNear, formatUnits, shortHash, unitsToMinor } from "../../lib/tender/format.ts";
+import {
+  formatNear,
+  formatUnits,
+  shortHash,
+  unitsToMinor,
+} from "../../lib/tender/format.ts";
 import { deriveReaderKeyFromWallet } from "../../lib/wallet/reader-key.ts";
 import { TGAS, useWallet } from "../../lib/wallet/wallet-provider.tsx";
 
@@ -80,6 +91,12 @@ export function BidForm(props: BidFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [sealed, setSealed] = useState<Sealed | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const stageHeading = useRef<HTMLHeadingElement>(null);
+  const form = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (stage !== "form") stageHeading.current?.focus();
+  }, [stage]);
 
   const methodologyBytes = utf8Length(methodology);
   const trackRecordBytes = utf8Length(trackRecord);
@@ -103,7 +120,9 @@ export function BidForm(props: BidFormProps) {
             ? `Above the budget cap of ${formatUnits(props.budgetCapMinor, TOKEN_DECIMALS)} ${TOKEN_SYMBOL}.`
             : undefined;
 
-  const deliveryNumber = /^\d{1,4}$/.test(deliveryDays.trim()) ? Number(deliveryDays) : null;
+  const deliveryNumber = /^\d{1,4}$/.test(deliveryDays.trim())
+    ? Number(deliveryDays)
+    : null;
   const deliveryError =
     deliveryDays.trim() === ""
       ? "Enter the number of days."
@@ -133,7 +152,8 @@ export function BidForm(props: BidFormProps) {
    * limit, so the counter is built from the real encoding (T01 reviewer finding).
    */
   const projected = useMemo(() => {
-    if (!wallet.accountId || priceMinor === null || deliveryNumber === null) return null;
+    if (!wallet.accountId || priceMinor === null || deliveryNumber === null)
+      return null;
     try {
       const built = buildBidPlaintext({
         tender_id: String(props.tenderId),
@@ -147,23 +167,43 @@ export function BidForm(props: BidFormProps) {
     } catch {
       return null;
     }
-  }, [wallet.accountId, priceMinor, deliveryNumber, methodology, trackRecord, props.tenderId]);
+  }, [
+    wallet.accountId,
+    priceMinor,
+    deliveryNumber,
+    methodology,
+    trackRecord,
+    props.tenderId,
+  ]);
 
-  const formInvalid = Boolean(priceError || deliveryError || methodologyError || trackRecordError);
+  const formInvalid = Boolean(
+    priceError || deliveryError || methodologyError || trackRecordError,
+  );
 
   async function seal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTouched(true);
     setError(null);
-    if (formInvalid || priceMinor === null || deliveryNumber === null) return;
+    if (formInvalid || priceMinor === null || deliveryNumber === null) {
+      requestAnimationFrame(() =>
+        form.current
+          ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+          ?.focus(),
+      );
+      return;
+    }
     if (!wallet.accountId) {
-      setError("Connect a wallet first. Your bid is encrypted to this tender and signed by you.");
+      setError(
+        "Connect a wallet first. Your bid is encrypted to this tender and signed by you.",
+      );
       return;
     }
     // A tender key that is not a point on the curve cannot encrypt anything, and finding that
     // out after the wallet prompt would waste a signature (I15 is the contract's side of this).
     if (!isCompressedPublicKeyHex(props.tenderPubkey)) {
-      setError("This tender's key is not a valid secp256k1 point, so a bid cannot be sealed to it.");
+      setError(
+        "This tender's key is not a valid secp256k1 point, so a bid cannot be sealed to it.",
+      );
       return;
     }
 
@@ -212,10 +252,17 @@ export function BidForm(props: BidFormProps) {
 
   async function submit() {
     if (!sealed) return;
+    if (wallet.accountId !== sealed.bidder) {
+      setError(
+        "Reconnect the wallet that sealed this bid, or return to the form and encrypt it with your current wallet.",
+      );
+      return;
+    }
     setError(null);
     setBusy("submitting");
     try {
-      const deposit = BigInt(props.bondYocto) + storageMargin(sealed.ciphertextBytes);
+      const deposit =
+        BigInt(props.bondYocto) + storageMargin(sealed.ciphertextBytes);
       const sent = await wallet.signAndSend({
         receiverId: CONTRACT_ID,
         actions: [
@@ -235,7 +282,9 @@ export function BidForm(props: BidFormProps) {
       setReceipt({
         txHash: sent.hash,
         slot: parsed.success ? parsed.data.slot : null,
-        ciphertextSha256: parsed.success ? parsed.data.ciphertext_sha256 : sealed.ciphertextSha256,
+        ciphertextSha256: parsed.success
+          ? parsed.data.ciphertext_sha256
+          : sealed.ciphertextSha256,
         submittedAtNs: parsed.success ? parsed.data.submitted_at_ns : null,
       });
       setStage("submitted");
@@ -277,9 +326,25 @@ export function BidForm(props: BidFormProps) {
   if (stage === "submitted" && receipt && sealed) {
     return (
       <div className="panel ui-paper">
+        <FlowSteps
+          labels={["Write your bid", "Review & submit", "Receipt"]}
+          current={2}
+        />
+        <div className="completion-heading">
+          <Icon name="check" size={28} />
+          <h2 ref={stageHeading} tabIndex={-1}>
+            Your bid has been submitted
+          </h2>
+        </div>
         <Notice tone="success" title="Your sealed bid is on chain">
-          Nobody can read it until the deadline passes and the evaluator opens it inside the TEE.
+          Nobody can read it until the deadline passes and the evaluator opens
+          it inside the TEE.
         </Notice>
+        <p className="panel-note">
+          Save your receipt, then return after the deadline to follow
+          evaluation. Use the same wallet to access your private debrief when it
+          is available.
+        </p>
         <dl className="facts">
           <dt>Transaction</dt>
           <dd>
@@ -301,18 +366,27 @@ export function BidForm(props: BidFormProps) {
           <dt>Ciphertext hash</dt>
           <dd>
             <span className="mono">{shortHash(receipt.ciphertextSha256)}</span>{" "}
-            <CopyButton value={receipt.ciphertextSha256} label="Copy ciphertext hash" compact />
+            <CopyButton
+              value={receipt.ciphertextSha256}
+              label="Copy ciphertext hash"
+              compact
+            />
           </dd>
           <dt>Debrief key</dt>
           <dd>
             <span className="mono">{shortHash(sealed.debriefPubkey)}</span>{" "}
-            <CopyButton value={sealed.debriefPubkey} label="Copy debrief key" compact />
+            <CopyButton
+              value={sealed.debriefPubkey}
+              label="Copy debrief key"
+              compact
+            />
           </dd>
         </dl>
         <p className="panel-note">
-          Your debrief is encrypted to that key. You re-derive its private half by signing the
-          same message with the same wallet, so there is nothing to store. Keep the receipt to
-          check your leaf against the frozen bid set.
+          Your debrief is encrypted to that key. You re-derive its private half
+          by signing the same message with the same wallet, so there is nothing
+          to store. Keep the receipt to check your leaf against the frozen bid
+          set.
         </p>
         <div className="form-actions">
           <Button onClick={downloadReceipt} variant="secondary">
@@ -332,11 +406,17 @@ export function BidForm(props: BidFormProps) {
   if (stage === "sealed" && sealed) {
     return (
       <div className="panel ui-paper">
-        <h2>Check this, then submit</h2>
+        <FlowSteps
+          labels={["Write your bid", "Review & submit", "Receipt"]}
+          current={1}
+        />
+        <h2 ref={stageHeading} tabIndex={-1}>
+          Review your sealed bid
+        </h2>
         <p>
-          Your bid is encrypted. What goes on chain is the ciphertext below and its hash. The
-          price and your text are not on chain in readable form, and nothing is submitted until
-          you press the button.
+          Your bid is encrypted. What goes on chain is the ciphertext below and
+          its hash. The price and your text are not on chain in readable form,
+          and nothing is submitted until you press the button.
         </p>
         <dl className="facts">
           <dt>Price</dt>
@@ -345,27 +425,51 @@ export function BidForm(props: BidFormProps) {
           </dd>
           <dt>Bidder</dt>
           <dd>{sealed.bidder}</dd>
-          <dt>Plaintext</dt>
-          <dd>{sealed.plaintextBytes} bytes of canonical JSON</dd>
-          <dt>Ciphertext</dt>
-          <dd>
-            {sealed.ciphertextBytes} of {MAX_CIPHERTEXT_BYTES} bytes allowed
-          </dd>
-          <dt>Ciphertext hash</dt>
-          <dd>
-            <span className="mono">{shortHash(sealed.ciphertextSha256)}</span>{" "}
-            <CopyButton value={sealed.ciphertextSha256} label="Copy ciphertext hash" compact />
-          </dd>
-          <dt>Debrief key</dt>
-          <dd>
-            <span className="mono">{shortHash(sealed.debriefPubkey)}</span>
-          </dd>
-          <dt>Bond</dt>
-          <dd>
-            {formatNear(props.bondYocto)} NEAR, returned unless your bid cannot be decrypted or
-            names another account
-          </dd>
+          <dt>Delivery</dt>
+          <dd>{deliveryDays} days</dd>
         </dl>
+        <details className="record-details">
+          <summary>Review your proposal text</summary>
+          <h3>Methodology</h3>
+          <p className="review-prose">{methodology}</p>
+          <h3>Track record</h3>
+          <p className="review-prose">{trackRecord}</p>
+        </details>
+        <Notice tone="info" title="What your wallet will approve">
+          A refundable bond of {formatNear(props.bondYocto)} NEAR plus up to{" "}
+          {formatNear(storageMargin(sealed.ciphertextBytes))} NEAR for storage,
+          and network fees. Excess storage deposit is returned. Your bid price
+          is not charged now.
+        </Notice>
+        <details className="record-details">
+          <summary>Encryption details</summary>
+          <dl className="facts">
+            <dt>Plaintext</dt>
+            <dd>{sealed.plaintextBytes} bytes of canonical JSON</dd>
+            <dt>Ciphertext</dt>
+            <dd>
+              {sealed.ciphertextBytes} of {MAX_CIPHERTEXT_BYTES} bytes allowed
+            </dd>
+            <dt>Ciphertext hash</dt>
+            <dd>
+              <span className="mono">{shortHash(sealed.ciphertextSha256)}</span>{" "}
+              <CopyButton
+                value={sealed.ciphertextSha256}
+                label="Copy ciphertext hash"
+                compact
+              />
+            </dd>
+            <dt>Debrief key</dt>
+            <dd>
+              <span className="mono">{shortHash(sealed.debriefPubkey)}</span>
+            </dd>
+            <dt>Bond</dt>
+            <dd>
+              {formatNear(props.bondYocto)} NEAR, returned unless your bid
+              cannot be decrypted or names another account
+            </dd>
+          </dl>
+        </details>
         {error && (
           <Notice tone="danger" title="The bid was not submitted">
             {error}
@@ -391,18 +495,35 @@ export function BidForm(props: BidFormProps) {
   }
 
   return (
-    <form className="panel ui-paper" onSubmit={(event) => void seal(event)} noValidate>
-      <h2>Your bid</h2>
+    <form
+      ref={form}
+      className="panel ui-paper"
+      onSubmit={(event) => void seal(event)}
+      noValidate
+    >
+      <FlowSteps
+        labels={["Write your bid", "Review & submit", "Receipt"]}
+        current={0}
+      />
+      <h2>Your proposal</h2>
       <p>
-        Encrypted in this page to the tender key before anything is sent. The deadline is{" "}
-        {props.deadlineUtc}.
+        Encrypted in this page to the tender key before anything is sent. The
+        deadline is {props.deadlineUtc}.
       </p>
 
       {wallet.status !== "connected" && (
-        <Notice tone="warning" title="Connect a wallet to bid">
-          Your bid is signed by your account, and the key your debrief is encrypted to comes from
-          a signature only your wallet can make. Reading this tender needs no wallet; bidding
-          does.
+        <Notice tone="info" title="Prepare first, connect when you are ready">
+          You can write your proposal now. Connect a wallet before encrypting
+          and reviewing it.
+          <div className="wallet-inline">
+            <Button
+              size="small"
+              variant="secondary"
+              onClick={() => void wallet.connect()}
+            >
+              Connect wallet to continue
+            </Button>
+          </div>
         </Notice>
       )}
 
@@ -433,9 +554,14 @@ export function BidForm(props: BidFormProps) {
         label="Methodology"
         rows={6}
         value={methodology}
+        placeholder="Describe your approach, the work you will deliver, and how you will handle risks."
         onChange={(event) => setMethodology(event.target.value)}
         hint={`${methodologyBytes.toLocaleString("en-US")} of ${TEXT_LIMITS_BYTES.methodology.toLocaleString("en-US")} bytes`}
-        error={touched || methodologyBytes > TEXT_LIMITS_BYTES.methodology ? methodologyError : undefined}
+        error={
+          touched || methodologyBytes > TEXT_LIMITS_BYTES.methodology
+            ? methodologyError
+            : undefined
+        }
         required
       />
 
@@ -443,16 +569,22 @@ export function BidForm(props: BidFormProps) {
         label="Track record"
         rows={4}
         value={trackRecord}
+        placeholder="Share relevant projects, your role, and specific outcomes."
         onChange={(event) => setTrackRecord(event.target.value)}
         hint={`${trackRecordBytes.toLocaleString("en-US")} of ${TEXT_LIMITS_BYTES.track_record.toLocaleString("en-US")} bytes`}
-        error={touched || trackRecordBytes > TEXT_LIMITS_BYTES.track_record ? trackRecordError : undefined}
+        error={
+          touched || trackRecordBytes > TEXT_LIMITS_BYTES.track_record
+            ? trackRecordError
+            : undefined
+        }
         required
       />
 
       {projected !== null && (
         <p className="panel-note">
-          Sealed size {projected} of {MAX_CIPHERTEXT_BYTES} bytes. This counts the encoded bid, not
-          the characters typed: quotes and line breaks cost more once encoded.
+          Sealed size {projected} of {MAX_CIPHERTEXT_BYTES} bytes. This counts
+          the encoded bid, not the characters typed: quotes and line breaks cost
+          more once encoded.
         </p>
       )}
 
@@ -463,7 +595,10 @@ export function BidForm(props: BidFormProps) {
       )}
 
       <div className="form-actions">
-        <Link className="ui-button ui-button--ghost ui-button--medium" href={`/tenders/${props.tenderId}`}>
+        <Link
+          className="ui-button ui-button--ghost ui-button--medium"
+          href={`/tenders/${props.tenderId}`}
+        >
           Cancel
         </Link>
         <Button
@@ -474,6 +609,11 @@ export function BidForm(props: BidFormProps) {
           Encrypt and review
         </Button>
       </div>
+      <p className="privacy-note">
+        <Icon name="lock" size={15} />
+        Your proposal stays in this page until it is encrypted. Keep this tab
+        open while drafting.
+      </p>
     </form>
   );
 }
