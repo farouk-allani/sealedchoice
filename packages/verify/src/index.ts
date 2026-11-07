@@ -1,6 +1,26 @@
-// Scoring core port and verification checks (docs/06-evidence-and-verification.md).
-// T10 part 1: the scoring core, pinned by specs/test-vectors. The checks against chain state and
-// bundles come with the rest of T10, after T07.
+// Scoring core port and the public verification checks (docs/06-evidence-and-verification.md).
+// `runChecks` is pure: `loadEvidence` does the fetching, so the CLI and the verify page run the
+// same ten checks over the same object.
+export { runChecks, summarise } from "./checks.ts";
+export { LoadError, loadEvidence } from "./load.ts";
+export type { LoadOptions } from "./load.ts";
+export {
+  attemptViewSchema,
+  bidViewSchema,
+  configViewSchema,
+  evaluatorRefSchema,
+  frozenViewSchema,
+  tenderViewSchema,
+} from "./evidence.ts";
+export type {
+  AttemptView,
+  BidView,
+  CheckLink,
+  CheckResult,
+  Evidence,
+  FrozenView,
+  TenderView,
+} from "./evidence.ts";
 export { NotCanonicalError, isCanonicalJson, sha256OfCanonicalJson } from "./canonical.ts";
 export { type Json, JsonFloat, JsonInt, JsonObject, JsonParseError, parseJson } from "./json.ts";
 export {
