@@ -1,0 +1,58 @@
+[
+  {
+    "family": "Public Sans",
+    "file": "public-sans/latin-variable.woff2",
+    "weight": "400 700",
+    "source": "https://fonts.gstatic.com/s/publicsans/v21/ijwRs572Xtc6ZYQws9YVwnNGfJ4.woff2",
+    "sha256": "5ed4d31c988e73b258894244f209069ebe77dc7e564861954b21198b6de90d68",
+    "bytes": 26832
+  },
+  {
+    "family": "Barlow",
+    "file": "barlow/latin-400.woff2",
+    "weight": "400",
+    "source": "https://fonts.gstatic.com/s/barlow/v13/7cHpv4kjgoGqM7E_DMs5.woff2",
+    "sha256": "b0a8ad37ac45f5fb22ced461576db72e44e295107aad7a9c8a7a4bad728fd03b",
+    "bytes": 22196
+  },
+  {
+    "family": "Barlow",
+    "file": "barlow/latin-500.woff2",
+    "weight": "500",
+    "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3_-gs51os.woff2",
+    "sha256": "cd759df8ef9efc98fee14307b4eb5ba27f08b1f8f2f3ad2872432e25c89907a8",
+    "bytes": 22008
+  },
+  {
+    "family": "Barlow",
+    "file": "barlow/latin-600.woff2",
+    "weight": "600",
+    "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E30-8s51os.woff2",
+    "sha256": "4b52ddd4836b592df0e4832b8286956883cdc651b015126bdd18f184b7f90cc3",
+    "bytes": 22772
+  },
+  {
+    "family": "Barlow",
+    "file": "barlow/latin-700.woff2",
+    "weight": "700",
+    "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3t-4s51os.woff2",
+    "sha256": "2d797dd8b35dcb3413e1af9d7052b3f4f8c341a147cdcb01f4f06af80db53289",
+    "bytes": 22788
+  },
+  {
+    "family": "IBM Plex Mono",
+    "file": "ibm-plex-mono/latin-400.woff2",
+    "weight": "400",
+    "source": "https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n1i8q1w.woff2",
+    "sha256": "08949f728dc52d528e69b1667d15c89a5686a4ee9a296ff90983985f99c380f7",
+    "bytes": 14708
+  },
+  {
+    "family": "IBM Plex Mono",
+    "file": "ibm-plex-mono/latin-500.woff2",
+    "weight": "500",
+    "source": "https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJwlBFgg.woff2",
+    "sha256": "01d285447409c8a588692162439a038b8cbd7871309ee20267b0d2d91c6e8e22",
+    "bytes": 14888
+  }
+]
