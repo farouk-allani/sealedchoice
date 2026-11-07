@@ -267,7 +267,9 @@
   padding-bottom: 12px;
 }
 
-.data-table th {
+/* Column headers only. A row header carries real content, and shouting it in capitals made
+   the rubric's anchor text unreadable. */
+.data-table thead th {
   text-align: left;
   font-size: 12px;
   font-weight: 600;
@@ -275,6 +277,22 @@
   text-transform: uppercase;
   color: #9a99a6;
   padding: 0 14px 10px 0;
+}
+
+.data-table tbody th {
+  text-align: left;
+  font-weight: 500;
+  color: #e4e3ec;
+  padding: 12px 14px 12px 0;
+  border-top: 1px solid #22222a;
+  vertical-align: top;
+}
+
+.data-table tbody th strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
 }
 
 .data-table td {
@@ -379,4 +397,146 @@
   font-size: 13px;
   font-weight: 500;
   color: #a9a8b4;
+}
+
+/* --------------------------------------------------------------------- bid */
+
+.bid-columns {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .bid-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.form-pair {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-bottom: 16px;
+}
+
+@media (max-width: 560px) {
+  .form-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.panel form > .ui-field,
+form.panel > .ui-field {
+  margin-bottom: 16px;
+}
+
+/* ----------------------------------------------------------------- create */
+
+.create-columns {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .create-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.create-columns aside {
+  position: sticky;
+  top: 86px;
+}
+
+.criterion-row {
+  padding: 16px 0;
+  border-top: 1px solid #22222a;
+}
+
+.criterion-row:first-of-type {
+  border-top: 0;
+  padding-top: 4px;
+}
+
+.anchors-details summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b9b8c4;
+  padding: 4px 0;
+}
+
+.anchors-details[open] summary {
+  margin-bottom: 8px;
+}
+
+.weight-bad {
+  margin: 14px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ff9c9c;
+}
+
+.rubric-preview {
+  max-height: 320px;
+  overflow: auto;
+  background: #101015;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.rubric-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #cfcedb;
+}
+
+.member-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.member-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: #1d1d24;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.member-list li > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.member-list strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ebeaf0;
+}
+
+.member-list .mono {
+  color: #9a99a6;
 }
