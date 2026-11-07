@@ -20,8 +20,8 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: `${BRAND.name} — ${BRAND.tagline}`,
-    template: `%s · ${BRAND.name}`,
+    default: `${BRAND.name}: ${BRAND.tagline}`,
+    template: `%s | ${BRAND.name}`,
   },
   description:
     "Suppliers encrypt each bid to a key that exists only inside a TEE. After the deadline the " +
