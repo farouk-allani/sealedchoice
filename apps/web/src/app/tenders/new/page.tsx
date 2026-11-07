@@ -41,13 +41,6 @@ export default async function NewTenderPage() {
         <Icon name="chevron" size={15} />
         <span aria-current="page">Create tender</span>
       </nav>
-      <div className="page-head">
-        <h1>Create a tender</h1>
-        <p>
-          Set the brief, decide how bids will be scored, and choose your
-          committee. You will review everything before publishing.
-        </p>
-      </div>
       <CreateTenderForm initialNextId={nextId} />
     </>
   );
