@@ -13,6 +13,13 @@ export {
   u64le,
   utf8ToBytes,
 } from "./bytes.ts";
+export {
+  SignatureFormatError,
+  addressOfPublicKey,
+  personalSignDigest,
+  recoverPersonalSignAddress,
+  verifyPersonalSign,
+} from "./eip191.ts";
 export { JcsError, jcs, jcsString } from "./jcs.ts";
 export { merkleLeaf, merkleParent, merkleProof, merkleRoot, merkleVerify } from "./merkle.ts";
 export type { ProofStep } from "./merkle.ts";
