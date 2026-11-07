@@ -1,4 +1,5 @@
 import { BRAND } from "@tender/shared";
+import Link from "next/link";
 import { CHAIN, explorerAccount } from "../../config/evidence.ts";
 import { BrandMark } from "./nav.tsx";
 
@@ -15,9 +16,9 @@ export function Footer() {
           <br />
           Verifiable awards.
         </p>
-        <a className="text-link" href="#top">
-          Back to top <span>↑</span>
-        </a>
+        <Link className="button button-light footer-app-link" href="/tenders">
+          Open app
+        </Link>
       </div>
       <div className="footer-wordmark" aria-hidden="true">
         {BRAND.name}
@@ -33,6 +34,9 @@ export function Footer() {
             Contract ↗
           </a>
           <a href="#limits">Trust boundaries</a>
+          <a href="#top">
+            Back to top <span aria-hidden="true">↑</span>
+          </a>
           <span>
             <i className="status-dot" /> {CHAIN.network} / no real funds
           </span>

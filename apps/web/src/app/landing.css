@@ -97,15 +97,22 @@ button {
 .nav-actions {
   padding-left: 25px;
 }
-.nav-explorer {
+.nav-app {
   background: #0c0b12;
   color: #f3f2f5;
   border-radius: 6px;
   padding: 12px 20px;
   font-size: 15px;
+  font-weight: 600;
+  min-height: 44px;
+  white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 22px;
+  transition: background 160ms;
+}
+.nav-app:hover {
+  background: #302638;
 }
 .mobile-menu-toggle,
 .mobile-nav {
@@ -171,6 +178,11 @@ button {
   justify-content: center;
   gap: 14px;
   margin-top: 42px;
+}
+.hero-actions .button {
+  min-height: 48px;
+  min-width: 160px;
+  font-weight: 600;
 }
 .button {
   display: inline-flex;
@@ -988,6 +1000,12 @@ summary::-webkit-details-marker {
   font-size: 13px;
   line-height: 1.5;
 }
+.footer-top .footer-app-link {
+  min-height: 48px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .footer-wordmark {
   font-size: clamp(64px, 13.3vw, 203px);
   letter-spacing: -0.07em;
@@ -1030,7 +1048,7 @@ summary::-webkit-details-marker {
   }
   .nav-links a,
   .nav-verify,
-  .nav-explorer {
+  .nav-app {
     font-size: 13px;
   }
   .result-cards {
@@ -1104,9 +1122,9 @@ summary::-webkit-details-marker {
   .nav-verify {
     display: none;
   }
-  .nav-explorer {
-    padding: 10px 12px;
-    font-size: 11px;
+  .nav-app {
+    padding: 12px;
+    font-size: 13px;
     gap: 12px;
   }
   .nav-actions {
@@ -1114,7 +1132,8 @@ summary::-webkit-details-marker {
   }
   .mobile-menu-toggle {
     display: block;
-    width: 28px;
+    width: 40px;
+    min-height: 44px;
     font-size: 23px;
     line-height: 1;
   }
@@ -1165,6 +1184,10 @@ summary::-webkit-details-marker {
   .hero-actions {
     gap: 9px;
     margin-top: 28px;
+  }
+  .hero-actions .button {
+    min-width: 0;
+    font-size: 13px;
   }
   .button {
     font-size: 12px;
