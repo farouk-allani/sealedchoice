@@ -94,6 +94,31 @@ export async function handleGet(sha256: string, store: BundleStore): Promise<Res
       "Cache-Control": IMMUTABLE,
       ETag: `"${sha256}"`,
       "X-Content-Type-Options": "nosniff",
+      // A bundle is public, immutable and content-addressed, and reading it takes no
+      // credentials, so any origin may fetch it. Without this a verifier running in a browser,
+      // including our own /tenders/<id>/verify page on any other origin, cannot read a bundle at
+      // all: the checks that need one come back "not checked" and a reader is told nothing.
+      // `ETag` has to be exposed by name or cross-origin script cannot see it, and check 6
+      // compares it with the hash the result committed to.
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "ETag, Content-Length",
+    },
+  });
+}
+
+/**
+ * Preflight for a cross-origin GET. A simple GET does not trigger one, but a verifier that sets
+ * a request header will, and answering it costs nothing. Only GET is allowed: PUT is
+ * authenticated and deliberately stays same-origin.
+ */
+export function handleOptions(): Response {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "content-type",
+      "Access-Control-Max-Age": "86400",
     },
   });
 }
