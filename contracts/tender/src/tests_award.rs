@@ -460,3 +460,127 @@ fn every_transition_emits_an_event() {
     payout_result(&mut c, id, CAP, true, DEADLINE + 40);
     assert!(names(get_logs()).contains(&"payout_completed".to_string()));
 }
+
+// --------------------------------------- I9: a withdrawal makes result indices differ from slots
+
+/// Four bids, the first withdrawn before the deadline, so `frozen.slots` is `[1, 2, 3]` and a
+/// result index no longer equals a storage slot. Returns the tender, awarded on result index 2,
+/// which is slot 3 and so vendor D.
+fn awarded_after_a_withdrawal(c: &mut Contract) -> u64 {
+    let id = open(c);
+    for (i, v) in VENDORS.iter().take(4).enumerate() {
+        bid(c, id, v, i as u8 + 1, NOW + 10 + i as u64);
+    }
+    // Vendor A leaves before the deadline. Slots are never reused, so slot 0 drops out of the
+    // active set and the three that remain are slots 1, 2 and 3.
+    call(VENDORS[0], NearToken::from_yoctonear(0), NOW + 20);
+    c.withdraw_bid(id);
+
+    call(VENDORS[6], NearToken::from_yoctonear(0), DEADLINE);
+    c.close_and_evaluate(id);
+    let t = c.get_tender(id).unwrap();
+    let frozen = t.frozen.clone().unwrap();
+    assert_eq!(
+        frozen.slots,
+        vec![1, 2, 3],
+        "the withdrawn slot is not in the frozen set"
+    );
+
+    // Result index 2 is the last entry of the frozen set, which is slot 3: vendor D.
+    let text = canonical(&json!({
+        "v": 1,
+        "tid": id.to_string(),
+        "root": frozen.root,
+        "rubric": t.rubric_hash,
+        "bundle": "ab".repeat(32),
+        "attempt": 1,
+        "status": "ok",
+        "rk": [[2, 8166, 0], [0, 5200, 0], [1, 4755, 0]],
+    }));
+    callback(
+        DEADLINE + 10,
+        PromiseResult::Successful(serde_json::to_vec(&text).unwrap()),
+    );
+    assert!(c.on_evaluate(id, 1), "the result should be accepted");
+
+    call(BUYER, NearToken::from_yoctonear(0), DEADLINE + 20);
+    c.propose_award(id, 2, U128(CAP), "top of the ranking".into());
+    assert_eq!(c.get_tender(id).unwrap().status, Status::Awarded);
+    id
+}
+
+#[test]
+fn i9_a_withdrawal_does_not_move_the_award_to_another_bidder() {
+    let mut c = setup();
+    let id = awarded_after_a_withdrawal(&mut c);
+
+    // Vendor C holds slot 2, the slot a result index read as a slot would reach. It did not win.
+    call(VENDORS[2], NearToken::from_yoctonear(0), DEADLINE + 30);
+    assert_fails("E_NOT_WINNER", || {
+        c.accept_award(
+            id,
+            PayoutTarget::Near {
+                account: acc(VENDORS[2]),
+            },
+        )
+    });
+    // Vendor A withdrew and holds slot 0, which result index 0 would reach.
+    call(VENDORS[0], NearToken::from_yoctonear(0), DEADLINE + 30);
+    assert_fails("E_NOT_WINNER", || {
+        c.accept_award(
+            id,
+            PayoutTarget::Near {
+                account: acc(VENDORS[0]),
+            },
+        )
+    });
+
+    // Vendor D holds slot 3, which result index 2 names through the frozen set.
+    call(VENDORS[3], NearToken::from_yoctonear(0), DEADLINE + 30);
+    c.accept_award(
+        id,
+        PayoutTarget::Near {
+            account: acc(VENDORS[3]),
+        },
+    );
+    assert_eq!(c.get_tender(id).unwrap().status, Status::PayingOut);
+    let accepted = events("award_accepted");
+    assert_eq!(accepted.len(), 1, "{accepted:?}");
+    let data = &accepted[0]["data"][0];
+    assert_eq!(data["bid_index"], json!(2), "{data:?}");
+    assert_eq!(
+        data["slot"],
+        json!(3),
+        "the resolved slot is recorded: {data:?}"
+    );
+    assert_eq!(data["by"], json!(VENDORS[3]), "{data:?}");
+}
+
+#[test]
+fn i9_after_a_withdrawal_the_payout_goes_to_the_awarded_bidder() {
+    let mut c = setup();
+    let id = awarded_after_a_withdrawal(&mut c);
+
+    call(VENDORS[3], NearToken::from_yoctonear(0), DEADLINE + 30);
+    c.accept_award(
+        id,
+        PayoutTarget::Near {
+            account: acc(VENDORS[3]),
+        },
+    );
+    // The transfer names vendor D, not the holder of slot 2.
+    let calls = function_calls();
+    let transfer = calls
+        .iter()
+        .find(|(_, method, _, _)| method == "ft_transfer")
+        .unwrap_or_else(|| panic!("no ft_transfer in {calls:?}"));
+    assert_eq!(transfer.2["receiver_id"], json!(VENDORS[3]));
+    assert_eq!(transfer.2["amount"], json!(U128(CAP)));
+
+    assert!(payout_result(&mut c, id, CAP, true, DEADLINE + 40));
+    assert_eq!(c.get_tender(id).unwrap().status, Status::Paid);
+    assert!(matches!(
+        c.get_award(id).unwrap().payout_state,
+        PayoutState::Paid
+    ));
+}

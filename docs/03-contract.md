@@ -134,6 +134,10 @@ Validation of the compact result (all must hold; each failure has its own `E_RES
 
 ### Committee
 - `propose_award(tender_id, bid_index, amount, rationale)` — member only; status `Evaluated`; bid eligible per stored result; not lapsed; `0 < amount ≤ budget_cap`; `deviation = bid_index != first eligible index in rk`; if deviation, `rationale.len() ≥ MIN_DEVIATION_RATIONALE_CHARS`. Replaces any pending proposal (resets approvals). Proposer counts as first approval. If approvals reach `approvals_required`, status `Awarded`, `accept_by_ns = now + acceptance_window_ns`. Emits `award_proposed` / `award_approved`.
+- **`bid_index` is an index into the frozen bid set** (`frozen.slots`), the same index the
+  evaluator's `rk[i][0]` carries, and **not** a storage slot. A bid withdrawn before close
+  leaves its slot out of `frozen.slots`, so from that point the two differ. Every path that
+  needs the bid itself resolves the index through `frozen.slots` first (D-033).
 - `approve_award(tender_id, bid_index, amount)` — member only; must match the pending proposal exactly (prevents approving a different proposal than you read).
 - `close_without_award(tender_id, rationale)` — needs the same approvals threshold (implement as a proposal with `bid_index = None`). Refunds escrow to buyer. Status `ClosedNoAward`.
 
@@ -160,7 +164,7 @@ Validation of the compact result (all must hold; each failure has its own `E_RES
 | I6 | Result with wrong tid/root/rubric/attempt or incomplete ranking is rejected | unit with crafted JSON. T04: `i6_crafted_results_are_rejected` (26 crafted results), `compact_result_vector_validates`; sandbox `i6_crafted_results_rejected_and_i12_three_failures_refund_everything` |
 | I7 | Only the contract's own callback can deliver a result (`#[private]`) and only for the request it made | integration: direct call to `on_evaluate` fails. T04: sandbox `i7_direct_on_evaluate_from_another_account_fails` |
 | I8 | Only committee members propose/approve; deviation needs rationale; ineligible or lapsed bids cannot be awarded | unit. T08: `i8_only_a_committee_member_proposes_or_approves`, `i8_deviating_from_the_ranking_needs_a_rationale`, `i8_an_ineligible_bid_can_never_be_awarded`, `i8_an_approval_must_match_the_proposal_it_approves`, `i8_a_new_proposal_resets_the_approvals_of_the_old_one` |
-| I9 | Payout only to the awarded bidder's declared target, only once, amount ≤ escrow; remainder back to buyer | integration with test FT. T08: `i9_only_the_awarded_bidder_accepts`, `i9_payout_pays_once_and_the_remainder_goes_back_to_the_buyer`, `i9_a_failed_payout_keeps_the_escrow_and_can_be_retried` |
+| I9 | Payout only to the awarded bidder's declared target, only once, amount ≤ escrow; remainder back to buyer | integration with test FT. T08: `i9_only_the_awarded_bidder_accepts`, `i9_payout_pays_once_and_the_remainder_goes_back_to_the_buyer`, `i9_a_failed_payout_keeps_the_escrow_and_can_be_retried`, `i9_a_withdrawal_does_not_move_the_award_to_another_bidder`, `i9_after_a_withdrawal_the_payout_goes_to_the_awarded_bidder` |
 | I10 | Each bond is settled exactly once (refund or forfeit), never both | unit. T03 (refund paths): `i10_withdraw_refunds_the_bond_exactly_once`, `cancel_refunds_everything_once`, `i10_settle_bond_settles_a_slot_once`; T04: `i10_bonds_settled_once_across_withdraw_failure_and_retry`, `bonds_of_unreadable_or_copied_bids_go_to_the_buyer`, `accepted_result_is_stored_verbatim_and_bonds_refunded` |
 | I11 | Escrow only accepted from the buyer, in the rubric token, for exactly the cap | unit. T03: `i11_escrow_only_from_buyer_in_rubric_token_for_exact_cap`, `ft_on_transfer_refunds_bad_messages_and_late_funding` |
 | I13 | A ciphertext hash can be submitted only once per tender | unit. T03: `i13_duplicate_ciphertext_is_rejected`, `i13_withdrawn_ciphertext_cannot_be_resubmitted` |
