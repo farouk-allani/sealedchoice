@@ -867,6 +867,10 @@
   font-size: 14px;
   font-weight: 400;
 }
+/* The container supplies the focus ring, including the search icon. */
+.app-theme .directory-search input:focus-visible {
+  outline: none;
+}
 .directory-search input::placeholder {
   color: #655e6e;
   opacity: 1;
