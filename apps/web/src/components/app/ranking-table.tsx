@@ -8,7 +8,8 @@ export type RankingRow = {
   note: string;
   totalBp: number;
   outcome: "awarded" | "ranked" | "flagged";
-  flag?: FlagName;
+  /** Every flag the on-chain result set for this bid, not just the first (decodeFlags). */
+  flags?: readonly FlagName[];
 };
 
 export function RankingTable({
@@ -82,14 +83,14 @@ export function RankingTable({
                       ? "Flagged"
                       : "Ranked"}
                 </Badge>
-                {row.flag && (
-                  <details className="ranking-flag">
+                {row.flags?.map((flag) => (
+                  <details className="ranking-flag" key={flag}>
                     <summary>Why flagged?</summary>
                     <p>
-                      {FLAGS[row.flag].meaning} {FLAGS[row.flag].effect}
+                      {FLAGS[flag].meaning} {FLAGS[flag].effect}
                     </p>
                   </details>
-                )}
+                ))}
               </td>
             </tr>
           ))}

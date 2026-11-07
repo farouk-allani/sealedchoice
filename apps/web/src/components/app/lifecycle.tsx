@@ -7,9 +7,16 @@ export type LifecycleStep = {
   href?: string;
 };
 
-export function Lifecycle({ steps }: { steps: readonly LifecycleStep[] }) {
+export function Lifecycle({
+  steps,
+  layout = "horizontal",
+}: {
+  steps: readonly LifecycleStep[];
+  /** "vertical" for a narrow column, where a row of steps has no room to read. */
+  layout?: "horizontal" | "vertical";
+}) {
   return (
-    <ol className="tender-lifecycle" aria-label="Tender progress">
+    <ol className="tender-lifecycle" data-layout={layout} aria-label="Tender progress">
       {steps.map((step, index) => (
         <li
           key={step.label}

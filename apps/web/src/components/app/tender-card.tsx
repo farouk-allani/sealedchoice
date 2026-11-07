@@ -1,29 +1,22 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { Badge } from "../ui/badge.tsx";
-import type { BadgeTone } from "../ui/badge.tsx";
+import type { Status } from "../../lib/near/schemas.ts";
+import { statusOf } from "../../lib/tender/status.ts";
 
 export type TenderCardData = {
   reference: string;
   title: string;
   buyer: string;
   description: string;
-  status: "sealed" | "evaluated" | "paid";
+  /** The contract's own status, so the card cannot describe a state the chain does not have. */
+  status: Status;
   budget: string;
   currency: string;
   bids: number;
   deadlineLabel: string;
   deadline: string;
 };
-
-const statuses = {
-  sealed: { label: "Bidding open", tone: "violet" },
-  evaluated: { label: "Evaluated", tone: "neutral" },
-  paid: { label: "Paid", tone: "success" },
-} as const satisfies Record<
-  TenderCardData["status"],
-  { label: string; tone: BadgeTone }
->;
 
 export function TenderCard({
   tender,
@@ -34,7 +27,7 @@ export function TenderCard({
   action: ReactNode;
   artwork?: boolean;
 }) {
-  const status = statuses[tender.status];
+  const status = statusOf(tender.status);
   return (
     <article
       className={`tender-card ui-paper ${artwork ? "tender-card--featured" : ""}`}
