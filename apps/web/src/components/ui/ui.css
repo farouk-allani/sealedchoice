@@ -760,9 +760,17 @@
 .tender-lifecycle {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  /* However many steps the tender has, not a fixed six. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 14px;
   padding: 30px 0 0;
+}
+.tender-lifecycle[data-layout="vertical"] {
+  grid-auto-flow: row;
+  grid-auto-columns: auto;
+  gap: 0;
+  padding-top: 8px;
 }
 .tender-lifecycle li {
   position: relative;
@@ -780,6 +788,28 @@
   left: 44px;
   right: 0;
   background: #35343e;
+}
+.tender-lifecycle[data-layout="vertical"] li {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 22px;
+}
+.tender-lifecycle[data-layout="vertical"] li:last-child {
+  padding-bottom: 0;
+}
+/* The connector becomes the rail running down the markers. */
+.tender-lifecycle[data-layout="vertical"] li:not(:last-child)::after {
+  width: 3px;
+  height: auto;
+  top: 38px;
+  bottom: 6px;
+  left: 15px;
+  right: auto;
+}
+.tender-lifecycle[data-layout="vertical"] li > div {
+  padding-top: 5px;
+  min-width: 0;
 }
 .lifecycle-marker {
   display: flex;

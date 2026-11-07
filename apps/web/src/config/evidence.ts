@@ -88,7 +88,7 @@ export const DEMO_RANKING = [
     note: "Bid text instructs the scorer to give it full marks",
     totalBp: 4_500,
     flagged: true,
-    flag: "INJECTION_SUSPECTED",
+    flags: ["INJECTION_SUSPECTED"],
     outcome: "flagged",
   },
 ] as const;

@@ -1,0 +1,382 @@
+/* Layout for the tender pages. Component styling lives in components/ui/ui.css; this file only
+   arranges those components on a page.
+
+   House rules this file follows (CLAUDE.md): no font-weight under 400, no decorative dots, no
+   hairline outline on a rounded chip. Surfaces separate by background value. */
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--app-bg, #0d0d11);
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #121217;
+  padding: 14px 20px;
+}
+
+.app-header-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #f4f4f6;
+  text-decoration: none;
+}
+
+.app-brand svg {
+  width: 24px;
+  height: 24px;
+}
+
+.app-nav {
+  display: flex;
+  gap: 18px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.app-nav a {
+  color: #b9b8c4;
+  text-decoration: none;
+  padding: 6px 2px;
+}
+
+.app-nav a:hover {
+  color: #f4f4f6;
+}
+
+.app-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.app-network {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #cfcedb;
+  background: #26262f;
+  border-radius: 5px;
+  padding: 5px 9px;
+}
+
+.app-wallet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-wallet-account {
+  font-size: 13px;
+  font-weight: 500;
+  color: #d8d7e0;
+}
+
+.app-wallet-state {
+  font-size: 13px;
+  font-weight: 500;
+  color: #a9a8b4;
+}
+
+.app-wallet-error {
+  font-size: 13px;
+  font-weight: 500;
+  color: #ff9c9c;
+  max-width: 280px;
+}
+
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 36px 20px 96px;
+}
+
+/* ------------------------------------------------------------------ headings */
+
+.page-head {
+  margin-bottom: 28px;
+}
+
+.page-head h1 {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 10px;
+  color: #f6f6f8;
+}
+
+.page-head p {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: #b2b1be;
+}
+
+.page-head-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.page-head-row .page-head {
+  flex: 1 1 420px;
+  margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------- tender list */
+
+.tender-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  margin-top: 28px;
+}
+
+/* ---------------------------------------------------------------- tender page */
+
+.tender-columns {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .tender-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.panel {
+  background: #17171c;
+  border-radius: 10px;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+}
+
+.panel:last-child {
+  margin-bottom: 0;
+}
+
+.panel > h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: #f2f2f5;
+}
+
+.panel > h2 + p {
+  margin: 0 0 18px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: #a9a8b4;
+}
+
+.panel-note {
+  margin: 16px 0 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: #9a99a6;
+}
+
+/* Key and value rows. A real rule separates them, never a floating dot. */
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(130px, auto) minmax(0, 1fr);
+  gap: 1px 20px;
+  font-size: 14px;
+}
+
+.facts dt {
+  padding: 9px 0;
+  font-weight: 500;
+  color: #9a99a6;
+}
+
+.facts dd {
+  margin: 0;
+  padding: 9px 0;
+  font-weight: 500;
+  color: #ebeaf0;
+  overflow-wrap: anywhere;
+}
+
+.facts dt + dd {
+  border-top: 1px solid #22222a;
+}
+
+.facts dt {
+  border-top: 1px solid #22222a;
+}
+
+.facts > dt:first-of-type,
+.facts > dt:first-of-type + dd {
+  border-top: 0;
+}
+
+.mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.hash-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ------------------------------------------------------------------- tables */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.data-table caption {
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  color: #9a99a6;
+  padding-bottom: 12px;
+}
+
+.data-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #9a99a6;
+  padding: 0 14px 10px 0;
+}
+
+.data-table td {
+  padding: 12px 14px 12px 0;
+  font-weight: 500;
+  color: #e4e3ec;
+  border-top: 1px solid #22222a;
+  vertical-align: top;
+}
+
+.data-table td:last-child,
+.data-table th:last-child {
+  padding-right: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+/* ------------------------------------------------------------------ criteria */
+
+.criteria-weight {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.criteria-anchors {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  color: #a9a8b4;
+}
+
+.criteria-anchors li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.criteria-anchors b {
+  font-weight: 600;
+  color: #cfcedb;
+}
+
+/* --------------------------------------------------------------------- misc */
+
+.page-error {
+  background: #2a1b1e;
+  border-radius: 10px;
+  padding: 20px 22px;
+  color: #ffd4d4;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.page-error h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffdede;
+}
+
+.inline-link {
+  color: #b9a9ff;
+  font-weight: 500;
+}
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  margin: 0 0 4px;
+}
+
+.stat {
+  display: grid;
+  gap: 4px;
+}
+
+.stat dt {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #9a99a6;
+}
+
+.stat dd {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  color: #f2f2f5;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat dd small {
+  font-size: 13px;
+  font-weight: 500;
+  color: #a9a8b4;
+}

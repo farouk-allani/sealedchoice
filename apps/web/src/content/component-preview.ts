@@ -8,7 +8,7 @@ export const PREVIEW_TENDER: TenderCardData = {
   buyer: "Example buyer",
   description:
     "A manual review of the Rust contracts, a written report, and one retest of fixes.",
-  status: "sealed",
+  status: "Open",
   budget: "15,000",
   currency: "tUSDC",
   bids: 3,

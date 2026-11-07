@@ -14,6 +14,7 @@ import { Icon } from "../ui/icon.tsx";
 import { Tabs } from "../ui/tabs.tsx";
 import { Lifecycle } from "../app/lifecycle.tsx";
 import { RankingTable } from "../app/ranking-table.tsx";
+import { statusOf } from "../../lib/tender/status.ts";
 import { TenderCard, type TenderCardData } from "../app/tender-card.tsx";
 import { Notice, TransactionNotice } from "../app/transaction-notice.tsx";
 import {
@@ -68,7 +69,7 @@ export function ComponentReview() {
   const [activeSection, setActiveSection] = useState("workspace");
   const [workspaceTab, setWorkspaceTab] = useState("overview");
   const [tenderState, setTenderState] =
-    useState<TenderCardData["status"]>("sealed");
+    useState<TenderCardData["status"]>("Open");
   const [feedbackTab, setFeedbackTab] = useState("pending");
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [draftName, setDraftName] = useState(
@@ -98,14 +99,14 @@ export function ComponentReview() {
   const tender = {
     ...PREVIEW_TENDER,
     status: tenderState,
-    deadlineLabel: tenderState === "sealed" ? "Closes" : "Closed",
+    deadlineLabel: tenderState === "Open" ? "Closes" : "Closed",
   };
   const lifecycle = PREVIEW_LIFECYCLE.map((step, index) => ({
     ...step,
     state:
-      tenderState === "paid"
+      tenderState === "Paid"
         ? ("complete" as const)
-        : tenderState === "evaluated"
+        : tenderState === "Evaluated"
           ? index < 4
             ? ("complete" as const)
             : index === 4
@@ -285,19 +286,19 @@ export function ComponentReview() {
                               {(
                                 [
                                   {
-                                    id: "sealed",
+                                    id: "Open",
                                     label: "Bidding open",
                                     detail: "Encrypted and accepting bids",
                                     icon: "lock",
                                   },
                                   {
-                                    id: "evaluated",
+                                    id: "Evaluated",
                                     label: "Evaluated",
                                     detail: "Ready for committee review",
                                     icon: "document",
                                   },
                                   {
-                                    id: "paid",
+                                    id: "Paid",
                                     label: "Paid",
                                     detail: "Award accepted and settled",
                                     icon: "check",
@@ -768,11 +769,7 @@ export function ComponentReview() {
               <div>
                 <dt>State</dt>
                 <dd>
-                  {tenderState === "sealed"
-                    ? "Bidding open"
-                    : tenderState === "evaluated"
-                      ? "Evaluated"
-                      : "Paid"}
+                  {statusOf(tenderState).label}
                 </dd>
               </div>
               <div>
