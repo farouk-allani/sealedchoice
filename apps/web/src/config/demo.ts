@@ -30,9 +30,11 @@ export const DEMO_TENDER_IDS: readonly number[] = [3, 2, 1];
  * browser makes the view calls itself; an RPC URL is not a secret (.claude/rules/web.md keeps
  * secrets server-side).
  */
+// FastNEAR. `rpc.testnet.near.org` and `rpc.mainnet.near.org` were retired: both now answer
+// every request with `-429 THIS ENDPOINT IS DEPRECATED` (measured 2026-11-07, T09).
 const DEFAULT_RPC: Record<"testnet" | "mainnet", string> = {
-  testnet: "https://rpc.testnet.near.org",
-  mainnet: "https://rpc.mainnet.near.org",
+  testnet: "https://test.rpc.fastnear.com",
+  mainnet: "https://free.rpc.fastnear.com",
 };
 
 export const RPC_URL: string = process.env.NEXT_PUBLIC_NEAR_RPC_URL ?? DEFAULT_RPC[NETWORK];

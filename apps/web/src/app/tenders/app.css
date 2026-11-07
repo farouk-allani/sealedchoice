@@ -25,6 +25,22 @@
   display: flex;
   align-items: center;
   gap: 24px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 620px) {
+  .app-header-inner {
+    gap: 12px 16px;
+  }
+
+  .app-header-right {
+    gap: 10px;
+  }
+
+  /* The chain is already in every explorer link; at this width the wallet matters more. */
+  .app-network {
+    display: none;
+  }
 }
 
 .app-brand {
@@ -161,6 +177,10 @@
   gap: 22px;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   align-items: start;
+}
+
+.tender-columns > * {
+  min-width: 0;
 }
 
 @media (max-width: 900px) {
@@ -408,6 +428,10 @@
   align-items: start;
 }
 
+.bid-columns > * {
+  min-width: 0;
+}
+
 @media (max-width: 900px) {
   .bid-columns {
     grid-template-columns: minmax(0, 1fr);
@@ -449,9 +473,17 @@ form.panel > .ui-field {
   align-items: start;
 }
 
+.create-columns > * {
+  min-width: 0;
+}
+
 @media (max-width: 1000px) {
   .create-columns {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .create-columns aside {
+    position: static;
   }
 }
 

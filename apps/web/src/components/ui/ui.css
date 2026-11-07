@@ -194,6 +194,10 @@
 }
 .ui-copy {
   display: inline-flex;
+  /* The button's visually-hidden status span is position:absolute. Without a positioned
+     ancestor it resolves against the page, so inside a horizontally scrolled table it landed
+     past the right edge and widened the whole document on a phone. */
+  position: relative;
 }
 .ui-text-link {
   display: inline-flex;
