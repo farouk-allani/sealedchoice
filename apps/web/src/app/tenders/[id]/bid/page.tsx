@@ -57,7 +57,7 @@ export default async function BidPage({ params }: PageProps) {
     return (
       <>
         {head}
-        <div className="panel">
+        <div className="panel ui-paper">
           <h2>This tender is not taking bids</h2>
           <p>{status.detail}</p>
           {closed && <p>The deadline passed on {formatUtc(tender.deadline_ns)}.</p>}
@@ -102,7 +102,7 @@ export default async function BidPage({ params }: PageProps) {
           deadlineUtc={formatUtc(tender.deadline_ns)}
         />
 
-        <aside className="panel">
+        <aside className="panel ui-paper">
           <h2>What you are bidding against</h2>
           <p>{rubric.scope}</p>
           <dl className="facts">

@@ -54,13 +54,16 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="app-theme app-shell">
       <header className="app-header">
         <div className="app-header-inner">
-          <Link href="/" className="app-brand" aria-label={`${BRAND.name} home`}>
-            <BrandMark />
-            <span>{BRAND.name}</span>
-          </Link>
-          <nav className="app-nav" aria-label="Main">
-            <Link href="/tenders">Tenders</Link>
-          </nav>
+          <div className="app-header-left">
+            <Link href="/" className="app-brand" aria-label={`${BRAND.name} home`}>
+              <BrandMark />
+              <span>{BRAND.name}</span>
+            </Link>
+            <nav className="app-nav" aria-label="Main">
+              <Link href="/tenders">Tenders</Link>
+              <Link href="/tenders/new">Create</Link>
+            </nav>
+          </div>
           <div className="app-header-right">
             <span className="app-network" title="The chain this page reads">
               {NETWORK}
