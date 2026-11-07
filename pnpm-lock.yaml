@@ -214,6 +214,9 @@ importers:
       '@tender/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@tender/verify':
+        specifier: workspace:*
+        version: link:../../packages/verify
       '@vercel/blob':
         specifier: 2.8.2
         version: 2.8.2

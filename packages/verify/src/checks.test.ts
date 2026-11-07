@@ -268,6 +268,12 @@ describe("check 1: the rubric", () => {
     const r = byId(e, artifact, 1);
     expect(r.pass).toBe(false);
     expect(r.details).toMatch(/does not|but the tender stores/);
+
+    // Only check 1 accuses anything: the hash the contract stores still binds the rubric the
+    // evaluation used, so checks 6 and 7 keep passing. If a later change made a wrong rubric
+    // string fail silently elsewhere instead, this would catch it.
+    const all = runChecks(e, artifact);
+    expect(all.filter((x) => !x.pass).map((x) => x.id)).toEqual([1]);
   });
 
   it("fails a rubric that hashes correctly but is not canonical", () => {
@@ -379,6 +385,16 @@ describe("check 6: bundle integrity", () => {
     const r = byId(e, artifact, 6);
     expect(r.pass).toBe(false);
     expect(r.details).toContain("commits to");
+
+    // One flipped byte is caught twice over, which is the useful answer rather than a tidy one.
+    // Check 6 sees that the bytes no longer hash to what the on-chain result committed to, and
+    // check 8 sees that a signature no longer covers the content it signed. The chain-only checks
+    // are untouched, because nothing on the chain changed. Pinning the whole profile keeps a
+    // later change from quietly widening or narrowing what a single flipped byte reports.
+    const all = runChecks(e, artifact);
+    expect(all.filter((x) => !x.pass).map((x) => x.id)).toEqual([6, 8]);
+    expect(all.filter((x) => x.skipped === true)).toEqual([]);
+    expect(all.filter((x) => x.pass).map((x) => x.id)).toEqual([1, 2, 3, 4, 5, 7, 9, 10]);
   });
 
   it("fails when the store serves a different ETag from the committed hash", () => {

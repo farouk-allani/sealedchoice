@@ -31,7 +31,14 @@ export const CHAIN = {
    * elided `b5e34a07…e0811fb6` the docs print, and `short()` does the eliding at render time.
    */
   evaluatorBuild: "b5e34a07e647059ef89753b63aeea17bd1a7ccfae17db6ecc0a2190be0811fb6",
-  bundleStore: "https://sealedchoice-lab.vercel.app",
+  /**
+   * Where bundles are read from. The deployed app serves `/api/bundles/<sha256>` itself, so
+   * in production this is its own origin. Overridable because a verifier page running
+   * somewhere else, or a local dev server, needs to point at a store that has the bytes;
+   * the bundle is content-addressed and check 6 hashes what arrives, so where it came from
+   * changes nothing about whether it is the right bundle.
+   */
+  bundleStore: process.env.NEXT_PUBLIC_BUNDLE_STORE_URL ?? "https://sealedchoice-lab.vercel.app",
 } as const;
 
 /**

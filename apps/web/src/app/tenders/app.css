@@ -1637,3 +1637,183 @@
     max-width: 100%;
   }
 }
+
+/* ---------------------------------------------------------------- the verify page (T10)
+   Surfaces separate by background value, never by a hairline outline, and a verdict is a word
+   in a solid chip, never a coloured dot (CLAUDE.md, banned styling). */
+
+.verify-panel {
+  margin-top: 28px;
+}
+
+.verify-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.verify-head h2 {
+  font-size: 21px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: #18151f;
+}
+
+.verify-lead {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 14px;
+  font-weight: 400;
+  color: #5b5465;
+}
+
+.verify-lead code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: #e4dced;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.verify-status {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #18151f;
+  min-height: 20px;
+}
+
+.verify-warning {
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #f6e2dd;
+  color: #5c2217;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.verify-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.verify-item {
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  gap: 14px;
+  align-items: start;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.verify-item.is-pending {
+  background: #eceaf1;
+  color: #807a8b;
+}
+
+.verify-item.is-fail {
+  background: #fbf0ed;
+}
+
+.verify-item.is-skip {
+  background: #f3f1ea;
+}
+
+.verify-number {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: #807a8b;
+  padding-top: 2px;
+}
+
+.verify-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.verify-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #18151f;
+}
+
+.verify-detail {
+  font-size: 13.5px;
+  font-weight: 400;
+  color: #5b5465;
+  overflow-wrap: anywhere;
+}
+
+.verify-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 4px;
+}
+
+.verify-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a3a63;
+  overflow-wrap: anywhere;
+}
+
+.verify-verdict {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border-radius: 5px;
+  white-space: nowrap;
+  background: #e4dced;
+  color: #3d3049;
+}
+
+.verify-verdict.is-pass {
+  background: #d8e8dc;
+  color: #1f4a2e;
+}
+
+.verify-verdict.is-fail {
+  background: #f1d3cc;
+  color: #6d2417;
+}
+
+.verify-verdict.is-skip {
+  background: #e8e4d6;
+  color: #554c25;
+}
+
+.verify-foot {
+  margin: 20px 0 0;
+  max-width: 68ch;
+  font-size: 13.5px;
+  font-weight: 400;
+  color: #5b5465;
+}
+
+@media (max-width: 640px) {
+  .verify-item {
+    grid-template-columns: 30px 1fr;
+  }
+  .verify-verdict {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 2px;
+  }
+}
