@@ -1,0 +1,380 @@
+{
+  "get_config": {
+    "owner": "sealedchoice.testnet",
+    "outlayer": "outlayer.testnet",
+    "secrets_ref": {
+      "profile": "sealedchoice",
+      "account_id": "sealedchoice.testnet"
+    },
+    "min_deadline_delay_ns": "300000000000",
+    "next_tender_id": 4
+  },
+  "get_evaluators": [
+    {
+      "wasm_url": "https://raw.githubusercontent.com/farouk-allani/sealedchoice-artifacts/main/evaluator/evaluator-v0.1.0-b5e34a07.wasm",
+      "wasm_sha256": "b5e34a07e647059ef89753b63aeea17bd1a7ccfae17db6ecc0a2190be0811fb6",
+      "build_target": "wasm32-wasip2",
+      "source_tag": "evaluator-v0.1.0"
+    },
+    {
+      "wasm_url": "https://raw.githubusercontent.com/farouk-allani/sealedchoice-artifacts/main/evaluator/evaluator-v0.1.0-b5e34a07.wasm",
+      "wasm_sha256": "b5e34a07e647059ef89753b63aeea17bd1a7ccfae17db6ecc0a2190be0811fb6",
+      "build_target": "wasm32-wasip2",
+      "source_tag": "evaluator-v0.1.0"
+    }
+  ],
+  "get_tender": {
+    "id": 3,
+    "buyer": "buyer.sealedchoice.testnet",
+    "rubric_json": "{\"aggregation\":{\"disagreement_threshold\":3,\"evidence_clamp_score\":1,\"evidence_min_chars\":12,\"evidence_required_from_score\":2,\"min_valid_outputs\":2,\"qualitative\":\"lower_median\"},\"award_policy\":{\"acceptance_window_hours\":72,\"approvals_required\":1,\"deviation_requires_rationale\":true},\"budget_cap_minor\":\"15000000000\",\"criteria\":[{\"id\":\"price\",\"type\":\"price_lowest_ratio\",\"weight_bp\":4000},{\"anchors\":{\"0\":\"No methodology given.\",\"1\":\"Generic statements only, nothing tied to this scope.\",\"2\":\"Some specific steps but major gaps, such as no testing or no threat model.\",\"3\":\"Clear plan covering manual review and testing, few specifics on NEAR async risks.\",\"4\":\"Specific plan covering manual review, tests or fuzzing, NEAR cross-contract and callback risks, and reporting.\",\"5\":\"As 4, plus concrete deliverables, a timeline per phase, and a retest of fixes.\"},\"id\":\"methodology\",\"question\":\"How credible and specific is the proposed review methodology for this scope?\",\"source_fields\":[\"methodology\"],\"type\":\"qualitative\",\"weight_bp\":3500},{\"anchors\":{\"0\":\"No experience given.\",\"1\":\"Unverifiable claims only.\",\"2\":\"General smart-contract experience, nothing NEAR-specific or checkable.\",\"3\":\"Some NEAR or Rust contract experience, partly checkable.\",\"4\":\"Several relevant NEAR reviews with checkable public reports.\",\"5\":\"As 4, plus directly comparable work such as DAO treasury or callback-heavy contracts.\"},\"id\":\"track_record\",\"question\":\"How relevant and checkable is the vendor's prior experience for this scope?\",\"source_fields\":[\"track_record\"],\"type\":\"qualitative\",\"weight_bp\":2500}],\"currency\":{\"asset\":\"nep141:usdc.sealedchoice.testnet\",\"decimals\":6,\"symbol\":\"tUSDC\"},\"eligibility\":{\"require_delivery_lte_max\":true,\"require_price_lte_cap\":true,\"required_fields\":[\"price_minor\",\"delivery_days\",\"methodology\",\"track_record\"]},\"max_delivery_days\":30,\"models\":[\"Qwen/Qwen3.6-35B-A3B-FP8\",\"z-ai/glm-5.3-flash\"],\"scope\":\"Manual security review of about 1,200 lines of Rust (near-sdk 5.x): a treasury module with cross-contract withdrawals, allowances and callbacks. Deliverable: written report with severity ratings and one retest of fixes.\",\"tie_break\":[\"total_desc\",\"price_asc\",\"index_asc\"],\"title\":\"Security review of a DAO treasury module (near-sdk, Rust)\",\"v\":1}",
+    "rubric_hash": "5667a8005b1a2e9531366dedfc63ecb031625ff64fbf16fe01a29ab37dd2080c",
+    "currency_token": "usdc.sealedchoice.testnet",
+    "budget_cap": "15000000000",
+    "approvals_required": 1,
+    "acceptance_window_ns": "259200000000000",
+    "deadline_ns": "1793905570611000000",
+    "bond": "100000000000000000000000",
+    "committee": [
+      {
+        "account": "buyer.sealedchoice.testnet",
+        "report_pubkey": "0372142b2ee5bd881bb69186ff20f42931f02774c2c36bd219613f44af3e63447b"
+      },
+      {
+        "account": "reviewer.sealedchoice.testnet",
+        "report_pubkey": "03532523ab9db209a9e8d40f4ce62fa5892c3f044f4a76d1dd0795827efd456362"
+      }
+    ],
+    "evaluator": {
+      "wasm_url": "https://raw.githubusercontent.com/farouk-allani/sealedchoice-artifacts/main/evaluator/evaluator-v0.1.0-b5e34a07.wasm",
+      "wasm_sha256": "b5e34a07e647059ef89753b63aeea17bd1a7ccfae17db6ecc0a2190be0811fb6",
+      "build_target": "wasm32-wasip2",
+      "source_tag": "evaluator-v0.1.0"
+    },
+    "tender_pubkey": "03a12b85d7312575a9bdcabfdc1478426aebea751e84d2f9f8dd31cf2dae08fd6c",
+    "escrowed": "0",
+    "eval_fee_remaining": "296100000000000000000000",
+    "exec_deposit": "74025000000000000000000",
+    "status": "Paid",
+    "bid_slots": 3,
+    "active_slots": [
+      0,
+      1,
+      2
+    ],
+    "frozen": {
+      "slots": [
+        0,
+        1,
+        2
+      ],
+      "leaves": [
+        "58e18dc616b1c7cd3f340820af59539c2a7863a009d78bdddc6be25d2e241204",
+        "a3c5996d1b9a31ee07737afe578e7f79230c34b6b93baf682263e98ad9100e78",
+        "a559a2aaebd95294371fe14bc8b51084950b9a88e6cbd76c6cc3d7051d8fd8b6"
+      ],
+      "root": "0ff749f8542722171ccc14a1ecf2fa44c56bb039260a830539f23631eeb073ba"
+    },
+    "attempts": [
+      {
+        "n": 1,
+        "started_at_ns": "1793905581946878761",
+        "outcome": "Accepted"
+      }
+    ],
+    "result_json": "{\"attempt\":1,\"bundle\":\"9e29baa049196aec787fc6186df26eca5c92b3d79aa1048647089324abcc3c9b\",\"rk\":[[0,8666,0],[1,4755,0],[2,4500,8]],\"root\":\"0ff749f8542722171ccc14a1ecf2fa44c56bb039260a830539f23631eeb073ba\",\"rubric\":\"5667a8005b1a2e9531366dedfc63ecb031625ff64fbf16fe01a29ab37dd2080c\",\"status\":\"ok\",\"tid\":\"3\",\"v\":1}",
+    "award": {
+      "bid_index": 0,
+      "amount": "12000000000",
+      "rationale": "top of the ranking",
+      "deviation": false,
+      "approvals": [
+        "buyer.sealedchoice.testnet"
+      ],
+      "approved_at_ns": "1793905648048577679",
+      "accept_by_ns": "1794164848048577679",
+      "lapsed": [],
+      "payout": {
+        "Near": {
+          "account": "vendor-a.sealedchoice.testnet"
+        }
+      },
+      "payout_state": "Paid"
+    }
+  },
+  "get_bids": [
+    {
+      "slot": 0,
+      "bidder": "vendor-a.sealedchoice.testnet",
+      "submitted_at_ns": "1793905282979855059",
+      "ciphertext_sha256": "ae70d84e3ed824f69aacfddfc072b0d40b6f8db04a253be3b4c653d278620c08",
+      "ciphertext_len": 1012,
+      "debrief_pubkey": "02e0d1f0c31d736b8dbc903006acacf93d76e352b0565873f9638c0397b3620a80",
+      "bond": "100000000000000000000000",
+      "withdrawn": false,
+      "bond_settled": true
+    },
+    {
+      "slot": 1,
+      "bidder": "vendor-b.sealedchoice.testnet",
+      "submitted_at_ns": "1793905292116913888",
+      "ciphertext_sha256": "4e5407fdf95c1b2fc30ff54da15553fe2af725575cc922b8a062d8bc5074d304",
+      "ciphertext_len": 477,
+      "debrief_pubkey": "03388d1e69a2b7c1fec4d5b34e2719f7185fdd6ce8e34957fd0144ba113ec4824f",
+      "bond": "100000000000000000000000",
+      "withdrawn": false,
+      "bond_settled": true
+    },
+    {
+      "slot": 2,
+      "bidder": "vendor-c.sealedchoice.testnet",
+      "submitted_at_ns": "1793905301253453786",
+      "ciphertext_sha256": "a82bcde303b45c715230f792912ddd05a66ddf269cba84acb24ab99310957f9c",
+      "ciphertext_len": 497,
+      "debrief_pubkey": "03649b2c76fc98b42f543b665665b7929bc6d00343a4d85f092499f3c0cced9c79",
+      "bond": "100000000000000000000000",
+      "withdrawn": false,
+      "bond_settled": true
+    }
+  ],
+  "get_frozen": {
+    "slots": [
+      0,
+      1,
+      2
+    ],
+    "leaves": [
+      "58e18dc616b1c7cd3f340820af59539c2a7863a009d78bdddc6be25d2e241204",
+      "a3c5996d1b9a31ee07737afe578e7f79230c34b6b93baf682263e98ad9100e78",
+      "a559a2aaebd95294371fe14bc8b51084950b9a88e6cbd76c6cc3d7051d8fd8b6"
+    ],
+    "root": "0ff749f8542722171ccc14a1ecf2fa44c56bb039260a830539f23631eeb073ba"
+  },
+  "get_attempts": [
+    {
+      "n": 1,
+      "started_at_ns": "1793905581946878761",
+      "outcome": "Accepted"
+    }
+  ],
+  "get_result": "{\"attempt\":1,\"bundle\":\"9e29baa049196aec787fc6186df26eca5c92b3d79aa1048647089324abcc3c9b\",\"rk\":[[0,8666,0],[1,4755,0],[2,4500,8]],\"root\":\"0ff749f8542722171ccc14a1ecf2fa44c56bb039260a830539f23631eeb073ba\",\"rubric\":\"5667a8005b1a2e9531366dedfc63ecb031625ff64fbf16fe01a29ab37dd2080c\",\"status\":\"ok\",\"tid\":\"3\",\"v\":1}",
+  "get_award": {
+    "bid_index": 0,
+    "amount": "12000000000",
+    "rationale": "top of the ranking",
+    "deviation": false,
+    "approvals": [
+      "buyer.sealedchoice.testnet"
+    ],
+    "approved_at_ns": "1793905648048577679",
+    "accept_by_ns": "1794164848048577679",
+    "lapsed": [],
+    "payout": {
+      "Near": {
+        "account": "vendor-a.sealedchoice.testnet"
+      }
+    },
+    "payout_state": "Paid"
+  },
+  "list_tenders": [
+    {
+      "id": 1,
+      "buyer": "buyer.sealedchoice.testnet",
+      "rubric_json": "{\"aggregation\":{\"disagreement_threshold\":3,\"evidence_clamp_score\":1,\"evidence_min_chars\":12,\"evidence_required_from_score\":2,\"min_valid_outputs\":2,\"qualitative\":\"lower_median\"},\"award_policy\":{\"acceptance_window_hours\":72,\"approvals_required\":1,\"deviation_requires_rationale\":true},\"budget_cap_minor\":\"15000000000\",\"criteria\":[{\"id\":\"price\",\"type\":\"price_lowest_ratio\",\"weight_bp\":4000},{\"anchors\":{\"0\":\"No methodology given.\",\"1\":\"Generic statements only, nothing tied to this scope.\",\"2\":\"Some specific steps but major gaps, such as no testing or no threat model.\",\"3\":\"Clear plan covering manual review and testing, few specifics on NEAR async risks.\",\"4\":\"Specific plan covering manual review, tests or fuzzing, NEAR cross-contract and callback risks, and reporting.\",\"5\":\"As 4, plus concrete deliverables, a timeline per phase, and a retest of fixes.\"},\"id\":\"methodology\",\"question\":\"How credible and specific is the proposed review methodology for this scope?\",\"source_fields\":[\"methodology\"],\"type\":\"qualitative\",\"weight_bp\":3500},{\"anchors\":{\"0\":\"No experience given.\",\"1\":\"Unverifiable claims only.\",\"2\":\"General smart-contract experience, nothing NEAR-specific or checkable.\",\"3\":\"Some NEAR or Rust contract experience, partly checkable.\",\"4\":\"Several relevant NEAR reviews with checkable public reports.\",\"5\":\"As 4, plus directly comparable work such as DAO treasury or callback-heavy contracts.\"},\"id\":\"track_record\",\"question\":\"How relevant and checkable is the vendor's prior experience for this scope?\",\"source_fields\":[\"track_record\"],\"type\":\"qualitative\",\"weight_bp\":2500}],\"currency\":{\"asset\":\"nep141:usdc.sealedchoice.testnet\",\"decimals\":6,\"symbol\":\"tUSDC\"},\"eligibility\":{\"require_delivery_lte_max\":true,\"require_price_lte_cap\":true,\"required_fields\":[\"price_minor\",\"delivery_days\",\"methodology\",\"track_record\"]},\"max_delivery_days\":30,\"models\":[\"Qwen/Qwen3.6-35B-A3B-FP8\",\"z-ai/glm-5.3-flash\"],\"scope\":\"Manual security review of about 1,200 lines of Rust (near-sdk 5.x): a treasury module with cross-contract withdrawals, allowances and callbacks. Deliverable: written report with severity ratings and one retest of fixes.\",\"tie_break\":[\"total_desc\",\"price_asc\",\"index_asc\"],\"title\":\"Security review of a DAO treasury module (near-sdk, Rust)\",\"v\":1}",
+      "rubric_hash": "5667a8005b1a2e9531366dedfc63ecb031625ff64fbf16fe01a29ab37dd2080c",
+      "currency_token": "usdc.sealedchoice.testnet",
+      "budget_cap": "15000000000",
+      "approvals_required": 1,
+      "acceptance_window_ns": "259200000000000",
+      "deadline_ns": "1793896044567000000",
+      "bond": "100000000000000000000000",
+      "committee": [
+        {
+          "account": "buyer.sealedchoice.testnet",
+          "report_pubkey": "0391e41777618f959180ed7ef155bc17eb0e1495e9ff4291691857f2676adb518a"
+        },
+        {
+          "account": "reviewer.sealedchoice.testnet",
+          "report_pubkey": "03680ae4a5d766b7b60aceda87f4685f6bf4cb40cdc269e69deb4694247ee3fa35"
+        }
+      ],
+      "evaluator": {
+        "wasm_url": "https://raw.githubusercontent.com/farouk-allani/sealedchoice-artifacts/main/evaluator/evaluator-v0.1.0-b5e34a07.wasm",
+        "wasm_sha256": "b5e34a07e647059ef89753b63aeea17bd1a7ccfae17db6ecc0a2190be0811fb6",
+        "build_target": "wasm32-wasip2",
+        "source_tag": "evaluator-v0.1.0"
+      },
+      "tender_pubkey": "02b24dbb880d90874576bad0e39615c9bde4f5d6183d48babf1f8127db187042c5",
+      "escrowed": "15000000000",
+      "eval_fee_remaining": "296100000000000000000000",
+      "exec_deposit": "74025000000000000000000",
+      "status": "Evaluated",
+      "bid_slots": 3,
+      "active_slots": [
+        0,
+        1,
+        2
+      ],
+      "frozen": {
+        "slots": [
+          0,
+          1,
+          2
+        ],
+        "leaves": [
+          "f00994457d13c49e4057b4671f4f319280efef3c9bd6e319117a69631c5c779d",
+          "ff61abe8b09e5b9378a10557ba9369ce228c976d3abb653dd222a3fa7797f51c",
+          "a9a4351825119d8e2b0de9ad20d94ef991c7ae199df7958e8e1e279ac7315dea"
+        ],
+        "root": "b556d0cf6c46860f6d633228cae3ead6da3cce0ecd01f23dbc761f9899ac8e22"
+      },
+      "attempts": [
+        {
+          "n": 1,
+          "started_at_ns": "1793896055200434921",
+          "outcome": "Accepted"
+        }
+      ],
+      "result_json": "{\"attempt\":1,\"bundle\":\"0f1cf6b3898105f7edf684b7dc020d679e164bbf29c53ec414e888ba87b6ed62\",\"rk\":[[0,8166,0],[2,5200,8],[1,4755,0]],\"root\":\"b556d0cf6c46860f6d633228cae3ead6da3cce0ecd01f23dbc761f9899ac8e22\",\"rubric\":\"5667a8005b1a2e9531366dedfc63ecb031625ff64fbf16fe01a29ab37dd2080c\",\"status\":\"ok\",\"tid\":\"1\",\"v\":1}",
+      "award": null
+    },
+    {
+      "id": 2,
+      "buyer": "buyer.sealedchoice.testnet",
+      "rubric_json": "{\"aggregation\":{\"disagreement_threshold\":3,\"evidence_clamp_score\":1,\"evidence_min_chars\":12,\"evidence_required_from_score\":2,\"min_valid_outputs\":2,\"qualitative\":\"lower_median\"},\"award_policy\":{\"acceptance_window_hours\":72,\"approvals_required\":1,\"deviation_requires_rationale\":true},\"budget_cap_minor\":\"15000000000\",\"criteria\":[{\"id\":\"price\",\"type\":\"price_lowest_ratio\",\"weight_bp\":4000},{\"anchors\":{\"0\":\"No methodology given.\",\"1\":\"Generic statements only, nothing tied to this scope.\",\"2\":\"Some specific steps but major gaps, such as no testing or no threat model.\",\"3\":\"Clear plan covering manual review and testing, few specifics on NEAR async risks.\",\"4\":\"Specific plan covering manual review, tests or fuzzing, NEAR cross-contract and callback risks, and reporting.\",\"5\":\"As 4, plus concrete deliverables, a timeline per phase, and a retest of fixes.\"},\"id\":\"methodology\",\"question\":\"How credible and specific is the proposed review methodology for this scope?\",\"source_fields\":[\"methodology\"],\"type\":\"qualitative\",\"weight_bp\":3500},{\"anchors\":{\"0\":\"No experience given.\",\"1\":\"Unverifiable claims only.\",\"2\":\"General smart-contract experience, nothing NEAR-specific or checkable.\",\"3\":\"Some NEAR or Rust contract experience, partly checkable.\",\"4\":\"Several relevant NEAR reviews with checkable public reports.\",\"5\":\"As 4, plus directly comparable work such as DAO treasury or callback-heavy contracts.\"},\"id\":\"track_record\",\"question\":\"How relevant and checkable is the vendor's prior experience for this scope?\",\"source_fields\":[\"track_record\"],\"type\":\"qualitative\",\"weight_bp\":2500}],\"currency\":{\"asset\":\"nep141:usdc.sealedchoice.testnet\",\"decimals\":6,\"symbol\":\"tUSDC\"},\"eligibility\":{\"require_delivery_lte_max\":true,\"require_price_lte_cap\":true,\"required_fields\":[\"price_minor\",\"delivery_days\",\"methodology\",\"track_record\"]},\"max_delivery_days\":30,\"models\":[\"Qwen/Qwen3.6-35B-A3B-FP8\",\"z-ai/glm-5.3-flash\"],\"scope\":\"Manual security review of about 1,200 lines of Rust (near-sdk 5.x): a treasury module with cross-contract withdrawals, allowances and callbacks. Deliverable: written report with severity ratings and one retest of fixes.\",\"tie_break\":[\"total_desc\",\"price_asc\",\"index_asc\"],\"title\":\"Security review of a DAO treasury module (near-sdk, Rust)\",\"v\":1}",
+      "rubric_hash": "5667a8005b1a2e9531366dedfc63ecb031625ff64fbf16fe01a29ab37dd2080c",
+      "currency_token": "usdc.sealedchoice.testnet",
+      "budget_cap": "15000000000",
+      "approvals_required": 1,
+      "acceptance_window_ns": "259200000000000",
+      "deadline_ns": "1793896550536000000",
+      "bond": "100000000000000000000000",
+      "committee": [
+        {
+          "account": "buyer.sealedchoice.testnet",
+          "report_pubkey": "02d31cfa3c01c2ffeaad5f0639ceef5449f558ebefec5b2ff1bdeaa887d640ce80"
+        },
+        {
+          "account": "reviewer.sealedchoice.testnet",
+          "report_pubkey": "022b4245b4b09f157a0290220a650e858d95aa62262c8e10f0718591a2ea9f2b7a"
+        }
+      ],
+      "evaluator": {
+        "wasm_url": "https://raw.githubusercontent.com/farouk-allani/sealedchoice-artifacts/main/evaluator/evaluator-v0.1.0-b5e34a07.wasm",
+        "wasm_sha256": "b5e34a07e647059ef89753b63aeea17bd1a7ccfae17db6ecc0a2190be0811fb6",
+        "build_target": "wasm32-wasip2",
+        "source_tag": "evaluator-v0.1.0"
+      },
+      "tender_pubkey": "02c9889124f3438ad98e92a4e974ae3a593aec4a8eda46473900e5e4966639aaee",
+      "escrowed": "15000000000",
+      "eval_fee_remaining": "296100000000000000000000",
+      "exec_deposit": "74025000000000000000000",
+      "status": "Evaluated",
+      "bid_slots": 3,
+      "active_slots": [
+        0,
+        1,
+        2
+      ],
+      "frozen": {
+        "slots": [
+          0,
+          1,
+          2
+        ],
+        "leaves": [
+          "61c7a2a29007b5a561e3c8644ea204f81800d0188921476b90cb9500cb8d550f",
+          "ca6a08f9acac3aa158e4cc9245d84de35bc2c7cd7504df0d7a8f8e72ffde55bb",
+          "282134473e76a1d044c6986312e1702216ae25f8db455c168392cc425b6a8f56"
+        ],
+        "root": "180b081e3710c5a829fb32263743a8b112a6d2b78c3ab1a7556ce38c1a4a0c92"
+      },
+      "attempts": [
+        {
+          "n": 1,
+          "started_at_ns": "1793896561124594579",
+          "outcome": "Accepted"
+        }
+      ],
+      "result_json": "{\"attempt\":1,\"bundle\":\"24073b7f3cb53a19390adfd5b12e1ce509638bff03ac3e1f67e19a54d78a735f\",\"rk\":[[0,8666,0],[2,5200,8],[1,4755,0]],\"root\":\"180b081e3710c5a829fb32263743a8b112a6d2b78c3ab1a7556ce38c1a4a0c92\",\"rubric\":\"5667a8005b1a2e9531366dedfc63ecb031625ff64fbf16fe01a29ab37dd2080c\",\"status\":\"ok\",\"tid\":\"2\",\"v\":1}",
+      "award": null
+    },
+    {
+      "id": 3,
+      "buyer": "buyer.sealedchoice.testnet",
+      "rubric_json": "{\"aggregation\":{\"disagreement_threshold\":3,\"evidence_clamp_score\":1,\"evidence_min_chars\":12,\"evidence_required_from_score\":2,\"min_valid_outputs\":2,\"qualitative\":\"lower_median\"},\"award_policy\":{\"acceptance_window_hours\":72,\"approvals_required\":1,\"deviation_requires_rationale\":true},\"budget_cap_minor\":\"15000000000\",\"criteria\":[{\"id\":\"price\",\"type\":\"price_lowest_ratio\",\"weight_bp\":4000},{\"anchors\":{\"0\":\"No methodology given.\",\"1\":\"Generic statements only, nothing tied to this scope.\",\"2\":\"Some specific steps but major gaps, such as no testing or no threat model.\",\"3\":\"Clear plan covering manual review and testing, few specifics on NEAR async risks.\",\"4\":\"Specific plan covering manual review, tests or fuzzing, NEAR cross-contract and callback risks, and reporting.\",\"5\":\"As 4, plus concrete deliverables, a timeline per phase, and a retest of fixes.\"},\"id\":\"methodology\",\"question\":\"How credible and specific is the proposed review methodology for this scope?\",\"source_fields\":[\"methodology\"],\"type\":\"qualitative\",\"weight_bp\":3500},{\"anchors\":{\"0\":\"No experience given.\",\"1\":\"Unverifiable claims only.\",\"2\":\"General smart-contract experience, nothing NEAR-specific or checkable.\",\"3\":\"Some NEAR or Rust contract experience, partly checkable.\",\"4\":\"Several relevant NEAR reviews with checkable public reports.\",\"5\":\"As 4, plus directly comparable work such as DAO treasury or callback-heavy contracts.\"},\"id\":\"track_record\",\"question\":\"How relevant and checkable is the vendor's prior experience for this scope?\",\"source_fields\":[\"track_record\"],\"type\":\"qualitative\",\"weight_bp\":2500}],\"currency\":{\"asset\":\"nep141:usdc.sealedchoice.testnet\",\"decimals\":6,\"symbol\":\"tUSDC\"},\"eligibility\":{\"require_delivery_lte_max\":true,\"require_price_lte_cap\":true,\"required_fields\":[\"price_minor\",\"delivery_days\",\"methodology\",\"track_record\"]},\"max_delivery_days\":30,\"models\":[\"Qwen/Qwen3.6-35B-A3B-FP8\",\"z-ai/glm-5.3-flash\"],\"scope\":\"Manual security review of about 1,200 lines of Rust (near-sdk 5.x): a treasury module with cross-contract withdrawals, allowances and callbacks. Deliverable: written report with severity ratings and one retest of fixes.\",\"tie_break\":[\"total_desc\",\"price_asc\",\"index_asc\"],\"title\":\"Security review of a DAO treasury module (near-sdk, Rust)\",\"v\":1}",
+      "rubric_hash": "5667a8005b1a2e9531366dedfc63ecb031625ff64fbf16fe01a29ab37dd2080c",
+      "currency_token": "usdc.sealedchoice.testnet",
+      "budget_cap": "15000000000",
+      "approvals_required": 1,
+      "acceptance_window_ns": "259200000000000",
+      "deadline_ns": "1793905570611000000",
+      "bond": "100000000000000000000000",
+      "committee": [
+        {
+          "account": "buyer.sealedchoice.testnet",
+          "report_pubkey": "0372142b2ee5bd881bb69186ff20f42931f02774c2c36bd219613f44af3e63447b"
+        },
+        {
+          "account": "reviewer.sealedchoice.testnet",
+          "report_pubkey": "03532523ab9db209a9e8d40f4ce62fa5892c3f044f4a76d1dd0795827efd456362"
+        }
+      ],
+      "evaluator": {
+        "wasm_url": "https://raw.githubusercontent.com/farouk-allani/sealedchoice-artifacts/main/evaluator/evaluator-v0.1.0-b5e34a07.wasm",
+        "wasm_sha256": "b5e34a07e647059ef89753b63aeea17bd1a7ccfae17db6ecc0a2190be0811fb6",
+        "build_target": "wasm32-wasip2",
+        "source_tag": "evaluator-v0.1.0"
+      },
+      "tender_pubkey": "03a12b85d7312575a9bdcabfdc1478426aebea751e84d2f9f8dd31cf2dae08fd6c",
+      "escrowed": "0",
+      "eval_fee_remaining": "296100000000000000000000",
+      "exec_deposit": "74025000000000000000000",
+      "status": "Paid",
+      "bid_slots": 3,
+      "active_slots": [
+        0,
+        1,
+        2
+      ],
+      "frozen": {
+        "slots": [
+          0,
+          1,
+          2
+        ],
+        "leaves": [
+          "58e18dc616b1c7cd3f340820af59539c2a7863a009d78bdddc6be25d2e241204",
+          "a3c5996d1b9a31ee07737afe578e7f79230c34b6b93baf682263e98ad9100e78",
+          "a559a2aaebd95294371fe14bc8b51084950b9a88e6cbd76c6cc3d7051d8fd8b6"
+        ],
+        "root": "0ff749f8542722171ccc14a1ecf2fa44c56bb039260a830539f23631eeb073ba"
+      },
+      "attempts": [
+        {
+          "n": 1,
+          "started_at_ns": "1793905581946878761",
+          "outcome": "Accepted"
+        }
+      ],
+      "result_json": "{\"attempt\":1,\"bundle\":\"9e29baa049196aec787fc6186df26eca5c92b3d79aa1048647089324abcc3c9b\",\"rk\":[[0,8666,0],[1,4755,0],[2,4500,8]],\"root\":\"0ff749f8542722171ccc14a1ecf2fa44c56bb039260a830539f23631eeb073ba\",\"rubric\":\"5667a8005b1a2e9531366dedfc63ecb031625ff64fbf16fe01a29ab37dd2080c\",\"status\":\"ok\",\"tid\":\"3\",\"v\":1}",
+      "award": {
+        "bid_index": 0,
+        "amount": "12000000000",
+        "rationale": "top of the ranking",
+        "deviation": false,
+        "approvals": [
+          "buyer.sealedchoice.testnet"
+        ],
+        "approved_at_ns": "1793905648048577679",
+        "accept_by_ns": "1794164848048577679",
+        "lapsed": [],
+        "payout": {
+          "Near": {
+            "account": "vendor-a.sealedchoice.testnet"
+          }
+        },
+        "payout_state": "Paid"
+      }
+    }
+  ]
+}
