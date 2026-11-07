@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { BRAND } from "@tender/shared";
 import { CHAIN, explorerAccount } from "../../config/evidence.ts";
 import { BrandMark } from "../brand-mark.tsx";
@@ -24,6 +25,9 @@ export function Nav() {
         </div>
       </div>
       <div className="nav-island nav-actions">
+        <Link href="/tenders" className="nav-verify">
+          Browse tenders
+        </Link>
         <a href="#verify" className="nav-verify">
           Verifier
         </a>
@@ -49,6 +53,7 @@ export function Nav() {
       {open && (
         <div id="mobile-nav" className="mobile-nav">
           {[
+            ["Browse tenders", "/tenders"],
             ["Protocol", "#story"],
             ["Demo tender", "#result"],
             ["Limits", "#limits"],
@@ -56,7 +61,7 @@ export function Nav() {
           ].map(([label, href]) => (
             <a key={href} href={href} onClick={() => setOpen(false)}>
               {label}
-              <span>↗</span>
+              <span aria-hidden="true">↗</span>
             </a>
           ))}
         </div>
