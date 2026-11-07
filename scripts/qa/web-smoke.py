@@ -42,7 +42,7 @@ checks: list[tuple[bool, str]] = []
 
 # Every visible text node, with the colour it is painted in and the background it sits on.
 # Walks up for the first non-transparent background, which is what the eye actually sees.
-CONTRAST_JS = """() => {
+CONTRAST_JS = r"""() => {
   const parse = (c) => {
     const m = c.match(/rgba?\(([^)]+)\)/);
     if (!m) return null;
@@ -146,6 +146,16 @@ def main() -> int:
         check(no_overflow(page), "the list does not overflow sideways at 1440")
         page.screenshot(path=str(OUT / "tenders-desktop.png"), full_page=True)
 
+        page.get_by_role("button", name="Open for bids").click()
+        check("No tenders are open for bids right now" in page.inner_text("body"), "an empty status filter explains what to do next")
+        page.get_by_role("button", name="Show all tenders").click()
+        page.get_by_label("Search tenders", exact=True).fill("Tender 3")
+        check(page.locator(".tender-card").count() == 1 and "Tender 3" in page.locator(".tender-card").inner_text(), "search narrows real tender data")
+        page.get_by_label("Search tenders", exact=True).fill("no-matching-tender")
+        check("No matching tenders" in page.inner_text("body"), "an empty search provides a reset action")
+        page.get_by_role("button", name="Show all tenders").click()
+        check(page.locator(".tender-card").count() == 3, "reset restores the directory")
+
         print("/tenders/3")
         response = page.goto(f"{base}/tenders/3", wait_until="networkidle")
         check(response is not None and response.status == 200, "the tender page answers 200")
@@ -182,8 +192,8 @@ def main() -> int:
         print("/tenders/new")
         response = page.goto(f"{base}/tenders/new", wait_until="networkidle")
         check(response is not None and response.status == 200, "the create page answers 200")
+        page.locator(".create-summary summary").click()
         body = page.inner_text("body")
-        check("Weights total 100.00%" in body, "the live weight sum starts valid")
         check(
             TENDER_3["rubric_hash_head"] in body,
             "the previewed rubric hashes to the one tender 3 stored",
@@ -192,12 +202,21 @@ def main() -> int:
             '"budget_cap_minor":"15000000000"' in body,
             "the preview shows canonical JSON, not a pretty-printed copy",
         )
-        check(
-            page.locator("button:has-text('Create the tender')").is_disabled(),
-            "creating is refused until a wallet and a committee member are there",
-        )
         check(no_overflow(page), "the create page does not overflow sideways at 1440")
         page.screenshot(path=str(OUT / "tenders-new-desktop.png"), full_page=True)
+        page.get_by_role("button", name="Continue", exact=False).click()
+        check("Weights total 100.00%" in page.inner_text("body"), "the live weight sum starts valid in the scoring step")
+        page.get_by_label("Price weight", exact=True).fill("41")
+        page.get_by_role("button", name="Continue", exact=False).click()
+        check(page.get_by_role("heading", name="How should bids be scored?").is_visible(), "invalid weights cannot advance past scoring")
+        page.get_by_label("Price weight", exact=True).fill("40")
+        page.get_by_role("button", name="Continue", exact=False).click()
+        page.get_by_role("button", name="Continue", exact=False).click()
+        check("Add at least one committee member" in page.inner_text("body"), "review requires a committee member")
+        page.get_by_role("button", name="Back", exact=True).click()
+        page.get_by_role("button", name="Back", exact=True).click()
+        check(page.get_by_label("Title", exact=False).input_value() == TENDER_3["title"], "moving back preserves the brief")
+        check(page.get_by_role("button", name="Create tender", exact=True, include_hidden=True).is_disabled(), "publishing is disabled without a connected wallet and committee")
 
         print("contrast, size and weight")
         page.goto(f"{base}/tenders/3", wait_until="networkidle")

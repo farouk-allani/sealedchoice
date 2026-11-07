@@ -2,7 +2,9 @@
 
 Review the interactive library at `/components`. Its sample tender and form are local previews. The ranking uses the recorded testnet result from `config/evidence.ts`.
 
-The header's Typography button opens a comparison of Public Sans, Barlow and the original Inter pairing across the entire page while retaining form values. The two alternatives use IBM Plex Mono for technical references. They are scoped to the review route, with locally hosted WOFF2 files and licenses in `app/components/fonts/`. This trial does not change the landing page typography.
+The header's Typography button opens a comparison of Public Sans, Barlow and the original Inter pairing across the review page while retaining form values. The tender app now uses locally hosted Public Sans for UI and IBM Plex Mono for technical references, reusing the licensed assets in `app/components/fonts/`. The landing page keeps its original typography.
+
+The tender app places a light workspace inside the dark frame. Inside `.app-workspace`, `.ui-paper` panels use white surfaces. Layout and responsive rules live in `app/tenders/app.css`; shared component tokens remain here. `FlowSteps` describes the real creation and bid sequences. Creation keeps editable values in component state between steps; bid plaintext stays in memory and is never persisted by the UI. Read-only browsing does not initialize the wallet connector for a visitor without a saved wallet session.
 
 Import `components/ui/ui.css` in the app route's layout and wrap the app in `.app-theme`. Tokens are scoped to that class so app styling can develop independently of the landing page. Import components directly from their files.
 
