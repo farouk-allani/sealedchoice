@@ -240,8 +240,11 @@ impl Contract {
         let index = award.bid_index.unwrap_or_else(|| fail("E_NO_AWARD"));
         let accept_by = award.accept_by_ns.unwrap_or_else(|| fail("E_NO_AWARD")).0;
         require(now_ns() < accept_by, "E_ACCEPT_WINDOW_PASSED");
+        let slot = self
+            .slot_of_result_index(tender_id, index)
+            .unwrap_or_else(|| fail("E_NO_SUCH_BID"));
         let winner = self
-            .bidder_of_slot(tender_id, index)
+            .bidder_of_slot(tender_id, slot)
             .unwrap_or_else(|| fail("E_NO_SUCH_BID"));
         require(caller == winner, "E_NOT_WINNER");
 
@@ -263,8 +266,8 @@ impl Contract {
         }
         emit(
             "award_accepted",
-            json!({"tender_id": tender_id.to_string(), "bid_index": index, "by": caller,
-                   "amount": amount, "payout": payout}),
+            json!({"tender_id": tender_id.to_string(), "bid_index": index, "slot": slot,
+                   "by": caller, "amount": amount, "payout": payout}),
         );
         self.send_payout(tender_id, account, amount);
     }
@@ -382,6 +385,17 @@ impl Contract {
                     .on_payout(tender_id, amount),
             )
             .detach();
+    }
+
+    /// The frozen-set slot that a result index names. The evaluator's `rk[i][0]` is an index
+    /// into the frozen bid set, not a storage slot: a bid withdrawn before close leaves its slot
+    /// out of `frozen.slots`, so from that point the two differ. Bond settlement in
+    /// `accept_result` resolves it the same way, and `propose_award` matches the index against
+    /// the stored ranking, which is in the same order.
+    pub(crate) fn slot_of_result_index(&self, tender_id: u64, index: u32) -> Option<u32> {
+        let frozen = self.tender(tender_id).frozen.as_ref()?;
+        let i = usize::try_from(index).ok()?;
+        frozen.slots.get(i).copied()
     }
 
     /// The account that submitted the bid in `slot`, if it is still active.
