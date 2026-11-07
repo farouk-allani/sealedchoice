@@ -44,7 +44,38 @@ export interface WalletState {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   signMessage: (params: { message: string; recipient: string; nonce: Uint8Array }) => Promise<SignedMessage>;
-  signAndSend: (params: { receiverId: string; actions: FunctionCallAction[] }) => Promise<string>;
+  signAndSend: (params: {
+    receiverId: string;
+    actions: FunctionCallAction[];
+  }) => Promise<SentTransaction>;
+}
+
+export interface SentTransaction {
+  hash: string;
+  /** The method's return value, decoded from the outcome, or null when it returned nothing. */
+  result: unknown;
+}
+
+
+/**
+ * A contract's return value sits base64 in the outcome's `SuccessValue`. A failure is reported
+ * there too, and a wallet that reports it as success would otherwise look like an empty return,
+ * so a Failure is raised rather than swallowed.
+ */
+function decodeReturnValue(outcome: unknown): unknown {
+  const status = (outcome as { status?: { SuccessValue?: string; Failure?: unknown } }).status;
+  if (status?.Failure !== undefined) {
+    throw new Error(`the transaction failed: ${JSON.stringify(status.Failure).slice(0, 300)}`);
+  }
+  const raw = status?.SuccessValue;
+  if (!raw) return null;
+  try {
+    const binary = atob(raw);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    return null;
+  }
 }
 
 const WalletContext = createContext<WalletState | null>(null);
@@ -162,7 +193,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         (outcome as { transaction?: { hash?: string } }).transaction?.hash ??
         (outcome as { transaction_outcome?: { id?: string } }).transaction_outcome?.id;
       if (!hash) throw new Error("the wallet returned no transaction hash");
-      return hash;
+      return { hash, result: decodeReturnValue(outcome) };
     },
     [getConnector],
   );
