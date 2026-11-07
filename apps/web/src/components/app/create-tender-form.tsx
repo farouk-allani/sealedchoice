@@ -236,7 +236,7 @@ export function CreateTenderForm({ initialNextId }: { initialNextId: number }) {
 
   if (created) {
     return (
-      <div className="panel">
+      <div className="panel ui-paper">
         <Notice tone={funded ? "success" : "info"} title={`Tender ${created.id} created`}>
           {funded
             ? "The escrow is funded. Once the TEE returns the tender key, bidding opens."
@@ -317,7 +317,7 @@ export function CreateTenderForm({ initialNextId }: { initialNextId: number }) {
   return (
     <div className="create-columns">
       <div>
-        <section className="panel">
+        <section className="panel ui-paper">
           <h2>What is being bought</h2>
           <p>
             Both of these are published before bidding and cannot be changed afterwards. Bidders
@@ -359,7 +359,7 @@ export function CreateTenderForm({ initialNextId }: { initialNextId: number }) {
           </div>
         </section>
 
-        <section className="panel">
+        <section className="panel ui-paper">
           <h2>Criteria</h2>
           <p>
             Weights are basis points and must come to exactly 100 percent. Price is arithmetic.
@@ -413,7 +413,7 @@ export function CreateTenderForm({ initialNextId }: { initialNextId: number }) {
           </p>
         </section>
 
-        <section className="panel">
+        <section className="panel ui-paper">
           <h2>Timing and bond</h2>
           <div className="form-pair">
             <TextField
@@ -441,7 +441,7 @@ export function CreateTenderForm({ initialNextId }: { initialNextId: number }) {
           </div>
         </section>
 
-        <section className="panel">
+        <section className="panel ui-paper">
           <h2>Committee</h2>
           <p>
             The committee awards the tender and is the only group that can read the full report.
@@ -474,7 +474,7 @@ export function CreateTenderForm({ initialNextId }: { initialNextId: number }) {
             </ul>
           )}
 
-          <div className="form-actions" style={{ justifyContent: "flex-start" }}>
+          <div className="form-actions form-actions--start">
             <Button
               variant="secondary"
               onClick={() => void signMyCommitteeKey()}
@@ -499,7 +499,7 @@ export function CreateTenderForm({ initialNextId }: { initialNextId: number }) {
               placeholder="02…"
             />
           </div>
-          <div className="form-actions" style={{ justifyContent: "flex-start" }}>
+          <div className="form-actions form-actions--start">
             <Button variant="secondary" size="small" onClick={addPastedMember}>
               Add member
             </Button>
@@ -508,7 +508,7 @@ export function CreateTenderForm({ initialNextId }: { initialNextId: number }) {
       </div>
 
       <aside>
-        <section className="panel">
+        <section className="panel ui-paper">
           <h2>Exactly what gets hashed</h2>
           <p>
             This is the rubric as the contract will store it: canonical JSON, byte for byte. Its

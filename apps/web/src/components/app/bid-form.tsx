@@ -276,7 +276,7 @@ export function BidForm(props: BidFormProps) {
 
   if (stage === "submitted" && receipt && sealed) {
     return (
-      <div className="panel">
+      <div className="panel ui-paper">
         <Notice tone="success" title="Your sealed bid is on chain">
           Nobody can read it until the deadline passes and the evaluator opens it inside the TEE.
         </Notice>
@@ -331,7 +331,7 @@ export function BidForm(props: BidFormProps) {
 
   if (stage === "sealed" && sealed) {
     return (
-      <div className="panel">
+      <div className="panel ui-paper">
         <h2>Check this, then submit</h2>
         <p>
           Your bid is encrypted. What goes on chain is the ciphertext below and its hash. The
@@ -391,7 +391,7 @@ export function BidForm(props: BidFormProps) {
   }
 
   return (
-    <form className="panel" onSubmit={(event) => void seal(event)} noValidate>
+    <form className="panel ui-paper" onSubmit={(event) => void seal(event)} noValidate>
       <h2>Your bid</h2>
       <p>
         Encrypted in this page to the tender key before anything is sent. The deadline is{" "}

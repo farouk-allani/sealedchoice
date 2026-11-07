@@ -73,7 +73,7 @@ function RubricPanel({ rubricJson }: { rubricJson: string }) {
 
   if (!rubric) {
     return (
-      <section className="panel">
+      <section className="panel ui-paper">
         <h2>Rubric</h2>
         <p>{error}</p>
         <pre className="mono">{rubricJson}</pre>
@@ -84,7 +84,7 @@ function RubricPanel({ rubricJson }: { rubricJson: string }) {
   const total = rubric.criteria.reduce((sum, c) => sum + c.weight_bp, 0);
 
   return (
-    <section className="panel">
+    <section className="panel ui-paper">
       <h2>Rubric</h2>
       <p>
         Published before bidding and fixed at creation. Its hash is what the evaluator echoes back,
@@ -146,7 +146,7 @@ function BidsPanel({ tender, bids }: { tender: Tender; bids: BidView[] }) {
   const sealed = !hasPassed(tender.deadline_ns);
   if (bids.length === 0) {
     return (
-      <section className="panel">
+      <section className="panel ui-paper">
         <h2>Bids</h2>
         <p>No bid has been submitted yet.</p>
       </section>
@@ -154,7 +154,7 @@ function BidsPanel({ tender, bids }: { tender: Tender; bids: BidView[] }) {
   }
 
   return (
-    <section className="panel">
+    <section className="panel ui-paper">
       <h2>Bids</h2>
       <p>
         {sealed
@@ -194,8 +194,7 @@ function BidsPanel({ tender, bids }: { tender: Tender; bids: BidView[] }) {
                 <td title={formatUtc(bid.submitted_at_ns)}>{formatRelative(bid.submitted_at_ns)}</td>
                 <td>
                   <Hash value={bid.ciphertext_sha256} label="Copy ciphertext hash" />
-                  <br />
-                  <span className="panel-note">{bid.ciphertext_len} bytes</span>
+                  <span className="cell-sub">{bid.ciphertext_len} bytes</span>
                 </td>
                 <td>
                   {formatNear(bid.bond)} NEAR
@@ -213,7 +212,7 @@ function BidsPanel({ tender, bids }: { tender: Tender; bids: BidView[] }) {
 function AttemptsPanel({ attempts }: { attempts: Attempt[] }) {
   if (attempts.length === 0) return null;
   return (
-    <section className="panel">
+    <section className="panel ui-paper">
       <h2>Evaluation attempts</h2>
       <p>
         At most three are allowed and every one is recorded, successful or not. Only one result is
@@ -244,7 +243,7 @@ function AttemptsPanel({ attempts }: { attempts: Attempt[] }) {
                     >
                       {name}
                     </Badge>
-                    {reason && <div className="panel-note">Refused: {reason}</div>}
+                    {reason && <span className="cell-sub">Refused: {reason}</span>}
                   </td>
                 </tr>
               );
@@ -290,24 +289,26 @@ export default async function TenderPage({ params }: PageProps) {
     <>
       <div className="page-head-row">
         <div className="page-head">
-          <span className="ui-reference">Tender {tender.id}</span>
+          <span className="page-eyebrow">
+            <span className="ui-reference">Tender {tender.id}</span>
+            <Badge tone={status.tone}>{status.label}</Badge>
+          </span>
           <h1>{tenderTitle(rubric, tender.id)}</h1>
           <p>{status.detail}</p>
         </div>
-        <div className="app-header-right">
-          <Badge tone={status.tone}>{status.label}</Badge>
-          {canBid(tender) && (
+        {canBid(tender) && (
+          <div className="page-head-actions">
             <Link
               className="ui-button ui-button--primary ui-button--medium"
               href={`/tenders/${tender.id}/bid`}
             >
               Submit a sealed bid
             </Link>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      <dl className="stat-row panel">
+      <dl className="stat-row ui-paper">
         <div className="stat">
           <dt>Budget cap</dt>
           <dd>
@@ -341,7 +342,7 @@ export default async function TenderPage({ params }: PageProps) {
       <div className="tender-columns">
         <div>
           {compact && ranked.length > 0 && (
-            <section className="panel">
+            <section className="panel ui-paper">
               <h2>Result</h2>
               <p>
                 Scored once by the pinned evaluator inside the TEE, on attempt {compact.attempt}.
@@ -364,7 +365,7 @@ export default async function TenderPage({ params }: PageProps) {
         </div>
 
         <div>
-          <section className="panel">
+          <section className="panel ui-paper">
             <h2>Progress</h2>
             <Lifecycle
               layout="vertical"
@@ -380,7 +381,7 @@ export default async function TenderPage({ params }: PageProps) {
             />
           </section>
 
-          <section className="panel">
+          <section className="panel ui-paper">
             <h2>What is recorded</h2>
             <dl className="facts">
               <dt>Buyer</dt>

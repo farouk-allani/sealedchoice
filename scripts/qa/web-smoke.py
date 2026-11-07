@@ -40,6 +40,70 @@ TENDER_3 = {
 checks: list[tuple[bool, str]] = []
 
 
+# Every visible text node, with the colour it is painted in and the background it sits on.
+# Walks up for the first non-transparent background, which is what the eye actually sees.
+CONTRAST_JS = """() => {
+  const parse = (c) => {
+    const m = c.match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    const p = m[1].split(',').map(Number);
+    return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+  };
+  const lum = ({ r, g, b }) => {
+    const f = (v) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const bgOf = (el) => {
+    let node = el;
+    while (node) {
+      const c = parse(getComputedStyle(node).backgroundColor);
+      if (c && c.a > 0.95) return c;
+      node = node.parentElement;
+    }
+    return { r: 255, g: 255, b: 255, a: 1 };
+  };
+  const out = [];
+  for (const el of document.querySelectorAll('*')) {
+    if (el.children.length > 0) continue;
+    const text = (el.textContent || '').trim();
+    if (!text) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) < 0.1) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    const fg = parse(cs.color);
+    if (!fg || fg.a < 0.95) continue;
+    const bg = bgOf(el);
+    const l1 = lum(fg), l2 = lum(bg);
+    const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    const size = parseFloat(cs.fontSize);
+    const weight = Number(cs.fontWeight) || 400;
+    const large = size >= 24 || (size >= 18.66 && weight >= 700);
+    out.push({
+      text: text.slice(0, 40), ratio: Math.round(ratio * 100) / 100,
+      need: large ? 3 : 4.5, size, weight,
+    });
+  }
+  return out;
+}"""
+
+
+def check_contrast(page, label: str) -> None:
+    samples = page.evaluate(CONTRAST_JS)
+    bad = [s for s in samples if s["ratio"] < s["need"]]
+    small = [s for s in samples if s["size"] < 13]
+    thin = [s for s in samples if s["weight"] < 400]
+    check(not bad, f"{label}: all {len(samples)} text samples meet their contrast threshold")
+    for s in bad[:6]:
+        print(f"      {s['ratio']} < {s['need']}  {s['size']}px/{s['weight']}  {s['text']!r}")
+    check(not small, f"{label}: no text under 13px ({len(small)} found)")
+    check(not thin, f"{label}: no font-weight under 400 ({len(thin)} found)")
+
+
+
 def check(ok: bool, label: str) -> None:
     checks.append((bool(ok), label))
     print(f"  {'pass' if ok else 'FAIL'}  {label}")
@@ -134,6 +198,12 @@ def main() -> int:
         )
         check(no_overflow(page), "the create page does not overflow sideways at 1440")
         page.screenshot(path=str(OUT / "tenders-new-desktop.png"), full_page=True)
+
+        print("contrast, size and weight")
+        page.goto(f"{base}/tenders/3", wait_until="networkidle")
+        check_contrast(page, "tender page")
+        page.goto(f"{base}/tenders/new", wait_until="networkidle")
+        check_contrast(page, "create page")
 
         print("404")
         response = page.goto(f"{base}/tenders/99999", wait_until="networkidle")
