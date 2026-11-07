@@ -1,0 +1,78 @@
+{
+  "arrow": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/Arrows/arrow-right-line.svg",
+    "sha256": "194837901f0a243ea17e2c435d12e3eebc0a9ae455749aa7ce28ff562f125f38"
+  },
+  "external": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/Arrows/arrow-right-up-line.svg",
+    "sha256": "4cda2791f28ca17397cada507f1b53e82cf3683a81e08e722342efe310b4f707"
+  },
+  "down": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/Arrows/arrow-down-line.svg",
+    "sha256": "b1b1432f71a0ac7fbd3b1a114101edeb6406efc33c13c5957d2f17facf6875e7"
+  },
+  "chevron": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/Arrows/arrow-right-s-line.svg",
+    "sha256": "2c579a4dbaf25e19a128d71e04f4cf43b19ad2487a0076ff7e7e5a94c9b3e013"
+  },
+  "check": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/System/check-line.svg",
+    "sha256": "b83a64bf881169d5edeaa6134a7ba37192f0ddc80c2e2a890578ae0f2f8f9169"
+  },
+  "close": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/System/close-line.svg",
+    "sha256": "db3b4dcebb2d962a0231a191538bf6939620798b18f0ba52d4b91c5a4649ce54"
+  },
+  "plus": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/System/add-line.svg",
+    "sha256": "b03a98dbb2f1d4c1aed7987ce4be58b6af4b4be8af47b08aadb77c4a35d6a645"
+  },
+  "copy": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/Document/file-copy-fill.svg",
+    "sha256": "af693f6f424f9624ba774936320f48e697284afa55cffb3079492ed56c7237b7"
+  },
+  "lock": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/System/lock-2-fill.svg",
+    "sha256": "c2dd0780f40ca66f85121a1efa8b5313c258ac492f950b5c02d6cd7e5a363d5a"
+  },
+  "shield": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/System/shield-check-fill.svg",
+    "sha256": "0dfb6acada0a39fd892a4082df6a87ddce61d9317b48c3b4fe91baaa5bcc2011"
+  },
+  "document": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/Document/file-text-fill.svg",
+    "sha256": "7b9fdd5bffad7da8184826873ee3f6ce5a47939229524b091451bbbc13091170"
+  },
+  "clock": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/System/time-fill.svg",
+    "sha256": "a9eec9d5a105cc48e0dc6d06688bd518726175a55361bd26561b99e9e64a84c9"
+  },
+  "wallet": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/Finance/wallet-3-fill.svg",
+    "sha256": "7ff89cea092cae0c00f7c868292c172496cf5b7339566a80be8014334f5856f7"
+  },
+  "layers": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/Business/stack-fill.svg",
+    "sha256": "a45b291fffbf46609cf63d1cd6b9232e53fe537f9a91a79c38d7b8aeadc81c66"
+  },
+  "download": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/System/download-2-fill.svg",
+    "sha256": "d8d63b87a646d885313c2cf97d67db5d14adb6de6a72c5dd83f9334b652b177e"
+  },
+  "search": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/System/search-line.svg",
+    "sha256": "e36fd9d602a25425c6c2288005ef5a413eec710f9718bd01dbfd81cb4d6b5c19"
+  },
+  "warning": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/System/error-warning-fill.svg",
+    "sha256": "3acf516eb01f7f226eba54102783cd3b081d95edfc24b11515882f1cd3cb9586"
+  },
+  "info": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/System/information-fill.svg",
+    "sha256": "1e8da65e4dd0527e5cc172d57d3d615b9b7435754a0043b127550b17496102b2"
+  },
+  "refresh": {
+    "source": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/icons/Device/restart-line.svg",
+    "sha256": "6f00dc4352e4e402e08561d4aff111d83ed0f4e5e07033e9d4cd75d7d8e487d5"
+  }
+}
