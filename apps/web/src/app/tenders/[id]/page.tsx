@@ -5,7 +5,10 @@ import { TOKEN_DECIMALS, TOKEN_SYMBOL } from "../../../config/demo.ts";
 import { CHAIN, explorerAccount } from "../../../config/evidence.ts";
 import { getAttempts, getTenderDetail } from "../../../lib/near/views.ts";
 import type { Attempt, BidView, Tender } from "../../../lib/near/schemas.ts";
-import { attemptFailureReason, attemptOutcomeName } from "../../../lib/near/schemas.ts";
+import {
+  attemptFailureReason,
+  attemptOutcomeName,
+} from "../../../lib/near/schemas.ts";
 import {
   formatBp,
   formatNear,
@@ -15,7 +18,11 @@ import {
   hasPassed,
   shortHash,
 } from "../../../lib/tender/format.ts";
-import { canBid, lifecycleSteps, statusOf } from "../../../lib/tender/status.ts";
+import {
+  canBid,
+  lifecycleSteps,
+  statusOf,
+} from "../../../lib/tender/status.ts";
 import {
   parseResult,
   parseRubric,
@@ -24,6 +31,7 @@ import {
   tenderTitle,
 } from "../../../lib/tender/view-model.ts";
 import { Badge } from "../../../components/ui/badge.tsx";
+import { Icon } from "../../../components/ui/icon.tsx";
 import { CopyButton } from "../../../components/ui/copy-button.tsx";
 import { Lifecycle } from "../../../components/app/lifecycle.tsx";
 import { RankingTable } from "../../../components/app/ranking-table.tsx";
@@ -40,7 +48,9 @@ function parseId(raw: string): number | null {
   return id >= 1 ? id : null;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { id } = await params;
   const tenderId = parseId(id);
   if (tenderId === null) return { title: "Tender" };
@@ -50,7 +60,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const { rubric } = parseRubric(detail.tender.rubric_json);
     return {
       title: tenderTitle(rubric, tenderId),
-      description: rubric?.scope?.slice(0, 160) ?? `Tender ${tenderId} on ${CHAIN.tenderContract}.`,
+      description:
+        rubric?.scope?.slice(0, 160) ??
+        `Tender ${tenderId} on ${CHAIN.tenderContract}.`,
     };
   } catch {
     return { title: `Tender ${tenderId}` };
@@ -84,17 +96,19 @@ function RubricPanel({ rubricJson }: { rubricJson: string }) {
   const total = rubric.criteria.reduce((sum, c) => sum + c.weight_bp, 0);
 
   return (
-    <section className="panel ui-paper">
-      <h2>Rubric</h2>
+    <section className="panel ui-paper" id="rubric">
+      <h2>Scope & scoring</h2>
       <p>
-        Published before bidding and fixed at creation. Its hash is what the evaluator echoes back,
-        so a changed rubric could not produce an accepted result.
+        Published before bidding and fixed at creation. Its hash is what the
+        evaluator echoes back, so a changed rubric could not produce an accepted
+        result.
       </p>
       <p className="panel-note">{rubric.scope}</p>
       <div className="table-scroll">
         <table className="data-table">
           <caption>
-            {rubric.criteria.length} criteria, weights summing to {formatBp(total)} percent
+            {rubric.criteria.length} criteria, weights summing to{" "}
+            {formatBp(total)} percent
           </caption>
           <thead>
             <tr>
@@ -108,17 +122,24 @@ function RubricPanel({ rubricJson }: { rubricJson: string }) {
               <tr key={criterion.id}>
                 <th scope="row">
                   <strong>
-                    {criterion.type === "price_lowest_ratio" ? "Price" : criterion.question}
+                    {criterion.type === "price_lowest_ratio"
+                      ? "Price"
+                      : criterion.question}
                   </strong>
                   {criterion.type === "qualitative" && (
-                    <ul className="criteria-anchors">
-                      {Object.entries(criterion.anchors).map(([score, text]) => (
-                        <li key={score}>
-                          <b>{score}</b>
-                          <span>{text}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <details className="anchors-details">
+                      <summary>How scores from 0 to 5 are defined</summary>
+                      <ul className="criteria-anchors">
+                        {Object.entries(criterion.anchors).map(
+                          ([score, text]) => (
+                            <li key={score}>
+                              <b>{score}</b>
+                              <span>{text}</span>
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                    </details>
                   )}
                 </th>
                 <td>
@@ -126,17 +147,22 @@ function RubricPanel({ rubricJson }: { rubricJson: string }) {
                     ? "Code, from the price"
                     : "Models, checked by code"}
                 </td>
-                <td className="criteria-weight">{formatBp(criterion.weight_bp)}%</td>
+                <td className="criteria-weight">
+                  {formatBp(criterion.weight_bp)}%
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="panel-note">
-        Qualitative criteria are scored by {rubric.models.length} models and aggregated by{" "}
-        {rubric.aggregation.qualitative === "lower_median" ? "the lower median" : rubric.aggregation.qualitative}
-        , needing at least {rubric.aggregation.min_valid_outputs} valid outputs. Price and the
-        ranking are integer arithmetic, never a model.
+        Qualitative criteria are scored by {rubric.models.length} models and
+        aggregated by{" "}
+        {rubric.aggregation.qualitative === "lower_median"
+          ? "the lower median"
+          : rubric.aggregation.qualitative}
+        , needing at least {rubric.aggregation.min_valid_outputs} valid outputs.
+        Price and the ranking are integer arithmetic, never a model.
       </p>
     </section>
   );
@@ -154,7 +180,7 @@ function BidsPanel({ tender, bids }: { tender: Tender; bids: BidView[] }) {
   }
 
   return (
-    <section className="panel ui-paper">
+    <section className="panel ui-paper" id="bids">
       <h2>Bids</h2>
       <p>
         {sealed
@@ -164,8 +190,8 @@ function BidsPanel({ tender, bids }: { tender: Tender; bids: BidView[] }) {
       <div className="table-scroll">
         <table className="data-table">
           <caption>
-            {bids.length} slot{bids.length === 1 ? "" : "s"} used, {tender.active_slots.length}{" "}
-            still active
+            {bids.length} slot{bids.length === 1 ? "" : "s"} used,{" "}
+            {tender.active_slots.length} still active
           </caption>
           <thead>
             <tr>
@@ -191,9 +217,14 @@ function BidsPanel({ tender, bids }: { tender: Tender; bids: BidView[] }) {
                   </a>
                   {bid.withdrawn && <> (withdrawn)</>}
                 </td>
-                <td title={formatUtc(bid.submitted_at_ns)}>{formatRelative(bid.submitted_at_ns)}</td>
+                <td title={formatUtc(bid.submitted_at_ns)}>
+                  {formatRelative(bid.submitted_at_ns)}
+                </td>
                 <td>
-                  <Hash value={bid.ciphertext_sha256} label="Copy ciphertext hash" />
+                  <Hash
+                    value={bid.ciphertext_sha256}
+                    label="Copy ciphertext hash"
+                  />
                   <span className="cell-sub">{bid.ciphertext_len} bytes</span>
                 </td>
                 <td>
@@ -215,8 +246,8 @@ function AttemptsPanel({ attempts }: { attempts: Attempt[] }) {
     <section className="panel ui-paper">
       <h2>Evaluation attempts</h2>
       <p>
-        At most three are allowed and every one is recorded, successful or not. Only one result is
-        ever accepted.
+        At most three are allowed and every one is recorded, successful or not.
+        Only one result is ever accepted.
       </p>
       <div className="table-scroll">
         <table className="data-table">
@@ -239,11 +270,19 @@ function AttemptsPanel({ attempts }: { attempts: Attempt[] }) {
                   </td>
                   <td>
                     <Badge
-                      tone={name === "Accepted" ? "success" : name === "Failed" ? "danger" : "violet"}
+                      tone={
+                        name === "Accepted"
+                          ? "success"
+                          : name === "Failed"
+                            ? "danger"
+                            : "violet"
+                      }
                     >
                       {name}
                     </Badge>
-                    {reason && <span className="cell-sub">Refused: {reason}</span>}
+                    {reason && (
+                      <span className="cell-sub">Refused: {reason}</span>
+                    )}
                   </td>
                 </tr>
               );
@@ -264,7 +303,10 @@ export default async function TenderPage({ params }: PageProps) {
   let attempts: Attempt[] = [];
   let error: string | null = null;
   try {
-    [detail, attempts] = await Promise.all([getTenderDetail(tenderId), getAttempts(tenderId)]);
+    [detail, attempts] = await Promise.all([
+      getTenderDetail(tenderId),
+      getAttempts(tenderId),
+    ]);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
@@ -283,10 +325,21 @@ export default async function TenderPage({ params }: PageProps) {
   const { rubric } = parseRubric(tender.rubric_json);
   const status = statusOf(tender.status);
   const compact = parseResult(result);
-  const ranked = rankedBids(compact, bids, tender.frozen?.slots ?? null, tender.award);
+  const ranked = rankedBids(
+    compact,
+    bids,
+    tender.frozen?.slots ?? null,
+    tender.award,
+  );
+  const biddingOpen = canBid(tender) && !hasPassed(tender.deadline_ns);
 
   return (
     <>
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <Link href="/tenders">Tenders</Link>
+        <Icon name="chevron" size={15} />
+        <span aria-current="page">Tender {tender.id}</span>
+      </nav>
       <div className="page-head-row">
         <div className="page-head">
           <span className="page-eyebrow">
@@ -294,9 +347,19 @@ export default async function TenderPage({ params }: PageProps) {
             <Badge tone={status.tone}>{status.label}</Badge>
           </span>
           <h1>{tenderTitle(rubric, tender.id)}</h1>
-          <p>{status.detail}</p>
+          <p>
+            Published by{" "}
+            <a
+              className="inline-link"
+              href={explorerAccount(tender.buyer)}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              {tender.buyer}
+            </a>
+          </p>
         </div>
-        {canBid(tender) && (
+        {biddingOpen && (
           <div className="page-head-actions">
             <Link
               className="ui-button ui-button--primary ui-button--medium"
@@ -308,17 +371,51 @@ export default async function TenderPage({ params }: PageProps) {
         )}
       </div>
 
+      <div className="tender-next-step" id="overview">
+        <span className="summary-icon">
+          <Icon name={tender.status === "Paid" ? "check" : "lock"} size={23} />
+        </span>
+        <div>
+          <h2>
+            {tender.status === "Paid"
+              ? "Awarded and paid"
+              : biddingOpen
+                ? "Ready to submit a proposal?"
+                : tender.status === "Open"
+                  ? "The bidding deadline has passed"
+                  : status.label}
+          </h2>
+          <p>
+            {biddingOpen
+              ? "Read the scope and scoring rules below, then prepare your bid. It is encrypted in your browser before submission."
+              : tender.status === "Open"
+                ? "New bids are no longer accepted. The tender is waiting to be closed for evaluation."
+                : status.detail}
+          </p>
+        </div>
+        {compact && (
+          <a
+            className="ui-button ui-button--secondary ui-button--small"
+            href="#results"
+          >
+            View the result <Icon name="arrow" size={16} />
+          </a>
+        )}
+      </div>
+
       <dl className="stat-row ui-paper">
         <div className="stat">
           <dt>Budget cap</dt>
           <dd>
-            {formatUnits(tender.budget_cap, TOKEN_DECIMALS)} <small>{TOKEN_SYMBOL}</small>
+            {formatUnits(tender.budget_cap, TOKEN_DECIMALS)}{" "}
+            <small>{TOKEN_SYMBOL}</small>
           </dd>
         </div>
         <div className="stat">
-          <dt>Escrowed</dt>
+          <dt>{tender.status === "Paid" ? "Escrow remaining" : "Escrowed"}</dt>
           <dd>
-            {formatUnits(tender.escrowed, TOKEN_DECIMALS)} <small>{TOKEN_SYMBOL}</small>
+            {formatUnits(tender.escrowed, TOKEN_DECIMALS)}{" "}
+            <small>{TOKEN_SYMBOL}</small>
           </dd>
         </div>
         <div className="stat">
@@ -339,22 +436,30 @@ export default async function TenderPage({ params }: PageProps) {
         </div>
       </dl>
 
+      <nav className="detail-nav" aria-label="Tender sections">
+        {compact && <a href="#results">Result</a>}
+        <a href="#rubric">Scope & scoring</a>
+        <a href="#bids">Sealed bids</a>
+        <a href="#evidence">Records</a>
+      </nav>
+
       <div className="tender-columns">
         <div>
           {compact && ranked.length > 0 && (
-            <section className="panel ui-paper">
+            <section className="panel ui-paper" id="results">
               <h2>Result</h2>
               <p>
-                Scored once by the pinned evaluator inside the TEE, on attempt {compact.attempt}.
-                Price and the ranking are code. The committee decides the award.
+                Scored once by the pinned evaluator inside the TEE, on attempt{" "}
+                {compact.attempt}. Price and the ranking are code. The committee
+                decides the award.
               </p>
               <RankingTable
                 rows={rankingRows(ranked)}
                 caption={`Totals in basis points from the accepted on-chain result for tender ${tender.id}.`}
               />
               <p className="panel-note">
-                Model scores are not reproducible between runs. What is recorded is this run,
-                signed and checkable from the stored bytes.
+                Model scores are not reproducible between runs. What is recorded
+                is this run, signed and checkable from the stored bytes.
               </p>
             </section>
           )}
@@ -381,7 +486,7 @@ export default async function TenderPage({ params }: PageProps) {
             />
           </section>
 
-          <section className="panel ui-paper">
+          <section className="panel ui-paper" id="evidence">
             <h2>What is recorded</h2>
             <dl className="facts">
               <dt>Buyer</dt>
@@ -405,7 +510,10 @@ export default async function TenderPage({ params }: PageProps) {
                 <>
                   <dt>Tender key</dt>
                   <dd>
-                    <Hash value={tender.tender_pubkey} label="Copy tender key" />
+                    <Hash
+                      value={tender.tender_pubkey}
+                      label="Copy tender key"
+                    />
                   </dd>
                 </>
               )}
@@ -427,7 +535,10 @@ export default async function TenderPage({ params }: PageProps) {
               )}
               <dt>Evaluator build</dt>
               <dd>
-                <Hash value={tender.evaluator.wasm_sha256} label="Copy evaluator hash" />
+                <Hash
+                  value={tender.evaluator.wasm_sha256}
+                  label="Copy evaluator hash"
+                />
               </dd>
               <dt>Committee</dt>
               <dd>
@@ -437,8 +548,8 @@ export default async function TenderPage({ params }: PageProps) {
               </dd>
             </dl>
             <p className="panel-note">
-              Everything here was fixed when the tender was created and cannot be changed by
-              anyone, including the buyer.
+              Everything here was fixed when the tender was created and cannot
+              be changed by anyone, including the buyer.
             </p>
           </section>
         </div>
