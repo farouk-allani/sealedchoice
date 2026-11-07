@@ -9,7 +9,18 @@
  * A claim only belongs here if something in `config/evidence.ts` backs it.
  */
 
-import type { ActId } from "../lib/landing/vault-state.ts";
+/**
+ * The six stages the story moves through, in order. This lived in the scroll-choreography
+ * module that drove the old CSS vault; the hero renders the Blender frames now, so the ids
+ * live with the copy that uses them.
+ */
+export type ActId =
+  | "sealed"
+  | "closed"
+  | "opened"
+  | "scored"
+  | "awarded"
+  | "verified";
 
 export const HERO = {
   lines: ["Sealed bids.", "Opened once.", "On the record."],
