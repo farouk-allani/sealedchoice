@@ -46,3 +46,5 @@ export {
   scoreQualitative,
   textField,
 } from "./scoring.ts";
+export { FLAG_EXPLANATIONS, explainFlags, runDebriefChecks } from "./debrief.ts";
+export type { DebriefEvidence, FrozenBid } from "./debrief.ts";
