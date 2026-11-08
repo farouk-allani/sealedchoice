@@ -37,5 +37,11 @@ export {
 } from "./keys.ts";
 export type { ReaderPurpose } from "./keys.ts";
 export { ECIES_OVERHEAD, eciesDecrypt, eciesEncrypt } from "./ecies.ts";
+export {
+  AES_GCM_NONCE_BYTES,
+  AES_GCM_TAG_BYTES,
+  AesGcmError,
+  aesGcmDecrypt,
+} from "./aesgcm.ts";
 export { BidValidationError, buildBidPlaintext, randomSaltHex } from "./bid.ts";
 export type { BidInput, BuiltBid } from "./bid.ts";
