@@ -127,8 +127,9 @@ export function VerifyPanel({ tenderId }: { tenderId: number }) {
       {stage === "done" && summary && summary.failed === 0 && summary.skipped > 0 ? (
         <p className="verify-note">
           Every check that could run passed.{" "}
-          {summary.skipped === 1 ? "One check" : `${summary.skipped} checks`} could not be settled
-          from this evidence, and each says below what would settle it.
+          {summary.skipped === 1
+            ? "One check could not be settled from this evidence, and it says below what would settle it."
+            : `${summary.skipped} checks could not be settled from this evidence, and each says below what would settle it.`}
         </p>
       ) : null}
 
