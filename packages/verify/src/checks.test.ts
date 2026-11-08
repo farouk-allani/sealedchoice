@@ -290,11 +290,24 @@ describe("check 1: the rubric", () => {
 });
 
 describe("check 2: fixed before bidding", () => {
-  it("fails when a bid predates the earliest possible creation", () => {
+  it("passes when the first bid is later than the earliest possible creation", () => {
+    const { evidence, artifact } = buildFixture();
+    const r = byId(evidence, artifact, 2);
+    expect(r.pass).toBe(true);
+    expect(r.skipped).toBeFalsy();
+  });
+
+  // A bid early in a window longer than `min_deadline_delay_ns` leaves the deadline bound short of
+  // the first bid. That is the chain declining to order the two, not evidence that a rubric moved,
+  // so the row must read "not checked". T09 hit this on tender 4: a 15-minute window bid into after
+  // 55 seconds, and a sound tender showed a red Fail.
+  it("is skipped, not failed, when a bid predates the earliest possible creation", () => {
     const { evidence, artifact } = buildFixture();
     const e = copy(evidence);
     must(e.bids[0], "first bid").submitted_at_ns = e.tender.deadline_ns - e.minDeadlineDelayNs - 1n;
-    expect(byId(e, artifact, 2).pass).toBe(false);
+    const r = byId(e, artifact, 2);
+    expect(r.skipped).toBe(true);
+    expect(r.details).toContain("cannot order creation against the first bid");
   });
 
   it("is skipped, not passed, when there are no bids", () => {

@@ -82,19 +82,27 @@ async function main(): Promise<number> {
     fetchArtifact: !args.includes("--no-artifact"),
   });
   const results = runChecks(evidence, artifact);
-  const { passed, total, allPassed } = summarise(results);
+  const { passed, failed, skipped, total } = summarise(results);
 
   if (wantJson) {
-    console.log(JSON.stringify({ tenderId, contractId, network: cli.network, passed, total, results }, null, 2));
+    console.log(
+      JSON.stringify({ tenderId, contractId, network: cli.network, passed, failed, skipped, total, results }, null, 2),
+    );
   } else {
     console.log(render(results));
-    console.log(`\n${passed}/${total} checks passed`);
-    if (!allPassed) {
-      const bad = results.filter((r) => !r.pass).map((r) => `${r.id} ${r.name}`);
-      console.log(`not passing: ${bad.join(", ")}`);
+    const counts = [`${passed}/${total} checks passed`];
+    if (skipped > 0) counts.push(`${skipped} not checked`);
+    if (failed > 0) counts.push(`${failed} failed`);
+    console.log(`\n${counts.join(", ")}`);
+    const name = (r: (typeof results)[number]) => `${r.id} ${r.name}`;
+    if (failed > 0) console.log(`failed: ${results.filter((r) => !r.pass && r.skipped !== true).map(name).join(", ")}`);
+    if (skipped > 0) {
+      console.log(`not checked: ${results.filter((r) => r.skipped === true).map(name).join(", ")}`);
     }
   }
-  return allPassed ? 0 : 1;
+  // Only a real failure is a non-zero exit: a skip says this evidence cannot settle the question,
+  // and a CLI that exits 1 for "could not tell" teaches a judge to stop reading the exit code.
+  return failed > 0 ? 1 : 0;
 }
 
 try {

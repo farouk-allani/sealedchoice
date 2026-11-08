@@ -146,25 +146,40 @@ function check2(c: Ctx): CheckResult {
     return skip(2, name, "no bids were submitted, so there is nothing to order the rubric against");
   }
   // The contract has no creation timestamp in state, and finding the creating transaction needs an
-  // indexer. It does not need one: `create_tender` refuses a deadline closer than
+  // indexer. Often it does not need one: `create_tender` refuses a deadline closer than
   // `min_deadline_delay_ns`, so creation happened at or before `deadline - min_delay`. If the first
   // bid is later than that bound, the rubric provably existed before any bid was sealed.
+  //
+  // That bound only settles the question when the first bid lands in the last `min_delay` of the
+  // window. A bidder who bids early in a window longer than `min_delay` leaves the bound short of
+  // the first bid, and then this evidence cannot order the two: creation may still have come first,
+  // and on every tender we have made it did. So the honest verdict there is "not checked", not
+  // "fail" (T09 found this on tender 4: a 15-minute window bid into after 55 seconds). A fail on
+  // this row asserts that a rubric changed after bidding opened, which the chain cannot show here,
+  // and a row that cries wolf teaches a reader to skim past the rows that mean something.
   const latestPossibleCreation = c.e.tender.deadline_ns - c.e.minDeadlineDelayNs;
   const firstBid = bids
     .map((b) => b.submitted_at_ns)
     .reduce((min, ns) => (ns < min ? ns : min));
-  const pass = latestPossibleCreation < firstBid;
-  const gapMs = Number((firstBid - latestPossibleCreation) / 1_000_000n);
+  const minDelayS = c.e.minDeadlineDelayNs / 1_000_000_000n;
   const links = c.e.codeHash
     ? [{ label: `deployed code hash ${c.e.codeHash}`, href: `${c.e.explorerBase}/accounts/${c.e.contractId}` }]
     : [];
+  if (latestPossibleCreation >= firstBid) {
+    const shortMs = Number((latestPossibleCreation - firstBid) / 1_000_000n);
+    return skip(
+      2,
+      name,
+      `the chain alone cannot order creation against the first bid here. The contract refuses a deadline under ${minDelayS}s, which puts creation at or before ${latestPossibleCreation}ns, and the first bid came ${shortMs}ms earlier at ${firstBid}ns, so the bound stops short. This is not evidence of a changed rubric: the rubric is immutable after creation (I1) and the contract exposes no setter for it. To order them, read the creating transaction in an explorer`,
+      links,
+    );
+  }
+  const gapMs = Number((firstBid - latestPossibleCreation) / 1_000_000n);
   return ok(
     2,
     name,
-    pass,
-    pass
-      ? `the contract refuses a deadline under ${c.e.minDeadlineDelayNs / 1_000_000_000n}s, so this tender was created no later than ${latestPossibleCreation}ns, which is ${gapMs}ms before the first bid at ${firstBid}ns. The rubric is immutable after creation (I1) and the contract exposes no setter for it`
-      : `the first bid at ${firstBid}ns is not provably after creation: the latest creation the deadline rule allows is ${latestPossibleCreation}ns`,
+    true,
+    `the contract refuses a deadline under ${minDelayS}s, so this tender was created no later than ${latestPossibleCreation}ns, which is ${gapMs}ms before the first bid at ${firstBid}ns. The rubric is immutable after creation (I1) and the contract exposes no setter for it`,
     links,
   );
 }
@@ -500,7 +515,26 @@ export function runChecks(e: Evidence, artifact: { sha256: string; bytes: number
   return [check1(c), check2(c), check3(c), check4(c, artifact), check5(c), check6(c), check7(c), check8(c), check9(c), check10(c)];
 }
 
-export function summarise(results: readonly CheckResult[]): { passed: number; total: number; allPassed: boolean } {
+/**
+ * Counts the three outcomes separately, because they mean different things to a reader. A failure
+ * says the evidence contradicts itself. A skip says this evidence cannot settle the question, which
+ * is not the same accusation and must not be reported as one. `allPassed` stays the strictest
+ * reading, and `failed` is what a caller should key an alarm or an exit code on.
+ */
+export function summarise(results: readonly CheckResult[]): {
+  passed: number;
+  failed: number;
+  skipped: number;
+  total: number;
+  allPassed: boolean;
+} {
   const passed = results.filter((r) => r.pass).length;
-  return { passed, total: results.length, allPassed: passed === results.length };
+  const skipped = results.filter((r) => !r.pass && r.skipped === true).length;
+  return {
+    passed,
+    failed: results.length - passed - skipped,
+    skipped,
+    total: results.length,
+    allPassed: passed === results.length,
+  };
 }
