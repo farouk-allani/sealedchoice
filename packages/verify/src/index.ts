@@ -48,3 +48,5 @@ export {
 } from "./scoring.ts";
 export { FLAG_EXPLANATIONS, explainFlags, runDebriefChecks } from "./debrief.ts";
 export type { DebriefEvidence, FrozenBid } from "./debrief.ts";
+export { DebriefError, openDebrief } from "./debrief-open.ts";
+export type { OpenDebriefOptions, OpenedDebrief } from "./debrief-open.ts";

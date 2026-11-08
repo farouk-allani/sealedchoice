@@ -225,7 +225,9 @@ function check4(e: DebriefEvidence): CheckResult {
     return skip(
       4,
       name,
-      "recomputing a score needs your proposal text, which this page only has once you decrypt your own bid here",
+      "recomputing a score needs the proposal text you submitted. Your bid is sealed to the tender key, which "
+        + "exists only inside the TEE, so not even you can recover it from the chain: paste your own copy to run "
+        + "this check",
     );
   }
   if (calls.length === 0) {
