@@ -10,6 +10,7 @@ import {
   nsToDate,
   shortAccount,
   shortHash,
+  plainUnits,
   unitsToMinor,
 } from "./format.ts";
 
@@ -39,11 +40,34 @@ describe("formatUnits", () => {
   });
 });
 
+describe("plainUnits", () => {
+  it("round-trips through unitsToMinor, which formatUnits does not", () => {
+    expect(plainUnits(11_800_000_000n, 6)).toBe("11800.00");
+    expect(formatUnits(11_800_000_000n, 6)).toBe("11,800.00");
+    expect(unitsToMinor(plainUnits(11_800_000_000n, 6), 6)).toBe(11_800_000_000n);
+  });
+});
+
 describe("unitsToMinor", () => {
   it("is the inverse of the display amount", () => {
     expect(unitsToMinor("15000", 6)).toBe(15_000_000_000n);
     expect(unitsToMinor("1.5", 6)).toBe(1_500_000n);
     expect(unitsToMinor("0.000001", 6)).toBe(1n);
+  });
+
+  // formatUnits groups thousands, so anything that pre-fills a field from it hands this a string
+  // with separators in. T11 hit that: the committee form called its own pre-filled amount "not a
+  // number" and disabled the award button. A person typing an amount as they read it does the same.
+  it("accepts the separators formatUnits puts in, and the ones a person types", () => {
+    expect(unitsToMinor("11,800.00", 6)).toBe(11_800_000_000n);
+    expect(unitsToMinor(formatUnits(15_000_000_000n, 6), 6)).toBe(15_000_000_000n);
+    expect(unitsToMinor("11 800", 6)).toBe(11_800_000_000n);
+    expect(unitsToMinor("11 800", 6)).toBe(11_800_000_000n);
+    expect(unitsToMinor("11_800", 6)).toBe(11_800_000_000n);
+  });
+
+  it("still refuses something that is not a number at all", () => {
+    expect(() => unitsToMinor("eleven thousand", 6)).toThrow(/not a positive decimal/);
   });
 
   it("refuses more precision than the token has", () => {

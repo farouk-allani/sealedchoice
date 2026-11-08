@@ -28,6 +28,14 @@ export function formatUnits(raw: bigint | string, decimals: number, maxFraction 
   return fractionText === "" ? `${sign}${wholeText}` : `${sign}${wholeText}.${fractionText}`;
 }
 
+/**
+ * Minor units to a plain decimal with no grouping, for a form field whose value is parsed back.
+ * `formatUnits` is for reading; this is for round-tripping.
+ */
+export function plainUnits(raw: bigint | string, decimals: number, maxFraction = 2): string {
+  return formatUnits(raw, decimals, maxFraction).replace(/,/g, "");
+}
+
 /** yoctoNEAR to a NEAR amount, for bonds and fees. */
 export function formatNear(yocto: bigint | string, maxFraction = 2): string {
   return formatUnits(yocto, 24, maxFraction);
@@ -40,9 +48,16 @@ export function nearToYocto(near: string): bigint {
   return BigInt(whole) * YOCTO + BigInt(padded || "0");
 }
 
-/** A decimal amount in a token's display units to its minor units. "1.5" at 6 decimals. */
+/**
+ * A decimal amount in a token's display units to its minor units. "1.5" at 6 decimals.
+ *
+ * Grouping separators are stripped first, because `formatUnits` puts them in ("11,800.00") and
+ * anything that pre-fills a field from it, or any person who types an amount the way they read it,
+ * would otherwise hand this a string it refuses. T11 hit exactly that: the committee form
+ * pre-filled the award amount from `formatUnits` and then called its own amount not a number.
+ */
 export function unitsToMinor(amount: string, decimals: number): bigint {
-  const trimmed = amount.trim();
+  const trimmed = amount.trim().replace(/[,_\s]/g, "");
   if (!/^\d+(\.\d+)?$/.test(trimmed)) throw new RangeError(`not a positive decimal: ${amount}`);
   const [whole = "0", fraction = ""] = trimmed.split(".");
   if (fraction.length > decimals) {

@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { DebriefError, explainFlags, loadEvidence, openDebrief, summarise } from "@tender/verify";
+import {
+  DebriefError,
+  explainFlags,
+  loadEvidence,
+  openDebrief,
+  runDebriefChecks,
+  summarise,
+} from "@tender/verify";
 import type { CheckResult, OpenedDebrief } from "@tender/verify";
 import { utf8ToBytes } from "@tender/crypto";
 import { formatBp } from "../../lib/tender/format.ts";
@@ -42,7 +49,7 @@ export function DebriefPanel({ tenderId }: { tenderId: number }) {
   const runId = useRef(0);
 
   const open = useCallback(
-    async (proposalText: string) => {
+    async () => {
       const id = runId.current + 1;
       runId.current = id;
       const current = () => runId.current === id;
@@ -76,7 +83,6 @@ export function DebriefPanel({ tenderId }: { tenderId: number }) {
           const result = openDebrief({
             evidence,
             secretKey: key.secretKey,
-            proposalPlaintext: proposalText.trim() === "" ? undefined : utf8ToBytes(proposalText),
           });
           if (!current()) return;
           setOpened(result);
@@ -93,6 +99,20 @@ export function DebriefPanel({ tenderId }: { tenderId: number }) {
     },
     [tenderId, wallet.signMessage, wallet.accountId],
   );
+
+  // Re-running the checks needs no wallet: the envelope is already open, and the only thing that
+  // changed is the text to check the quotes against. Asking for a second signature to do local
+  // arithmetic would train a reader to approve signatures without reading them.
+  const recompute = useCallback(() => {
+    setOpened((prev) =>
+      prev === null
+        ? prev
+        : (() => {
+            const input = { ...prev.input, proposalPlaintext: utf8ToBytes(proposal) };
+            return { ...prev, input, results: runDebriefChecks(input) };
+          })(),
+    );
+  }, [proposal]);
 
   if (wallet.status !== "connected") {
     return (
@@ -118,7 +138,7 @@ export function DebriefPanel({ tenderId }: { tenderId: number }) {
             wiped. It is never sent anywhere.
           </p>
         </div>
-        <Button onClick={() => void open(proposal)} disabled={stage === "working"}>
+        <Button onClick={() => void open()} disabled={stage === "working"}>
           {stage === "working" ? "Working" : opened ? "Open again" : "Open my debrief"}
         </Button>
       </div>
@@ -165,8 +185,8 @@ export function DebriefPanel({ tenderId }: { tenderId: number }) {
               />
               <Button
                 variant="secondary"
-                onClick={() => void open(proposal)}
-                disabled={stage === "working" || proposal.trim() === ""}
+                onClick={recompute}
+                disabled={opened === null || proposal.trim() === ""}
               >
                 Recompute
               </Button>
