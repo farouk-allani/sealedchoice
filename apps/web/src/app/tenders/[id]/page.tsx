@@ -332,6 +332,9 @@ export default async function TenderPage({ params }: PageProps) {
     tender.award,
   );
   const biddingOpen = canBid(tender) && !hasPassed(tender.deadline_ns);
+  // The verify and debrief pages both read the accepted result, so they only mean something
+  // once one exists.
+  const hasResult = compact !== null;
 
   return (
     <>
@@ -359,16 +362,34 @@ export default async function TenderPage({ params }: PageProps) {
             </a>
           </p>
         </div>
-        {biddingOpen && (
-          <div className="page-head-actions">
+        <div className="page-head-actions">
+          {biddingOpen && (
             <Link
               className="ui-button ui-button--primary ui-button--medium"
               href={`/tenders/${tender.id}/bid`}
             >
               Submit a sealed bid
             </Link>
-          </div>
-        )}
+          )}
+          {/* Nothing linked to these before, so a reader following the README could not find
+              them. Both only mean anything once a result exists, so they appear from then on. */}
+          {hasResult && (
+            <>
+              <Link
+                className="ui-button ui-button--secondary ui-button--medium"
+                href={`/tenders/${tender.id}/verify`}
+              >
+                Check this tender
+              </Link>
+              <Link
+                className="ui-button ui-button--quiet ui-button--medium"
+                href={`/tenders/${tender.id}/debrief`}
+              >
+                Your debrief
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="tender-next-step" id="overview">
