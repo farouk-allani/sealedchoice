@@ -18,10 +18,23 @@ Goal: anyone can check the process, a bidder can check their own score end to en
 
 ## Public verification checklist (`pnpm verify --tender <id>` and the `/tenders/<id>/verify` page run the same code from `packages/verify`)
 
-Each check prints PASS/FAIL with the data it used.
+Each check prints PASS, FAIL or SKIP with the data it used. The three mean different things and must not be
+collapsed: PASS is the evidence agreeing, FAIL is the evidence contradicting itself, and SKIP is this evidence
+being unable to settle the question, which is not an accusation. A check that cannot reach a verdict reports
+SKIP, never PASS and never FAIL (D-035). `pnpm verify` exits non-zero only on a FAIL; the page raises its alert
+only on a FAIL.
 
 1. **Rubric**: `sha256(rubric_json) == rubric_hash`, and `rubric_json` is canonical (`JCS(parse(rubric_json)) == rubric_json`).
-2. **Rubric fixed before bidding**: the `tender_created` event's block is earlier than the first `bid_submitted` block, and the contract source has no rubric setter (link to the code).
+2. **Rubric fixed before bidding**: no indexer, and the contract stores no creation timestamp, so this is derived
+   from the rule `create_tender` enforces. A deadline may not be closer than `min_deadline_delay_ns`, so creation
+   happened at or before `deadline - min_delay`; if the first `submitted_at_ns` is later than that bound, creation
+   provably came first, and the rubric is immutable after it (I1, and the contract exposes no setter).
+   **The bound only settles it when the first bid lands inside the last `min_delay` of the window.** A bid earlier
+   than that leaves the bound short, and the check then reports **SKIP**, naming the shortfall and pointing at the
+   creating transaction in an explorer. It is not a FAIL: the chain cannot show a rubric moved, and a red row that
+   means "could not tell" teaches a reader to skim past the rows that mean something (D-035; tender 4 is the live
+   example, a 900 s window bid into after 55 s). Storing `created_at_ns` on the tender would decide it outright and
+   is in PROGRESS Follow-ups for T14.
 3. **Bid set**: recompute every leaf from on-chain ciphertexts and the Merkle root; equal to `frozen.root` and to `result.root`. Count equals the number of active bids at close.
 4. **Evaluator identity**: the tender's pinned `wasm_sha256` equals the reproducible build of `source_tag` (instructions in README; the verifier links the GitHub tag and the hash). The OutLayer execution for this tender used that hash (link to the OutLayer record). The two sources are `get_tender` on chain and the attestation's `executed_wasm_sha256`; the bundle's own `evaluator.wasm_sha256` and `source_tag` are **what the contract passed in** (D-029) and are informational — compare them with those two, never treat them as the answer, or the check reduces to the bundle agreeing with itself. Measured at T05 (request 9549): `wasm_hash` and `executed_wasm_sha256` both equalled the published build.
 5. **One result**: exactly one attempt `Accepted`; failures listed with reasons.

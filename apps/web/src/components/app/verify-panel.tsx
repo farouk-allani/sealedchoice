@@ -110,14 +110,25 @@ export function VerifyPanel({ tenderId }: { tenderId: number }) {
         {stage === "loading" && `${step}...`}
         {stage === "error" && `The checks could not run: ${error}`}
         {stage === "done" && summary
-          ? `${summary.passed} of ${summary.total} checks passed${ms === null ? "" : ` in ${(ms / 1000).toFixed(1)}s`}.`
+          ? `${summary.passed} of ${summary.total} checks passed${summary.skipped > 0 ? `, ${summary.skipped} not checked` : ""}${ms === null ? "" : ` in ${(ms / 1000).toFixed(1)}s`}.`
           : null}
       </p>
 
-      {stage === "done" && summary && !summary.allPassed ? (
+      {/* A failure and a skip are different claims, so they do not share a banner. A failure says
+          the evidence contradicts itself and is worth an alert; a skip says this evidence cannot
+          settle that question, which is a note. */}
+      {stage === "done" && summary && summary.failed > 0 ? (
         <p className="verify-warning" role="alert">
-          Not every check passed. Each line below says what was compared, so you can look at the
-          same values yourself.
+          {summary.failed === 1 ? "One check failed" : `${summary.failed} checks failed`}. Each line
+          below says what was compared, so you can look at the same values yourself.
+        </p>
+      ) : null}
+
+      {stage === "done" && summary && summary.failed === 0 && summary.skipped > 0 ? (
+        <p className="verify-note">
+          Every check that could run passed.{" "}
+          {summary.skipped === 1 ? "One check" : `${summary.skipped} checks`} could not be settled
+          from this evidence, and each says below what would settle it.
         </p>
       ) : null}
 

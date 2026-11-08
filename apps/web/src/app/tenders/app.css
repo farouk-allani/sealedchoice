@@ -1696,6 +1696,17 @@
   font-weight: 500;
 }
 
+/* A skip is a note, not an alarm, so it reads at a calmer value than .verify-warning. */
+.verify-note {
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #ece9f2;
+  color: #40384f;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .verify-list {
   list-style: none;
   margin: 0;
