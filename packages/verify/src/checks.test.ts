@@ -316,6 +316,14 @@ describe("check 2: fixed before bidding", () => {
     expect(r.details).toContain("the contract recorded creation at");
   });
 
+  // Equality is not a contradiction: the contract does not forbid a bid in the creating block.
+  it("passes when creation and the first bid share a timestamp", () => {
+    const { evidence, artifact } = buildFixture();
+    const e = copy(evidence);
+    e.tender.created_at_ns = must(e.bids[0], "first bid").submitted_at_ns;
+    expect(byId(e, artifact, 2).pass).toBe(true);
+  });
+
   it("fails, not skips, when the recorded creation time is after the first bid", () => {
     const { evidence, artifact } = buildFixture();
     const e = copy(evidence);

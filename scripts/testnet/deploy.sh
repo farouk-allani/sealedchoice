@@ -9,6 +9,8 @@
 #   ./deploy.sh token      deploy + init the NEP-141 demo token, register the accounts
 #   ./deploy.sh contract   deploy + init the tender contract (first time only), then add_evaluator
 #   ./deploy.sh upgrade    deploy new code over an initialised contract, keeping its state
+#                          REFUSED by default since D-035: `Tender` gained `created_at_ns`,
+#                          so the current code cannot read tenders stored by the old build.
 #   ./deploy.sh evaluator  add_evaluator only (after a rebuild)
 #   ./deploy.sh show       read back what is deployed
 #
@@ -17,6 +19,13 @@ set -uo pipefail
 export MSYS_NO_PATHCONV=1
 
 NETWORK=${NETWORK:-testnet}
+# CLAUDE.md requires an explicit yes for any mainnet transaction, and every call below ends
+# in `sign-with-keychain send`, which sends immediately. The TS scripts enforce this in code
+# (scripts/lib/env.ts); this one had nothing, so a stray env var was a real deploy.
+if [ "$NETWORK" != "testnet" ] && [ "${CONFIRM:-}" != "1" ]; then
+  echo "refusing to touch $NETWORK without CONFIRM=1" >&2
+  exit 2
+fi
 PARENT=${PARENT:-sealedchoice.testnet}
 CONTRACT=${CONTRACT_ID:-tenders.sealedchoice.testnet}
 # Two of these defaults are set on a second line rather than with ${X:-default}: the secret
@@ -93,6 +102,18 @@ contract)
   ;;
 
 upgrade)
+  # Since D-035 this is a loaded gun pointed at the demo. `Tender` gained `created_at_ns`, and borsh
+  # reads fields positionally, so this build cannot deserialise a tender written by the deployed
+  # one: every `get_tender` would panic and tenders 1-4 would be unreadable for good, taking the
+  # landing page, /tenders, the verify page and `pnpm verify` with them. There is no undo short of
+  # redeploying the old code. T14 step 2 deploys the final contract to a FRESH account instead.
+  if [ "${ALLOW_STATE_BREAKING_UPGRADE:-}" != "1" ]; then
+    echo "refusing: Tender gained created_at_ns (D-035), so this build cannot read tenders stored" >&2
+    echo "by $CONTRACT. Upgrading it would make tenders 1-4 permanently unreadable." >&2
+    echo "Deploy to a fresh account instead (T14 step 2): CONTRACT_ID=v1.tenders.sealedchoice.testnet ./deploy.sh contract" >&2
+    echo "If you really mean to break that state, re-run with ALLOW_STATE_BREAKING_UPGRADE=1." >&2
+    exit 2
+  fi
   # `with-init-call new` on a contract that already holds state fails the whole transaction and
   # leaves the old code live - which is silent unless you compare code hashes afterwards. An
   # upgrade deploys the code alone and keeps `next_tender_id`, the tenders and the evaluators.

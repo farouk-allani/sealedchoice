@@ -8,8 +8,11 @@
  * Rules that apply throughout, all of them learned the hard way and recorded in PROGRESS:
  *   - received bytes are decoded with a fatal UTF-8 decoder, so invalid UTF-8 or a leading BOM is
  *     refused the way serde_json refuses it;
- *   - received JSON is parsed with `parseJson`, never `JSON.parse`, and hashed with
- *     `sha256OfCanonicalJson`, so a float or a duplicate key cannot slip through;
+ *   - the bundle, the one document a store could tamper with, goes through `parseJson` before zod
+ *     sees it, so a float, a duplicate key or over-deep nesting is refused rather than silently
+ *     normalised, and it is hashed with `sha256OfCanonicalJson`. The rubric and the stored result
+ *     use `JSON.parse`: both come from the contract, which already validated them, and the rubric
+ *     is hashed from its raw bytes and checked canonical by check 1 rather than from the parse;
  *   - a check that cannot reach a verdict is `skipped`, never a pass.
  */
 import { compactResultSchema, evidenceBundleSchema } from "@tender/shared";
@@ -157,7 +160,9 @@ function check2(c: Ctx): CheckResult {
   // is the right verdict.
   const createdAt = c.e.tender.created_at_ns;
   if (createdAt !== null && createdAt !== undefined) {
-    const pass = createdAt < firstBid;
+    // `<=`, not `<`: a bid in the creating block is not a contradiction, and the contract does not
+    // forbid one. Only a creation time strictly after the first bid is evidence of anything.
+    const pass = createdAt <= firstBid;
     const deltaMs = Number((pass ? firstBid - createdAt : createdAt - firstBid) / 1_000_000n);
     return ok(
       2,

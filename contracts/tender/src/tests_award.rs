@@ -309,6 +309,48 @@ fn i9_a_failed_payout_keeps_the_escrow_and_can_be_retried() {
     assert_eq!(c.get_tender(id).unwrap().status, Status::Paid);
 }
 
+/// The winner is paid, so the tender is `Paid`, and the escrow remainder that belongs to the buyer
+/// is sent straight after. If that transfer fails, `on_escrow_refund` books the tokens back as
+/// `escrowed` in a state no other method can move them out of. Before `Paid` joined the allowed
+/// states, this test's final `retry_escrow_refund` panicked `E_BAD_STATUS` and the remainder was
+/// stranded for good. The winner cannot be paid twice by it: the payout path needs `PayingOut`.
+#[test]
+fn a_failed_escrow_remainder_can_still_be_refunded_after_payout() {
+    let mut c = setup();
+    let id = awarded(&mut c);
+    call(VENDORS[0], NearToken::from_yoctonear(0), DEADLINE + 30);
+    c.accept_award(
+        id,
+        PayoutTarget::Near {
+            account: acc(VENDORS[0]),
+        },
+    );
+
+    // The winner takes less than the cap, so there is a remainder for the buyer.
+    let paid = CAP - 2_000_000_000;
+    let remainder = CAP - paid;
+    assert!(payout_result(&mut c, id, paid, true, DEADLINE + 40));
+    let t = c.get_tender(id).unwrap();
+    assert_eq!(t.status, Status::Paid);
+    // `refund_escrow` takes the balance before sending, so it reads 0 while the remainder is in
+    // flight. That is what makes a failed transfer recoverable only through the callback.
+    assert_eq!(t.escrowed, U128(0), "the remainder is in flight");
+
+    // That remainder refund fails, so the contract books it back and it is the buyer's again.
+    callback(DEADLINE + 41, PromiseResult::Failed);
+    assert!(!c.on_escrow_refund(id, U128(remainder)));
+    assert_eq!(c.get_tender(id).unwrap().escrowed, U128(remainder));
+
+    // Anyone may send it again, and it must leave the contract this time.
+    call(VENDORS[3], NearToken::from_yoctonear(0), DEADLINE + 50);
+    c.retry_escrow_refund(id);
+    assert_eq!(c.get_tender(id).unwrap().escrowed, U128(0));
+    callback(DEADLINE + 51, PromiseResult::Successful(vec![]));
+    assert!(c.on_escrow_refund(id, U128(remainder)));
+    assert_eq!(c.get_tender(id).unwrap().escrowed, U128(0));
+    assert_eq!(c.get_tender(id).unwrap().status, Status::Paid);
+}
+
 #[test]
 fn retry_payout_only_after_a_failure() {
     let mut c = setup();
