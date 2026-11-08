@@ -393,6 +393,14 @@ export default async function TenderPage({ params }: PageProps) {
               >
                 Committee
               </Link>
+              {tender.award !== null && (
+                <Link
+                  className="ui-button ui-button--quiet ui-button--medium"
+                  href={`/tenders/${tender.id}/award`}
+                >
+                  Award
+                </Link>
+              )}
             </>
           )}
         </div>

@@ -2062,3 +2062,8 @@
   font-size: 13px;
   font-weight: 500;
 }
+
+.award-account {
+  font-size: 15px;
+  word-break: break-all;
+}
