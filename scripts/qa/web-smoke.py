@@ -143,6 +143,10 @@ def main() -> int:
             page.locator("text=Connect wallet").count() == 1,
             "the list renders with no wallet connected",
         )
+        # Not a fixed number: every demo run adds a tender, and a count baked in here would start
+        # failing the next time one is created rather than when something actually broke.
+        all_tenders = page.locator(".tender-card").count()
+        check(all_tenders >= 3, f"the directory lists every tender on the contract ({all_tenders})")
         check(no_overflow(page), "the list does not overflow sideways at 1440")
         page.screenshot(path=str(OUT / "tenders-desktop.png"), full_page=True)
 
@@ -154,7 +158,7 @@ def main() -> int:
         page.get_by_label("Search tenders", exact=True).fill("no-matching-tender")
         check("No matching tenders" in page.inner_text("body"), "an empty search provides a reset action")
         page.get_by_role("button", name="Show all tenders").click()
-        check(page.locator(".tender-card").count() == 3, "reset restores the directory")
+        check(page.locator(".tender-card").count() == all_tenders, "reset restores the directory")
 
         print("/tenders/3")
         response = page.goto(f"{base}/tenders/3", wait_until="networkidle")
@@ -218,6 +222,71 @@ def main() -> int:
         check(page.get_by_label("Title", exact=False).input_value() == TENDER_3["title"], "moving back preserves the brief")
         check(page.get_by_role("button", name="Create tender", exact=True, include_hidden=True).is_disabled(), "publishing is disabled without a connected wallet and committee")
 
+        # --------------------------------------------------- T11: the three reader pages
+        # All three must be useful with no wallet: a reader who has not connected should be told
+        # exactly what connecting would get them, not shown a dead control or an error.
+        print("/tenders/3/verify")
+        response = page.goto(f"{base}/tenders/3/verify", wait_until="networkidle")
+        check(response is not None and response.status == 200, "the verify page answers 200")
+        page.wait_for_selector(".verify-item .verify-verdict", timeout=60_000)
+        page.wait_for_function(
+            "() => !document.querySelector('.verify-status')?.innerText.includes('...')",
+            timeout=120_000,
+        )
+        body = page.inner_text("body")
+        check("10 of 10 checks passed" in body, "the ten public checks all pass in the browser")
+        check(
+            page.locator(".verify-item.is-fail").count() == 0,
+            "no check reports a failure on a sound tender",
+        )
+        check(no_overflow(page), "the verify page does not overflow sideways at 1440")
+        page.screenshot(path=str(OUT / "t11-verify-desktop.png"), full_page=True)
+
+        print("/tenders/3/debrief")
+        response = page.goto(f"{base}/tenders/3/debrief", wait_until="networkidle")
+        check(response is not None and response.status == 200, "the debrief page answers 200")
+        body = page.inner_text("body")
+        check(TENDER_3["title"] in body, "the debrief page names the tender it belongs to")
+        check(
+            "only your wallet can derive" in body or "Connect the wallet" in body,
+            "the debrief page says whose key opens it",
+        )
+        check(no_overflow(page), "the debrief page does not overflow sideways at 1440")
+        page.screenshot(path=str(OUT / "t11-debrief-desktop.png"), full_page=True)
+
+        print("/tenders/3/committee")
+        response = page.goto(f"{base}/tenders/3/committee", wait_until="networkidle")
+        check(response is not None and response.status == 200, "the committee page answers 200")
+        body = page.inner_text("body")
+        check("Committee" in body, "the committee page renders")
+        check(
+            "Who wins is yours to decide" in body or "Connect the wallet of a committee member" in body,
+            "the committee page says what is code and what is theirs",
+        )
+        check(no_overflow(page), "the committee page does not overflow sideways at 1440")
+        page.screenshot(path=str(OUT / "t11-committee-desktop.png"), full_page=True)
+
+        print("/tenders/3/award")
+        response = page.goto(f"{base}/tenders/3/award", wait_until="networkidle")
+        check(response is not None and response.status == 200, "the award page answers 200")
+        body = page.inner_text("body")
+        check(TENDER_3["winner"] in body, "the award page names the winner from the chain")
+        check("Paid" in body, "the payout state comes from the chain")
+        check(
+            "Only " + TENDER_3["winner"] not in body,
+            "a settled award does not still offer acceptance",
+        )
+        check(no_overflow(page), "the award page does not overflow sideways at 1440")
+        page.screenshot(path=str(OUT / "t11-award-desktop.png"), full_page=True)
+
+        print("the tender page links to all four")
+        page.goto(f"{base}/tenders/3", wait_until="networkidle")
+        for name in ["Check this tender", "Your debrief", "Committee", "Award"]:
+            check(
+                page.get_by_role("link", name=name, exact=True).count() >= 1,
+                f"the tender page links to {name}",
+            )
+
         print("contrast, size and weight")
         page.goto(f"{base}/tenders/3", wait_until="networkidle")
         check_contrast(page, "tender page")
@@ -235,7 +304,14 @@ def main() -> int:
         context = browser.new_context(viewport=PHONE)
         page = context.new_page()
         page.on("pageerror", lambda e: errors.append(f"pageerror(mobile): {e}"))
-        for path, name in [("/tenders", "tenders"), ("/tenders/3", "tender-3"), ("/tenders/new", "tenders-new")]:
+        for path, name in [
+            ("/tenders", "tenders"),
+            ("/tenders/3", "tender-3"),
+            ("/tenders/new", "tenders-new"),
+            ("/tenders/3/debrief", "t11-debrief"),
+            ("/tenders/3/committee", "t11-committee"),
+            ("/tenders/3/award", "t11-award"),
+        ]:
             page.goto(f"{base}{path}", wait_until="networkidle")
             check(no_overflow(page), f"{path} does not overflow sideways at 390")
             page.screenshot(path=str(OUT / f"{name}-mobile.png"), full_page=True)

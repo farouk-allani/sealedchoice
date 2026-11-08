@@ -256,6 +256,9 @@
 .page-head-actions {
   display: flex;
   align-items: center;
+  /* Wraps because a tender with a result carries four actions, which do not fit a phone in one
+     row. Without this the page scrolls sideways at 390px. */
+  flex-wrap: wrap;
   gap: 12px;
   padding-bottom: 4px;
 }
