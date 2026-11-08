@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { DebriefError, explainFlags, loadEvidence, openDebrief, summarise } from "@tender/verify";
 import type { CheckResult, OpenedDebrief } from "@tender/verify";
 import { utf8ToBytes } from "@tender/crypto";
+import { formatBp } from "../../lib/tender/format.ts";
 import { CONTRACT_ID, NETWORK, RPC_URL } from "../../config/demo.ts";
 import { CHAIN } from "../../config/evidence.ts";
 import { deriveReaderKeyFromWallet } from "../../lib/wallet/reader-key.ts";
@@ -28,11 +29,6 @@ function verdict(r: CheckResult): { label: string; tone: string } {
   if (r.pass) return { label: "Pass", tone: "pass" };
   if (r.skipped) return { label: "Not checked", tone: "skip" };
   return { label: "Fail", tone: "fail" };
-}
-
-/** Basis points as a score out of 100, which is how the rest of the app shows a total. */
-function outOf100(bp: number): string {
-  return (bp / 100).toFixed(2);
 }
 
 export function DebriefPanel({ tenderId }: { tenderId: number }) {
@@ -196,7 +192,7 @@ function Result({ opened }: { opened: OpenedDebrief }) {
         </div>
         <div>
           <dt>Score</dt>
-          <dd>{outOf100(d.total_bp)}</dd>
+          <dd>{formatBp(d.total_bp)}</dd>
         </div>
         <div>
           <dt>Eligible</dt>
@@ -231,7 +227,7 @@ function Result({ opened }: { opened: OpenedDebrief }) {
             <li key={id} className="debrief-criterion">
               <div className="debrief-criterion-head">
                 <span className="verify-name">{id}</span>
-                <span className="debrief-bp">{outOf100(c.bp ?? 0)}</span>
+                <span className="debrief-bp">{formatBp(c.bp ?? 0)}</span>
               </div>
               {models.length > 0 ? (
                 <table className="debrief-models">

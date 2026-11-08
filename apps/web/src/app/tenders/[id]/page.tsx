@@ -387,6 +387,12 @@ export default async function TenderPage({ params }: PageProps) {
               >
                 Your debrief
               </Link>
+              <Link
+                className="ui-button ui-button--quiet ui-button--medium"
+                href={`/tenders/${tender.id}/committee`}
+              >
+                Committee
+              </Link>
             </>
           )}
         </div>
