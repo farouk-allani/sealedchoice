@@ -145,10 +145,35 @@ function check2(c: Ctx): CheckResult {
   if (bids.length === 0) {
     return skip(2, name, "no bids were submitted, so there is nothing to order the rubric against");
   }
-  // The contract has no creation timestamp in state, and finding the creating transaction needs an
-  // indexer. Often it does not need one: `create_tender` refuses a deadline closer than
-  // `min_deadline_delay_ns`, so creation happened at or before `deadline - min_delay`. If the first
-  // bid is later than that bound, the rubric provably existed before any bid was sealed.
+  const firstBid = bids
+    .map((b) => b.submitted_at_ns)
+    .reduce((min, ns) => (ns < min ? ns : min));
+  const links = c.e.codeHash
+    ? [{ label: `deployed code hash ${c.e.codeHash}`, href: `${c.e.explorerBase}/accounts/${c.e.contractId}` }]
+    : [];
+
+  // Preferred evidence: the contract records the creating block's timestamp, so the two events can
+  // simply be compared. Here a mis-ordering really is a contradiction in the evidence, and a FAIL
+  // is the right verdict.
+  const createdAt = c.e.tender.created_at_ns;
+  if (createdAt !== null && createdAt !== undefined) {
+    const pass = createdAt < firstBid;
+    const deltaMs = Number((pass ? firstBid - createdAt : createdAt - firstBid) / 1_000_000n);
+    return ok(
+      2,
+      name,
+      pass,
+      pass
+        ? `the contract recorded creation at ${createdAt}ns, which is ${deltaMs}ms before the first bid at ${firstBid}ns. The rubric is immutable after creation (I1) and the contract exposes no setter for it`
+        : `the contract recorded creation at ${createdAt}ns, which is ${deltaMs}ms after the first bid at ${firstBid}ns. A bid cannot predate the tender it was sealed against`,
+      links,
+    );
+  }
+
+  // Fallback, for tenders made by a contract deployed before D-035 added that field. Finding the
+  // creating transaction needs an indexer; often it does not need one, because `create_tender`
+  // refuses a deadline closer than `min_deadline_delay_ns`, so creation happened at or before
+  // `deadline - min_delay`. If the first bid is later than that bound, creation provably came first.
   //
   // That bound only settles the question when the first bid lands in the last `min_delay` of the
   // window. A bidder who bids early in a window longer than `min_delay` leaves the bound short of
@@ -158,19 +183,13 @@ function check2(c: Ctx): CheckResult {
   // this row asserts that a rubric changed after bidding opened, which the chain cannot show here,
   // and a row that cries wolf teaches a reader to skim past the rows that mean something.
   const latestPossibleCreation = c.e.tender.deadline_ns - c.e.minDeadlineDelayNs;
-  const firstBid = bids
-    .map((b) => b.submitted_at_ns)
-    .reduce((min, ns) => (ns < min ? ns : min));
   const minDelayS = c.e.minDeadlineDelayNs / 1_000_000_000n;
-  const links = c.e.codeHash
-    ? [{ label: `deployed code hash ${c.e.codeHash}`, href: `${c.e.explorerBase}/accounts/${c.e.contractId}` }]
-    : [];
   if (latestPossibleCreation >= firstBid) {
     const shortMs = Number((latestPossibleCreation - firstBid) / 1_000_000n);
     return skip(
       2,
       name,
-      `the chain alone cannot order creation against the first bid here. The contract refuses a deadline under ${minDelayS}s, which puts creation at or before ${latestPossibleCreation}ns, and the first bid came ${shortMs}ms earlier at ${firstBid}ns, so the bound stops short. This is not evidence of a changed rubric: the rubric is immutable after creation (I1) and the contract exposes no setter for it. To order them, read the creating transaction in an explorer`,
+      `this contract does not record a creation time, and the deadline rule alone cannot order creation against the first bid here. It refuses a deadline under ${minDelayS}s, which puts creation at or before ${latestPossibleCreation}ns, and the first bid came ${shortMs}ms earlier at ${firstBid}ns, so the bound stops short. This is not evidence of a changed rubric: the rubric is immutable after creation (I1) and the contract exposes no setter for it. To order them, read the creating transaction in an explorer`,
       links,
     );
   }

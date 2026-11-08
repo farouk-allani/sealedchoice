@@ -59,6 +59,7 @@ pub struct Tender {
     budget_cap: U128,                  // parsed from rubric
     approvals_required: u8,            // parsed from rubric.award_policy
     acceptance_window_ns: U64,         // parsed from rubric.award_policy
+    created_at_ns: U64,                // env::block_timestamp() of the creating call; immutable (I1)
     deadline_ns: U64,
     bond: NearToken,
     committee: Vec<CommitteeMember>,   // {account, report_pubkey}
@@ -103,7 +104,7 @@ Reader keys (committee `report_pubkey`, bid `debrief_pubkey`) and the tender key
 - `add_evaluator(EvaluatorRef)` — owner only. Append-only. Existing tenders keep their pinned copy.
 
 ### Buyer
-- `create_tender(rubric_json, deadline_ns, bond, committee, evaluator_index) -> u64` — payable. Committee 1–10 members, unique, report keys that are compressed secp256k1 points (I15); rubric checked as above (I14); `deadline_ns ≥ now + min_deadline_delay_ns` (`E_DEADLINE_TOO_SOON`). Attached NEAR pays:
+- `create_tender(rubric_json, deadline_ns, bond, committee, evaluator_index) -> u64` — payable. Committee 1–10 members, unique, report keys that are compressed secp256k1 points (I15); rubric checked as above (I14); `deadline_ns ≥ now + min_deadline_delay_ns` (`E_DEADLINE_TOO_SOON`). `now` is read once and stored as `created_at_ns`, so the recorded creation time and the deadline rule can never disagree; a verifier uses it to order creation against the first bid without an indexer (D-035). Attached NEAR pays:
   1. storage: the tender's own bytes plus `STORAGE_RESERVE_BYTES` (2,500) for what close and evaluation add later. Not refunded.
   2. the eval fee = the rest, split into `EXECUTIONS_BUDGETED` = 6 equal OutLayer deposits (`exec_deposit`: derive_pubkey and evaluate, up to 3 attempts each). Each deposit must be > 0 and cover OutLayer's input storage deposit (10^19 yocto per byte over 32 KiB) for the largest evaluate input this tender can produce: 5 maximum-size bids, this rubric, this committee (`E_EVAL_FEE_LOW`). The compute part is the client's job: it attaches 6 × `estimate_execution_cost` for the evaluate limits and that worst input length. Whatever is not spent goes back to the buyer when the tender ends; OutLayer refunds the unused part of each deposit to the buyer directly (`payer_account_id`).
 
@@ -156,7 +157,7 @@ Validation of the compact result (all must hold; each failure has its own `E_RES
 
 | Id | Invariant | Test |
 |---|---|---|
-| I1 | No method changes `rubric_json`, `rubric_hash`, `evaluator`, `committee`, `deadline_ns` or `bond` after creation | unit: there is no setter; integration: `update_rubric` does not exist, call fails. T03: `i1_method_list_has_no_setter_for_immutable_fields`, `i1_no_method_changes_the_fixed_fields` |
+| I1 | No method changes `rubric_json`, `rubric_hash`, `evaluator`, `committee`, `created_at_ns`, `deadline_ns` or `bond` after creation | unit: there is no setter; integration: `update_rubric` does not exist, call fails. T03: `i1_method_list_has_no_setter_for_immutable_fields`, `i1_no_method_changes_the_fixed_fields` (both compare the whole immutable tuple, `created_at_ns` included), `i1_creation_time_is_the_block_timestamp_and_precedes_every_bid` |
 | I2 | No bid accepted at or after the deadline | unit with mocked block timestamp. T03: `i2_no_bid_at_or_after_the_deadline`, `i2_bid_exactly_at_deadline_panics_with_code` |
 | I3 | No evaluation before the deadline | unit. T04: `i3_no_evaluation_before_the_deadline`, `i3_close_at_the_deadline_requests_attempt_one`; sandbox `i3_i4_happy_path_with_the_three_bid_vector` |
 | I4 | Bid set frozen at close: no submit/withdraw after; leaves/root match reference vectors | unit + `merkle.json` vectors. T04: `i4_merkle_leaves_and_roots_match_vectors`, `i4_bid_set_is_frozen_at_close`; sandbox `i3_i4_happy_path_with_the_three_bid_vector` |

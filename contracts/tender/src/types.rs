@@ -128,6 +128,14 @@ pub struct Tender {
     pub budget_cap: U128,
     pub approvals_required: u8,
     pub acceptance_window_ns: U64,
+    /// Block timestamp of the creating transaction. Immutable like the rest of the brief (I1).
+    ///
+    /// It is here so a verifier can order creation against the first bid directly, and so prove
+    /// the rubric existed before anyone sealed a bid against it. Without it the only evidence is
+    /// the deadline rule, which bounds creation at `deadline - min_deadline_delay_ns` and so
+    /// settles the question only when the first bid lands inside that last window. A bid earlier
+    /// than that leaves the bound short and the check can say nothing either way (D-035).
+    pub created_at_ns: U64,
     pub deadline_ns: U64,
     pub bond: NearToken,
     pub committee: Vec<CommitteeMember>,

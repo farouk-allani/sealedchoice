@@ -106,6 +106,8 @@ export const tenderSchema = z.object({
   budget_cap: decimalString,
   approvals_required: z.int().min(1),
   acceptance_window_ns: decimalString,
+  /** Optional: a contract deployed before D-035 does not record it. */
+  created_at_ns: decimalString.nullish(),
   deadline_ns: decimalString,
   bond: decimalString,
   committee: z.array(committeeMemberSchema),

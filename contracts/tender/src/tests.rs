@@ -1166,6 +1166,7 @@ type Immutable = (
     EvaluatorRef,
     Vec<CommitteeMember>,
     U64,
+    U64,
     NearToken,
 );
 
@@ -1176,6 +1177,7 @@ fn immutable(c: &Contract, id: u64) -> Immutable {
         t.rubric_hash,
         t.evaluator,
         t.committee,
+        t.created_at_ns,
         t.deadline_ns,
         t.bond,
     )
@@ -1219,6 +1221,55 @@ fn i1_no_method_changes_the_fixed_fields() {
     assert_eq!(
         c.get_tender(id).unwrap().evaluator.source_tag,
         "evaluator-v1.0.0"
+    );
+}
+
+/// The whole point of storing the creation time: a verifier can order it against the first bid
+/// without an indexer, and so show the rubric existed before anyone sealed a bid (D-035).
+#[test]
+fn i1_creation_time_is_the_block_timestamp_and_precedes_every_bid() {
+    let mut c = setup();
+    let id = open(&mut c);
+    let created = c.get_tender(id).unwrap().created_at_ns;
+    assert_eq!(
+        created,
+        U64(NOW),
+        "the recorded time is the creating block's"
+    );
+
+    // The same reading bounds the deadline, so the two can never disagree.
+    assert!(created.0.saturating_add(MIN_DELAY) <= DEADLINE);
+
+    bid(&mut c, id, VENDORS[0], 1, NOW + MINUTE);
+    bid(&mut c, id, VENDORS[1], 2, NOW + 2 * MINUTE);
+    for b in c.get_bids(id) {
+        assert!(
+            created.0 < b.submitted_at_ns.0,
+            "slot {} was sealed at {} ns, at or before creation at {} ns",
+            b.slot,
+            b.submitted_at_ns.0,
+            created.0
+        );
+    }
+}
+
+/// A bid one minute into an hour-long window is exactly the case the deadline bound cannot settle
+/// (D-035): `deadline - min_delay` lands 54 minutes *after* that bid. The stored time settles it.
+#[test]
+fn created_at_ns_orders_a_bid_the_deadline_bound_cannot() {
+    let mut c = setup();
+    let id = open(&mut c);
+    let t = c.get_tender(id).unwrap();
+    let first_bid = bid(&mut c, id, VENDORS[0], 1, NOW + MINUTE).submitted_at_ns;
+
+    let bound = t.deadline_ns.0 - MIN_DELAY;
+    assert!(
+        bound > first_bid.0,
+        "the bound must be the useless one here"
+    );
+    assert!(
+        t.created_at_ns.0 < first_bid.0,
+        "the stored time still orders them"
     );
 }
 
