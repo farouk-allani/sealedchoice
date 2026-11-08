@@ -283,7 +283,17 @@ impl Contract {
         require(
             matches!(
                 t.status,
-                Status::Cancelled | Status::NoBids | Status::Failed | Status::ClosedNoAward
+                Status::Cancelled
+                    | Status::NoBids
+                    | Status::Failed
+                    | Status::ClosedNoAward
+                    // `Paid` too: `on_payout` debits the winner's amount, sets `Paid` and then
+                    // refunds the remainder, so a failed remainder transfer (an unregistered
+                    // buyer, usually) books the tokens back as `escrowed` in a state nothing else
+                    // can move them out of. The winner is already paid and the payout path needs
+                    // `PayingOut`, so this cannot pay anyone twice (I9); what is left is the
+                    // buyer's.
+                    | Status::Paid
             ),
             "E_BAD_STATUS",
         );

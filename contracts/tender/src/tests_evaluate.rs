@@ -771,6 +771,7 @@ fn i1_fixed_fields_survive_close_failure_retry_and_acceptance() {
         t.rubric_hash,
         t.evaluator,
         t.committee,
+        t.created_at_ns,
         t.deadline_ns,
         t.bond,
     );
@@ -782,6 +783,7 @@ fn i1_fixed_fields_survive_close_failure_retry_and_acceptance() {
                 t.rubric_hash,
                 t.evaluator,
                 t.committee,
+                t.created_at_ns,
                 t.deadline_ns,
                 t.bond
             ),
