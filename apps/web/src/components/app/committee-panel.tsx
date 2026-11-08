@@ -132,6 +132,25 @@ export function CommitteePanel(props: CommitteePanelProps) {
     );
   }, [report, chosen, amountMinor, rationale, capMinor, props.lapsed]);
 
+  /**
+   * The contract's error codes in plain words. A raw panic string tells a reader nothing, and the
+   * one they are most likely to see is E_BAD_STATUS from sending the same decision twice, which is
+   * the contract refusing a duplicate rather than anything being wrong.
+   */
+  function explain(message: string): string {
+    const codes: [string, string][] = [
+      ["E_BAD_STATUS", "this tender is no longer waiting for a proposal, usually because one has already been recorded. Reload to see where it stands."],
+      ["E_NOT_COMMITTEE", "this account is not on the committee for this tender."],
+      ["E_BID_INELIGIBLE", "code refused that bid, and the contract will not award it whatever the committee decides."],
+      ["E_BID_LAPSED", "that bid was awarded before and the winner did not accept in time, so it cannot be awarded again."],
+      ["E_RATIONALE_REQUIRED", "awarding anything but the top eligible bid needs a rationale."],
+      ["E_BAD_AMOUNT", "the amount must be above zero and at most the budget cap."],
+      ["E_NO_SUCH_BID", "that bid is not in the accepted result."],
+    ];
+    const hit = codes.find(([code]) => message.includes(code));
+    return hit === undefined ? message : `${hit[0]}: ${hit[1]}`;
+  }
+
   async function send(method: "propose_award" | "approve_award" | "close_without_award") {
     setSending(true);
     setError(null);
@@ -152,7 +171,7 @@ export function CommitteePanel(props: CommitteePanelProps) {
       });
       setSent({ what: method, hash: out.hash });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(explain(e instanceof Error ? e.message : String(e)));
     } finally {
       setSending(false);
     }
@@ -201,8 +220,14 @@ export function CommitteePanel(props: CommitteePanelProps) {
           <a href={`${EXPLORER}/txns/${sent.hash}`} target="_blank" rel="noreferrer noopener">
             {sent.hash.slice(0, 10)}...
           </a>{" "}
-          Reload to see the new state of this tender.
+          This page now shows what was true before that, so reload before deciding anything else.
         </p>
+      ) : null}
+
+      {stage === "open" && error !== null ? (
+        <div className="verify-warning" role="alert">
+          The chain refused that: {error}
+        </div>
       ) : null}
 
       {report ? (
@@ -272,7 +297,9 @@ export function CommitteePanel(props: CommitteePanelProps) {
                   <Button
                     onClick={() => void send("propose_award")}
                     loading={sending}
-                    disabled={sending || chosen === null || check === null || check.errors.length > 0}
+                    disabled={
+                      sending || sent !== null || chosen === null || check === null || check.errors.length > 0
+                    }
                   >
                     Propose this award
                   </Button>
@@ -280,7 +307,7 @@ export function CommitteePanel(props: CommitteePanelProps) {
                     variant="secondary"
                     onClick={() => void send("close_without_award")}
                     loading={sending}
-                    disabled={sending || [...rationale].length < MIN_DEVIATION_RATIONALE_CHARS}
+                    disabled={sending || sent !== null || [...rationale].length < MIN_DEVIATION_RATIONALE_CHARS}
                   >
                     Close without awarding
                   </Button>
@@ -303,7 +330,7 @@ export function CommitteePanel(props: CommitteePanelProps) {
                 {props.pending.approvals.length} of {props.approvalsRequired} approval(s):{" "}
                 {props.pending.approvals.join(", ") || "none yet"}.
               </p>
-              <Button onClick={() => void send("approve_award")} loading={sending} disabled={sending}>
+              <Button onClick={() => void send("approve_award")} loading={sending} disabled={sending || sent !== null}>
                 Approve this proposal
               </Button>
             </>
