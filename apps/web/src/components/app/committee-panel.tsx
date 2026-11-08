@@ -14,7 +14,7 @@ import { CONTRACT_ID, NETWORK, RPC_URL, TOKEN_DECIMALS, TOKEN_SYMBOL } from "../
 import { CHAIN } from "../../config/evidence.ts";
 import { deriveReaderKeyFromWallet } from "../../lib/wallet/reader-key.ts";
 import { TGAS, useWallet } from "../../lib/wallet/wallet-provider.tsx";
-import { formatBp, formatUnits, unitsToMinor } from "../../lib/tender/format.ts";
+import { formatBp, formatUnits, plainUnits, unitsToMinor } from "../../lib/tender/format.ts";
 import { Button } from "../ui/button.tsx";
 import { TextAreaField, TextField } from "../ui/field.tsx";
 
@@ -316,13 +316,13 @@ export function CommitteePanel(props: CommitteePanelProps) {
 
 /** A bid's own asking price, which is what an award is normally for. */
 function defaultAmount(report: CommitteeReport, bidIndex: number | null, override?: string): string {
-  if (override !== undefined) return formatUnits(override, TOKEN_DECIMALS);
+  if (override !== undefined) return plainUnits(override, TOKEN_DECIMALS);
   if (bidIndex === null) return "";
   const bid = report.bids.find((b) => b.bidIndex === bidIndex);
   const price = bid?.proposal?.["price_minor"];
   if (typeof price !== "string") return "";
   try {
-    return formatUnits(price, TOKEN_DECIMALS);
+    return plainUnits(price, TOKEN_DECIMALS);
   } catch {
     return "";
   }
