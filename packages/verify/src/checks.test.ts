@@ -290,11 +290,40 @@ describe("check 1: the rubric", () => {
 });
 
 describe("check 2: fixed before bidding", () => {
-  it("passes when the first bid is later than the earliest possible creation", () => {
+  // The fixture carries no `created_at_ns`, which is what a tender from a contract deployed before
+  // D-035 looks like. These first tests therefore exercise the deadline-bound fallback, and say so
+  // rather than relying on the fixture staying that way.
+  it("passes on the deadline bound alone when the first bid is later than it", () => {
     const { evidence, artifact } = buildFixture();
-    const r = byId(evidence, artifact, 2);
+    const e = copy(evidence);
+    e.tender.created_at_ns = null;
+    const r = byId(e, artifact, 2);
     expect(r.pass).toBe(true);
     expect(r.skipped).toBeFalsy();
+    expect(r.details).toContain("refuses a deadline under");
+  });
+
+  // A contract that records `created_at_ns` (D-035) turns this row into a plain comparison, so it
+  // reaches a verdict on every tender instead of only the ones the deadline bound happens to settle.
+  it("uses the recorded creation time in preference to the deadline bound", () => {
+    const { evidence, artifact } = buildFixture();
+    const e = copy(evidence);
+    // The bound alone could not settle this one: the bid lands long before `deadline - min_delay`.
+    must(e.bids[0], "first bid").submitted_at_ns = e.tender.deadline_ns - e.minDeadlineDelayNs - 1n;
+    e.tender.created_at_ns = must(e.bids[0], "first bid").submitted_at_ns - 1_000_000_000n;
+    const r = byId(e, artifact, 2);
+    expect(r.pass).toBe(true);
+    expect(r.details).toContain("the contract recorded creation at");
+  });
+
+  it("fails, not skips, when the recorded creation time is after the first bid", () => {
+    const { evidence, artifact } = buildFixture();
+    const e = copy(evidence);
+    e.tender.created_at_ns = must(e.bids[0], "first bid").submitted_at_ns + 1n;
+    const r = byId(e, artifact, 2);
+    expect(r.pass).toBe(false);
+    expect(r.skipped).toBeFalsy();
+    expect(r.details).toContain("A bid cannot predate the tender");
   });
 
   // A bid early in a window longer than `min_deadline_delay_ns` leaves the deadline bound short of
@@ -304,6 +333,7 @@ describe("check 2: fixed before bidding", () => {
   it("is skipped, not failed, when a bid predates the earliest possible creation", () => {
     const { evidence, artifact } = buildFixture();
     const e = copy(evidence);
+    e.tender.created_at_ns = null;
     must(e.bids[0], "first bid").submitted_at_ns = e.tender.deadline_ns - e.minDeadlineDelayNs - 1n;
     const r = byId(e, artifact, 2);
     expect(r.skipped).toBe(true);

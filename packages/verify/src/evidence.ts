@@ -35,6 +35,11 @@ export const tenderViewSchema = z
     buyer: z.string(),
     rubric_json: z.string(),
     rubric_hash: hash64,
+    /**
+     * Optional: contracts deployed before D-035 do not store it, and the verifier must keep
+     * reading those tenders. Check 2 falls back to the deadline bound when it is absent.
+     */
+    created_at_ns: u64.nullish(),
     deadline_ns: u64,
     status: z.string(),
     evaluator: evaluatorRefSchema,

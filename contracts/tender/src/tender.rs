@@ -51,7 +51,10 @@ impl Contract {
         }
         let parsed = parse_rubric(&rubric_json, committee.len()).unwrap_or_else(|code| fail(code));
         let worst_input = worst_eval_input_bytes(&rubric_json, &committee);
-        let min_deadline = now_ns().saturating_add(self.min_deadline_delay_ns);
+        // One reading of the clock for both the deadline rule and the recorded creation time, so
+        // the two can never disagree about when this tender was made.
+        let created_at_ns = now_ns();
+        let min_deadline = created_at_ns.saturating_add(self.min_deadline_delay_ns);
         require(deadline_ns.0 >= min_deadline, "E_DEADLINE_TOO_SOON");
         let evaluator = self
             .evaluators
@@ -72,6 +75,7 @@ impl Contract {
                 budget_cap: U128(parsed.budget_cap),
                 approvals_required: parsed.approvals_required,
                 acceptance_window_ns: U64(parsed.acceptance_window_ns),
+                created_at_ns: U64(created_at_ns),
                 deadline_ns,
                 bond,
                 committee,
