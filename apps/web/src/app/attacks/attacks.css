@@ -1,0 +1,16 @@
+.attack-context { max-width: 85ch; margin: 24px 0; color: var(--app-muted); }
+.attack-records { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.attack-records .panel { margin: 0; min-width: 0; }
+.attack-record-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.attack-records h2 { font-size: 21px; font-weight: 600; line-height: 1.3; margin-bottom: 12px; }
+.attack-records p, .attack-live p { margin-bottom: 16px; }
+.attack-facts { display: grid; gap: 8px; margin-top: 20px; }
+.attack-facts dt { color: var(--app-muted); font-size: 13px; font-weight: 600; }
+.attack-facts dd { overflow-wrap: anywhere; }
+.attack-facts code { font-size: 13px; font-weight: 500; }
+.attack-links { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 20px; }
+.attack-live { margin-top: 24px; }
+.attack-live .ui-field { max-width: 320px; }
+.attack-replay-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
+.attack-live > a { overflow-wrap: anywhere; }
+@media (max-width: 760px) { .attack-records { grid-template-columns: minmax(0, 1fr); } }

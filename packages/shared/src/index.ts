@@ -1,4 +1,6 @@
 export { BRAND } from "./brand.ts";
+export { attackMethodSchema, attackRecordSchema, attackReportSchema, matchesAttackRefusal } from "./attacks.ts";
+export type { AttackRecord, AttackReport } from "./attacks.ts";
 export type { Brand } from "./brand.ts";
 export { ALL_FLAGS_MASK, FLAG_NAMES, FLAGS, decodeFlags, encodeFlags } from "./flags.ts";
 export type { FlagInfo, FlagName } from "./flags.ts";
