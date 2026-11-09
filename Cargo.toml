@@ -1,5 +1,8 @@
 [workspace]
 resolver = "3"
+# OutLayer's reproducible builder runs bare `cargo build` at the repository root.
+# Contract builds select their manifest; checks use `--workspace` explicitly.
+default-members = ["evaluator/wasm"]
 members = [
     "contracts/tender",
     "contracts/mock-outlayer",
