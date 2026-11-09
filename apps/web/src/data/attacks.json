@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "network": "testnet",
+  "contract_id": "tenders.sealedchoice.testnet",
+  "tender_id": 6,
+  "recorded_at": "2026-11-09T09:47:51.524Z",
+  "complete": true,
+  "setup": {
+    "create": "AVUSCdJbQuTFWcuTf68gQaN24Mv5jefjV96TdaC6isfM",
+    "fund": "Eq4a6HNR9b3dXjpxQKsJCarzVd4CnQBoaaTVq2xF3yc4",
+    "bid_0": "5H7yEaBVwVPx4R2MQBBXUJWhT5yrsGDwHW4a6s1Puvjb",
+    "bid_1": "Eas96h8Q63QBvxY2Z1B7DndaFUPzMkKwNa2b2AwxyRnU",
+    "bid_2": "Gvp9qZpZhcvifNoZ6UJxyZk7VahvqhqD1rZy3F3NYGQA",
+    "peek": "HJkUxseAWSWS5XNcMrSkn4K5kJxswj6Zvi5m21g7Y22s",
+    "evaluate": "5GduiDprc4VrrzXmFHbvoKwf9FTFCeBWTQ73hcmnmvG4",
+    "award": "D1Nfq9cf5XVgKhte4CWH8F7BWfVKC9nQUoo2gwXiUwin",
+    "pay": "19iR4fe7Ut1QML8zwjA8MPSY3uZi56FZpqKJHHNZGMe"
+  },
+  "records": [
+    {
+      "id": 1,
+      "title": "Read bids through a direct request",
+      "detail": "OutLayer refused the caller's access to the evaluator's secret row. The guest did not run.",
+      "layer": "outlayer",
+      "outcome": "Access denied",
+      "signer": "attacker.sealedchoice.testnet",
+      "tx_hash": "HJkUxseAWSWS5XNcMrSkn4K5kJxswj6Zvi5m21g7Y22s",
+      "request_id": 14576
+    },
+    {
+      "id": 3,
+      "title": "Change the published rubric",
+      "detail": "The deployed contract exports no rubric setter.",
+      "layer": "runtime",
+      "outcome": "MethodNotFound",
+      "signer": "buyer.sealedchoice.testnet",
+      "tx_hash": "8Yzd4RfJ9a7JoDuRhN5NjVfiGSMHJDfxeCDwwV7otYvD",
+      "method": "update_rubric"
+    },
+    {
+      "id": 4,
+      "title": "Close before the deadline",
+      "detail": "The open tender stayed open before its published deadline.",
+      "layer": "contract",
+      "outcome": "E_DEADLINE_NOT_REACHED",
+      "signer": "attacker.sealedchoice.testnet",
+      "tx_hash": "FC2sg2RKXFjvQfG7L925WdLojcCsRHTUysUeyTh2c9wx",
+      "method": "close_and_evaluate"
+    },
+    {
+      "id": 5,
+      "title": "Copy a sealed bid",
+      "detail": "An identical ciphertext submitted from another account was refused before evaluation.",
+      "layer": "contract",
+      "outcome": "E_DUPLICATE_CIPHERTEXT",
+      "signer": "attacker.sealedchoice.testnet",
+      "tx_hash": "4T5uL5xxHPyaGqkEaWcoEXkuUAmXBVSWtdeSqoC9S6ZC",
+      "method": "submit_bid"
+    },
+    {
+      "id": 6,
+      "title": "Deliver a fake evaluation",
+      "detail": "The callback refuses external callers before reading a result.",
+      "layer": "runtime",
+      "outcome": "Private callback",
+      "signer": "attacker.sealedchoice.testnet",
+      "tx_hash": "4YSNR64TUjo5fDKTMHTFNo75xFQCaJwDYUDxHLYpL52A",
+      "method": "on_evaluate"
+    },
+    {
+      "id": 7,
+      "title": "Evaluate a second time",
+      "detail": "A second evaluation was refused after the accepted result. This method uses E_BAD_STATUS.",
+      "layer": "contract",
+      "outcome": "E_BAD_STATUS",
+      "signer": "attacker.sealedchoice.testnet",
+      "tx_hash": "5D7YAHVrKvkwxXQnKbDcBFf3peXuKA9miPxJr2ZUxJ4",
+      "method": "retry_evaluate"
+    },
+    {
+      "id": 8,
+      "title": "Award as an outsider",
+      "detail": "The signer is outside the published committee.",
+      "layer": "contract",
+      "outcome": "E_NOT_COMMITTEE",
+      "signer": "attacker.sealedchoice.testnet",
+      "tx_hash": "451guENg5bf9HJuXGduHDV6W9RZjssA3CQRLe8mghE9n",
+      "method": "propose_award",
+      "bid_index": 0
+    },
+    {
+      "id": 9,
+      "title": "Deviate without a rationale",
+      "detail": "A real committee member tried to select an eligible bid below the first ranked bid with an empty rationale.",
+      "layer": "contract",
+      "outcome": "E_RATIONALE_REQUIRED",
+      "signer": "buyer.sealedchoice.testnet",
+      "tx_hash": "7Tf2JUoWZHpbiGBGpUcgzuf6MRAtZpfcRchf9nFvCSRY",
+      "method": "propose_award",
+      "bid_index": 2
+    },
+    {
+      "id": 10,
+      "title": "Accept and redirect another bidder's award",
+      "detail": "The attacker requested a transfer to their own account. Only the awarded bidder may accept.",
+      "layer": "contract",
+      "outcome": "E_NOT_WINNER",
+      "signer": "attacker.sealedchoice.testnet",
+      "tx_hash": "EyYbN1GH7gEMVvGLxH3EBj6vx9qdrThuVyizR5drsp3L",
+      "method": "accept_award"
+    },
+    {
+      "id": 11,
+      "title": "Inject instructions into a proposal",
+      "detail": "Vendor C's published example was flagged. Its actual total was 5200 basis points, rank 2 of 3. A flag does not prove that every model resisted the text.",
+      "layer": "evaluator",
+      "outcome": "INJECTION_SUSPECTED",
+      "signer": "vendor-c.sealedchoice.testnet",
+      "tx_hash": "5GduiDprc4VrrzXmFHbvoKwf9FTFCeBWTQ73hcmnmvG4",
+      "request_id": 14579
+    }
+  ]
+}

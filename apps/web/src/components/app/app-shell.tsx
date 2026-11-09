@@ -97,6 +97,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 Create<span className="app-nav-label"> tender</span>
               </Link>
+              <Link href="/attacks" aria-current={pathname === "/attacks" ? "page" : undefined}>
+                Attacks
+              </Link>
             </nav>
           </div>
           <div className="app-header-right ui-paper">

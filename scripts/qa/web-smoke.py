@@ -288,6 +288,23 @@ def main() -> int:
             )
 
         print("contrast, size and weight")
+        print("/attacks, recorded evidence without a wallet")
+        response = page.goto(f"{base}/attacks", wait_until="networkidle")
+        check(response is not None and response.status == 200, "attack evidence answers 200")
+        check(page.locator(".attack-records > li").count() == 10, "all ten measured attempts render")
+        body = page.inner_text("body")
+        for expected in ["E_DUPLICATE_CIPHERTEXT", "E_NOT_WINNER", "E_RATIONALE_REQUIRED", "INJECTION_SUSPECTED", "14576", "14579"]:
+            check(expected in body, f"attack evidence includes {expected}")
+        check(page.locator('.attack-records a[href*="/txns/"]').count() == 10, "each measured attempt links to its transaction")
+        buttons = page.get_by_role("button", name="Run again:")
+        check(buttons.count() == 8 and all(button.is_disabled() for button in buttons.all()), "eight contract replays require a connected wallet")
+        page.get_by_label("Testnet tender number").fill("6")
+        page.keyboard.press("Tab")
+        check(page.evaluate("document.activeElement.matches(':focus-visible')"), "attack page keyboard navigation exposes a visible focus target")
+        check_contrast(page, "attack page")
+        check(no_overflow(page), "attack evidence does not overflow on desktop")
+        page.evaluate("window.scrollTo(0, 0)")
+        page.screenshot(path=str(OUT / "attacks-desktop.png"), full_page=True)
         page.goto(f"{base}/tenders/3", wait_until="networkidle")
         check_contrast(page, "tender page")
         page.goto(f"{base}/tenders/new", wait_until="networkidle")
@@ -311,6 +328,7 @@ def main() -> int:
             ("/tenders/3/debrief", "t11-debrief"),
             ("/tenders/3/committee", "t11-committee"),
             ("/tenders/3/award", "t11-award"),
+            ("/attacks", "attacks"),
         ]:
             page.goto(f"{base}{path}", wait_until="networkidle")
             check(no_overflow(page), f"{path} does not overflow sideways at 390")
@@ -321,6 +339,12 @@ def main() -> int:
             for line in errors[:10]:
                 print(f"      {line}")
 
+        context.close()
+        context = browser.new_context(viewport=PHONE, java_script_enabled=False)
+        page = context.new_page()
+        page.goto(f"{base}/attacks", wait_until="networkidle")
+        check(page.locator(".attack-records > li").count() == 10, "recorded attack evidence works with JavaScript disabled")
+        check(no_overflow(page), "attack evidence has no overflow without JavaScript")
         browser.close()
 
     passed = sum(1 for ok, _ in checks if ok)

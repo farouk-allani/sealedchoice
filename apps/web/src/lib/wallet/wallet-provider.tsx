@@ -18,6 +18,7 @@ import {
 } from "react";
 import type { NearConnector } from "@hot-labs/near-connect";
 import { NETWORK } from "../../config/demo.ts";
+import { WalletTransactionError } from "./transaction-error.ts";
 
 export interface SignedMessage {
   accountId: string;
@@ -65,14 +66,12 @@ export interface SentTransaction {
  * there too, and a wallet that reports it as success would otherwise look like an empty return,
  * so a Failure is raised rather than swallowed.
  */
-function decodeReturnValue(outcome: unknown): unknown {
+function decodeReturnValue(outcome: unknown, hash: string): unknown {
   const status = (
     outcome as { status?: { SuccessValue?: string; Failure?: unknown } }
   ).status;
   if (status?.Failure !== undefined) {
-    throw new Error(
-      `the transaction failed: ${JSON.stringify(status.Failure).slice(0, 300)}`,
-    );
+    throw new WalletTransactionError(hash, status.Failure);
   }
   const raw = status?.SuccessValue;
   if (!raw) return null;
@@ -219,7 +218,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         (outcome as { transaction_outcome?: { id?: string } })
           .transaction_outcome?.id;
       if (!hash) throw new Error("the wallet returned no transaction hash");
-      return { hash, result: decodeReturnValue(outcome) };
+      return { hash, result: decodeReturnValue(outcome, hash) };
     },
     [getConnector],
   );
