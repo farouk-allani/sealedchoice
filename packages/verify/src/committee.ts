@@ -22,6 +22,7 @@ import {
 } from "@tender/crypto";
 import { FLAG } from "./scoring.ts";
 import type { Evidence } from "./evidence.ts";
+import { requireBundleCommitment } from "./bundle-commitment.ts";
 
 export class CommitteeError extends Error {
   override name = "CommitteeError";
@@ -67,6 +68,7 @@ export async function openCommitteeReport(o: OpenCommitteeOptions): Promise<Comm
   if (e.bundle === null) {
     throw new CommitteeError("the evidence bundle for this tender could not be fetched");
   }
+  requireBundleCommitment(e.bundle.bytes, e.resultText, CommitteeError);
   let bundle: ReturnType<typeof evidenceBundleSchema.parse>;
   try {
     bundle = evidenceBundleSchema.parse(JSON.parse(new TextDecoder().decode(e.bundle.bytes)));

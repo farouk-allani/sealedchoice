@@ -52,6 +52,15 @@ only on a FAIL.
 
 ## Bidder checks (`/tenders/<id>/debrief`, in the browser)
 
+Before either the bidder or committee reader parses or decrypts a bundle,
+it validates the accepted compact result and compares SHA-256 of the exact
+fetched bytes to that result's `bundle` field. A missing/malformed result or
+different digest refuses the open. An ETag or matching internal plaintext
+hash cannot replace this check: anyone can encrypt a new envelope to a
+registered public reader key. Encryption alone does not identify its author.
+Both openers share this boundary (`packages/verify/src/bundle-commitment.ts`);
+`report-open.test.ts` covers authentic opens and correctly encrypted replacements.
+
 1. Re-derive the debrief key with the wallet (05-crypto-and-keys.md), decrypt the envelope, check `sha256(plaintext) == plaintext_sha256`.
 2. My leaf is in the frozen set (Merkle proof against `root`).
 3. For each of my raw model calls: `sha256(request bytes)` and `sha256(response bytes)` equal the signed hashes in the public bundle. My proposal text appears in the request.

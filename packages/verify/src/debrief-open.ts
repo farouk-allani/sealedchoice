@@ -5,12 +5,13 @@
  * and so the debrief page and any script open an envelope exactly the same way. The caller's only
  * job is to get a reader key from the wallet and hand over the evidence it already fetched.
  */
-import { compactResultSchema, debriefSchema, evidenceBundleSchema, rubricSchema } from "@tender/shared";
+import { debriefSchema, evidenceBundleSchema, rubricSchema } from "@tender/shared";
 import type { Debrief } from "@tender/shared";
 import { bytesToHex, eciesDecrypt, fromBase64, publicKeyCompressed } from "@tender/crypto";
 import { runDebriefChecks } from "./debrief.ts";
 import type { DebriefEvidence, FrozenBid } from "./debrief.ts";
 import type { CheckResult, Evidence } from "./evidence.ts";
+import { requireBundleCommitment } from "./bundle-commitment.ts";
 
 export class DebriefError extends Error {
   override name = "DebriefError";
@@ -53,6 +54,7 @@ export function openDebrief(o: OpenDebriefOptions): OpenedDebrief {
   if (e.frozen === null) {
     throw new DebriefError("this tender has not been closed yet, so no debriefs exist");
   }
+  const result = requireBundleCommitment(e.bundle.bytes, e.resultText, DebriefError);
 
   let bundle: ReturnType<typeof evidenceBundleSchema.parse>;
   try {
@@ -95,13 +97,6 @@ export function openDebrief(o: OpenDebriefOptions): OpenedDebrief {
     throw new DebriefError(`the tender's rubric did not parse: ${String(err).slice(0, 140)}`);
   }
 
-  let ranking: readonly (readonly number[])[];
-  try {
-    ranking = compactResultSchema.parse(JSON.parse(e.resultText ?? "")).rk;
-  } catch {
-    throw new DebriefError("the contract has stored no accepted result for this tender yet");
-  }
-
   const frozen = frozenBids(e);
   const input: DebriefEvidence = {
     debrief,
@@ -111,7 +106,7 @@ export function openDebrief(o: OpenDebriefOptions): OpenedDebrief {
     rubric,
     frozen,
     frozenRoot: e.frozen.root,
-    ranking,
+    ranking: result.rk,
     proposalPlaintext: o.proposalPlaintext,
   };
   return { debrief, results: runDebriefChecks(input), input, bidIndex: debrief.bid_index };

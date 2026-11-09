@@ -100,7 +100,7 @@ function check1(e: DebriefEvidence): CheckResult {
     name,
     pass,
     pass
-      ? `the bytes that came out of your envelope hash to ${short(got)}, the plaintext_sha256 the bundle published for bid ${e.debrief.bid_index}. Only your key opens that envelope, so nobody could have handed you a different debrief`
+      ? `the bytes that came out of your envelope hash to ${short(got)}, the plaintext_sha256 the bundle published for bid ${e.debrief.bid_index}. That published hash is authenticated by checking the bundle against the contract's accepted result before opening`
       : `the decrypted bytes hash to ${short(got)}, but the bundle published ${short(e.envelopeSha256)} for this envelope`,
   );
 }
