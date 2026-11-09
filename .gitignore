@@ -2,7 +2,7 @@
 .env
 .env.*
 !.env.example
-submission/
+/submission/
 keys/
 *.pem
 **/credentials*.json
