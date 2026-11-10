@@ -1,5 +1,5 @@
 import { LIMITS } from "../../content/landing.ts";
-import { PRIOR_RUNS } from "../../config/evidence.ts";
+import { EARLIER_CONTRACT_ID, PRIOR_RUNS } from "../../config/evidence.ts";
 
 export function Limits() {
   return (
@@ -39,11 +39,11 @@ export function Limits() {
                   {index === 0 && (
                     <div className="run-comparison">
                       <div className="run-comparison-title">
-                        BID A / THREE RECORDED RUNS
+                        BID A / THREE EARLIER RUNS
                       </div>
                       {PRIOR_RUNS.map((run) => (
                         <div key={run.tender}>
-                          <span>Tender {run.tender}</span>
+                          <span>Earlier tender {run.tender}</span>
                           <div className="run-bar">
                             <i style={{ width: `${run.scores[0]! / 100}%` }} />
                           </div>
@@ -53,7 +53,7 @@ export function Limits() {
                           </strong>
                         </div>
                       ))}
-                      <p>Same rubric and bid text. Temperature 0, seed 1.</p>
+                      <p>Earlier contract: {EARLIER_CONTRACT_ID}. Same rubric and bid text. Temperature 0, seed 1.</p>
                     </div>
                   )}
                 </div>

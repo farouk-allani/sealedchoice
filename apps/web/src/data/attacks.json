@@ -1,20 +1,20 @@
 {
   "version": 1,
   "network": "testnet",
-  "contract_id": "tenders.sealedchoice.testnet",
-  "tender_id": 6,
-  "recorded_at": "2026-11-09T09:47:51.524Z",
+  "contract_id": "tenders-v1.sealedchoice.testnet",
+  "tender_id": 3,
+  "recorded_at": "2026-11-10T09:03:39.805Z",
   "complete": true,
   "setup": {
-    "create": "AVUSCdJbQuTFWcuTf68gQaN24Mv5jefjV96TdaC6isfM",
-    "fund": "Eq4a6HNR9b3dXjpxQKsJCarzVd4CnQBoaaTVq2xF3yc4",
-    "bid_0": "5H7yEaBVwVPx4R2MQBBXUJWhT5yrsGDwHW4a6s1Puvjb",
-    "bid_1": "Eas96h8Q63QBvxY2Z1B7DndaFUPzMkKwNa2b2AwxyRnU",
-    "bid_2": "Gvp9qZpZhcvifNoZ6UJxyZk7VahvqhqD1rZy3F3NYGQA",
-    "peek": "HJkUxseAWSWS5XNcMrSkn4K5kJxswj6Zvi5m21g7Y22s",
-    "evaluate": "5GduiDprc4VrrzXmFHbvoKwf9FTFCeBWTQ73hcmnmvG4",
-    "award": "D1Nfq9cf5XVgKhte4CWH8F7BWfVKC9nQUoo2gwXiUwin",
-    "pay": "19iR4fe7Ut1QML8zwjA8MPSY3uZi56FZpqKJHHNZGMe"
+    "create": "BoKgKAMDupWNsFPAyzXDChEdL4K8oAVC5Lj4BVH9rURA",
+    "fund": "7N2nhgtbk6W8TeU1xXJgxajBTrYmkgMGBJYiXR4o6gL8",
+    "bid_0": "12NDM3J7xmnemn1ho264NKQ5GY94zngRDeGwMq7bu1UM",
+    "bid_1": "5AkXDsp9Vji2PeAPqpcEjAyGVA4txVkzL8qXnWvQN1dW",
+    "bid_2": "2XtVqMVRGsd7hXWZAq5CG21n8srjFfwNsF8JUhHQLuUb",
+    "peek": "HSuJU5SMZQiedf3FB1NMCWDtFpLs5YMoQpuSwmAuuVGn",
+    "evaluate": "E1uqsogvgd3wKYK3Hhtm4eBEzfMRRh4NinKTFYwbaW5N",
+    "award": "Haiz7GkRx4FsaEUjZS6E3mZfN8WFusd9fbp667ZEG3f",
+    "pay": "7cfjE6Na3wKtgpEZui46ZmBYkhL46eqxyPxVwgCKh2XG"
   },
   "records": [
     {
@@ -24,8 +24,8 @@
       "layer": "outlayer",
       "outcome": "Access denied",
       "signer": "attacker.sealedchoice.testnet",
-      "tx_hash": "HJkUxseAWSWS5XNcMrSkn4K5kJxswj6Zvi5m21g7Y22s",
-      "request_id": 14576
+      "tx_hash": "HSuJU5SMZQiedf3FB1NMCWDtFpLs5YMoQpuSwmAuuVGn",
+      "request_id": 15559
     },
     {
       "id": 3,
@@ -34,7 +34,7 @@
       "layer": "runtime",
       "outcome": "MethodNotFound",
       "signer": "buyer.sealedchoice.testnet",
-      "tx_hash": "8Yzd4RfJ9a7JoDuRhN5NjVfiGSMHJDfxeCDwwV7otYvD",
+      "tx_hash": "95r9z2AuNW33Q7iVDvxbHnzy2PGcUt35mvz84jCtsN25",
       "method": "update_rubric"
     },
     {
@@ -44,7 +44,7 @@
       "layer": "contract",
       "outcome": "E_DEADLINE_NOT_REACHED",
       "signer": "attacker.sealedchoice.testnet",
-      "tx_hash": "FC2sg2RKXFjvQfG7L925WdLojcCsRHTUysUeyTh2c9wx",
+      "tx_hash": "9S3aYuJUW76mk913wy5wXo8XhFmzVxPfDxUnZN6LB58B",
       "method": "close_and_evaluate"
     },
     {
@@ -54,7 +54,7 @@
       "layer": "contract",
       "outcome": "E_DUPLICATE_CIPHERTEXT",
       "signer": "attacker.sealedchoice.testnet",
-      "tx_hash": "4T5uL5xxHPyaGqkEaWcoEXkuUAmXBVSWtdeSqoC9S6ZC",
+      "tx_hash": "9xR5rfo8Ua7x8cjhAG72zBNMAwrFxXGA6sDaVgacAMEL",
       "method": "submit_bid"
     },
     {
@@ -64,7 +64,7 @@
       "layer": "runtime",
       "outcome": "Private callback",
       "signer": "attacker.sealedchoice.testnet",
-      "tx_hash": "4YSNR64TUjo5fDKTMHTFNo75xFQCaJwDYUDxHLYpL52A",
+      "tx_hash": "J5pa7f8ykjMHmT2GPz7wdZqDAFTXGPDcPvTfkMFDWFcF",
       "method": "on_evaluate"
     },
     {
@@ -74,7 +74,7 @@
       "layer": "contract",
       "outcome": "E_BAD_STATUS",
       "signer": "attacker.sealedchoice.testnet",
-      "tx_hash": "5D7YAHVrKvkwxXQnKbDcBFf3peXuKA9miPxJr2ZUxJ4",
+      "tx_hash": "F5nAoEsWQHeNpsViRhkqaKjRE9w2ZZ6uLRa17gnpJPy8",
       "method": "retry_evaluate"
     },
     {
@@ -84,7 +84,7 @@
       "layer": "contract",
       "outcome": "E_NOT_COMMITTEE",
       "signer": "attacker.sealedchoice.testnet",
-      "tx_hash": "451guENg5bf9HJuXGduHDV6W9RZjssA3CQRLe8mghE9n",
+      "tx_hash": "J4nRsu49sZqYQZJ95BeXPxjTuzGTi3ZweKSBLDgmANEE",
       "method": "propose_award",
       "bid_index": 0
     },
@@ -95,7 +95,7 @@
       "layer": "contract",
       "outcome": "E_RATIONALE_REQUIRED",
       "signer": "buyer.sealedchoice.testnet",
-      "tx_hash": "7Tf2JUoWZHpbiGBGpUcgzuf6MRAtZpfcRchf9nFvCSRY",
+      "tx_hash": "4N7pLkDmwhUHQXSjgNydi8x5fbippeoWB2axR6DaGcqh",
       "method": "propose_award",
       "bid_index": 2
     },
@@ -106,7 +106,7 @@
       "layer": "contract",
       "outcome": "E_NOT_WINNER",
       "signer": "attacker.sealedchoice.testnet",
-      "tx_hash": "EyYbN1GH7gEMVvGLxH3EBj6vx9qdrThuVyizR5drsp3L",
+      "tx_hash": "3fBhz7ds8ebGNpKZ4xCW9uZroYJKyo9zzectH9mtDNXo",
       "method": "accept_award"
     },
     {
@@ -116,8 +116,8 @@
       "layer": "evaluator",
       "outcome": "INJECTION_SUSPECTED",
       "signer": "vendor-c.sealedchoice.testnet",
-      "tx_hash": "5GduiDprc4VrrzXmFHbvoKwf9FTFCeBWTQ73hcmnmvG4",
-      "request_id": 14579
+      "tx_hash": "E1uqsogvgd3wKYK3Hhtm4eBEzfMRRh4NinKTFYwbaW5N",
+      "request_id": 15568
     }
   ]
 }

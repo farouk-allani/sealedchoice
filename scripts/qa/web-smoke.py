@@ -4,7 +4,7 @@
     python scripts/qa/web-smoke.py [--base http://localhost:3000]
 
 Checks that every page renders from live chain state with **no wallet connected**, that the
-recorded tender 3 values actually reach the screen, that no page logs an error, and that nothing
+recorded final tender 1 values actually reach the screen, that no page logs an error, and that nothing
 overflows sideways at phone width. Screenshots and a JSON report go to apps/web/test-results/,
 which is git-ignored.
 
@@ -25,16 +25,16 @@ OUT = Path("apps/web/test-results")
 WIDE = {"width": 1440, "height": 900}
 PHONE = {"width": 390, "height": 844}
 
-# Values recorded on testnet for tender 3 (PROGRESS, T07/T08). The page has to show these, not
+# Values recorded for final tender 1 (PROGRESS, T14, 2026-11-10). The page has to show these, not
 # something close to them.
-TENDER_3 = {
+DEMO_TENDER = {
     "title": "Security review of a DAO treasury module (near-sdk, Rust)",
     "rubric_hash_head": "5667a800",
     "winner": "vendor-a.sealedchoice.testnet",
     "winning_score": "86.66",
     "second_score": "47.55",
-    "flagged_score": "45.00",
-    "root_head": "0ff749f8",
+    "flagged_score": "52.00",
+    "root_head": "2bc59965",
 }
 
 checks: list[tuple[bool, str]] = []
@@ -138,7 +138,7 @@ def main() -> int:
         check(response is not None and response.status == 200, "the tender list answers 200")
         body = page.inner_text("body")
         check("Tender 3" in body and "Tender 1" in body, "every tender on the contract is listed")
-        check("Paid" in body and "Evaluated" in body, "statuses come from the chain, not a guess")
+        check("Paid" in body, "the directory shows the recorded paid tender")
         check(
             page.locator("text=Connect wallet").count() == 1,
             "the list renders with no wallet connected",
@@ -153,28 +153,28 @@ def main() -> int:
         page.get_by_role("button", name="Open for bids").click()
         check("No tenders are open for bids right now" in page.inner_text("body"), "an empty status filter explains what to do next")
         page.get_by_role("button", name="Show all tenders").click()
-        page.get_by_label("Search tenders", exact=True).fill("Tender 3")
-        check(page.locator(".tender-card").count() == 1 and "Tender 3" in page.locator(".tender-card").inner_text(), "search narrows real tender data")
+        page.get_by_label("Search tenders", exact=True).fill("Tender 1")
+        check(page.locator(".tender-card").count() == 1 and "Tender 1" in page.locator(".tender-card").inner_text(), "search narrows real tender data")
         page.get_by_label("Search tenders", exact=True).fill("no-matching-tender")
         check("No matching tenders" in page.inner_text("body"), "an empty search provides a reset action")
         page.get_by_role("button", name="Show all tenders").click()
         check(page.locator(".tender-card").count() == all_tenders, "reset restores the directory")
 
-        print("/tenders/3")
-        response = page.goto(f"{base}/tenders/3", wait_until="networkidle")
+        print("/tenders/1")
+        response = page.goto(f"{base}/tenders/1", wait_until="networkidle")
         check(response is not None and response.status == 200, "the tender page answers 200")
         body = page.inner_text("body")
-        check(TENDER_3["title"] in body, "the title comes from the stored rubric")
-        check(TENDER_3["winner"] in body, "the winning bidder is named")
+        check(DEMO_TENDER["title"] in body, "the title comes from the stored rubric")
+        check(DEMO_TENDER["winner"] in body, "the winning bidder is named")
         check(
-            TENDER_3["winning_score"] in body
-            and TENDER_3["second_score"] in body
-            and TENDER_3["flagged_score"] in body,
+            DEMO_TENDER["winning_score"] in body
+            and DEMO_TENDER["second_score"] in body
+            and DEMO_TENDER["flagged_score"] in body,
             "all three recorded totals are shown",
         )
         check("Awarded" in body and "Flagged" in body, "the awarded and flagged outcomes show")
-        check(TENDER_3["rubric_hash_head"] in body, "the rubric hash is shown")
-        check(TENDER_3["root_head"] in body, "the frozen bid set root is shown")
+        check(DEMO_TENDER["rubric_hash_head"] in body, "the rubric hash is shown")
+        check(DEMO_TENDER["root_head"] in body, "the frozen bid set root is shown")
         check("Why flagged?" in body, "a flag can be expanded into plain words")
         check(
             "vendor-b.sealedchoice.testnet" in body and "vendor-c.sealedchoice.testnet" in body,
@@ -182,16 +182,16 @@ def main() -> int:
         )
         check("Accepted" in body, "the evaluation attempt and its outcome are shown")
         check(no_overflow(page), "the tender page does not overflow sideways at 1440")
-        page.screenshot(path=str(OUT / "tender-3-desktop.png"), full_page=True)
+        page.screenshot(path=str(OUT / "tender-1-desktop.png"), full_page=True)
 
-        print("/tenders/3/bid")
-        page.goto(f"{base}/tenders/3/bid", wait_until="networkidle")
+        print("/tenders/1/bid")
+        page.goto(f"{base}/tenders/1/bid", wait_until="networkidle")
         body = page.inner_text("body")
         check(
             "not taking bids" in body.lower(),
             "a closed tender refuses a bid before any wallet prompt",
         )
-        page.screenshot(path=str(OUT / "tender-3-bid-closed.png"), full_page=True)
+        page.screenshot(path=str(OUT / "tender-1-bid-closed.png"), full_page=True)
 
         print("/tenders/new")
         response = page.goto(f"{base}/tenders/new", wait_until="networkidle")
@@ -199,8 +199,8 @@ def main() -> int:
         page.locator(".create-summary summary").click()
         body = page.inner_text("body")
         check(
-            TENDER_3["rubric_hash_head"] in body,
-            "the previewed rubric hashes to the one tender 3 stored",
+            DEMO_TENDER["rubric_hash_head"] in body,
+            "the previewed rubric hashes to the one final tender 1 stored",
         )
         check(
             '"budget_cap_minor":"15000000000"' in body,
@@ -219,14 +219,14 @@ def main() -> int:
         check("Add at least one committee member" in page.inner_text("body"), "review requires a committee member")
         page.get_by_role("button", name="Back", exact=True).click()
         page.get_by_role("button", name="Back", exact=True).click()
-        check(page.get_by_label("Title", exact=False).input_value() == TENDER_3["title"], "moving back preserves the brief")
+        check(page.get_by_label("Title", exact=False).input_value() == DEMO_TENDER["title"], "moving back preserves the brief")
         check(page.get_by_role("button", name="Create tender", exact=True, include_hidden=True).is_disabled(), "publishing is disabled without a connected wallet and committee")
 
         # --------------------------------------------------- T11: the three reader pages
         # All three must be useful with no wallet: a reader who has not connected should be told
         # exactly what connecting would get them, not shown a dead control or an error.
-        print("/tenders/3/verify")
-        response = page.goto(f"{base}/tenders/3/verify", wait_until="networkidle")
+        print("/tenders/1/verify")
+        response = page.goto(f"{base}/tenders/1/verify", wait_until="networkidle")
         check(response is not None and response.status == 200, "the verify page answers 200")
         page.wait_for_selector(".verify-item .verify-verdict", timeout=60_000)
         page.wait_for_function(
@@ -242,11 +242,11 @@ def main() -> int:
         check(no_overflow(page), "the verify page does not overflow sideways at 1440")
         page.screenshot(path=str(OUT / "t11-verify-desktop.png"), full_page=True)
 
-        print("/tenders/3/debrief")
-        response = page.goto(f"{base}/tenders/3/debrief", wait_until="networkidle")
+        print("/tenders/1/debrief")
+        response = page.goto(f"{base}/tenders/1/debrief", wait_until="networkidle")
         check(response is not None and response.status == 200, "the debrief page answers 200")
         body = page.inner_text("body")
-        check(TENDER_3["title"] in body, "the debrief page names the tender it belongs to")
+        check(DEMO_TENDER["title"] in body, "the debrief page names the tender it belongs to")
         check(
             "only your wallet can derive" in body or "Connect the wallet" in body,
             "the debrief page says whose key opens it",
@@ -254,8 +254,8 @@ def main() -> int:
         check(no_overflow(page), "the debrief page does not overflow sideways at 1440")
         page.screenshot(path=str(OUT / "t11-debrief-desktop.png"), full_page=True)
 
-        print("/tenders/3/committee")
-        response = page.goto(f"{base}/tenders/3/committee", wait_until="networkidle")
+        print("/tenders/1/committee")
+        response = page.goto(f"{base}/tenders/1/committee", wait_until="networkidle")
         check(response is not None and response.status == 200, "the committee page answers 200")
         body = page.inner_text("body")
         check("Committee" in body, "the committee page renders")
@@ -266,21 +266,21 @@ def main() -> int:
         check(no_overflow(page), "the committee page does not overflow sideways at 1440")
         page.screenshot(path=str(OUT / "t11-committee-desktop.png"), full_page=True)
 
-        print("/tenders/3/award")
-        response = page.goto(f"{base}/tenders/3/award", wait_until="networkidle")
+        print("/tenders/1/award")
+        response = page.goto(f"{base}/tenders/1/award", wait_until="networkidle")
         check(response is not None and response.status == 200, "the award page answers 200")
         body = page.inner_text("body")
-        check(TENDER_3["winner"] in body, "the award page names the winner from the chain")
+        check(DEMO_TENDER["winner"] in body, "the award page names the winner from the chain")
         check("Paid" in body, "the payout state comes from the chain")
         check(
-            "Only " + TENDER_3["winner"] not in body,
+            "Only " + DEMO_TENDER["winner"] not in body,
             "a settled award does not still offer acceptance",
         )
         check(no_overflow(page), "the award page does not overflow sideways at 1440")
         page.screenshot(path=str(OUT / "t11-award-desktop.png"), full_page=True)
 
         print("the tender page links to all four")
-        page.goto(f"{base}/tenders/3", wait_until="networkidle")
+        page.goto(f"{base}/tenders/1", wait_until="networkidle")
         for name in ["Check this tender", "Your debrief", "Committee", "Award"]:
             check(
                 page.get_by_role("link", name=name, exact=True).count() >= 1,
@@ -293,19 +293,21 @@ def main() -> int:
         check(response is not None and response.status == 200, "attack evidence answers 200")
         check(page.locator(".attack-records > li").count() == 10, "all ten measured attempts render")
         body = page.inner_text("body")
-        for expected in ["E_DUPLICATE_CIPHERTEXT", "E_NOT_WINNER", "E_RATIONALE_REQUIRED", "INJECTION_SUSPECTED", "14576", "14579"]:
+        attack_report = json.loads((Path(__file__).resolve().parents[2] / "apps/web/src/data/attacks.json").read_text(encoding="utf-8"))
+        request_ids = [str(record["request_id"]) for record in attack_report["records"] if "request_id" in record]
+        for expected in ["E_DUPLICATE_CIPHERTEXT", "E_NOT_WINNER", "E_RATIONALE_REQUIRED", "INJECTION_SUSPECTED", *request_ids]:
             check(expected in body, f"attack evidence includes {expected}")
         check(page.locator('.attack-records a[href*="/txns/"]').count() == 10, "each measured attempt links to its transaction")
         buttons = page.get_by_role("button", name="Run again:")
         check(buttons.count() == 8 and all(button.is_disabled() for button in buttons.all()), "eight contract replays require a connected wallet")
-        page.get_by_label("Testnet tender number").fill("6")
+        page.get_by_label("Testnet tender number").fill(str(attack_report["tender_id"]))
         page.keyboard.press("Tab")
         check(page.evaluate("document.activeElement.matches(':focus-visible')"), "attack page keyboard navigation exposes a visible focus target")
         check_contrast(page, "attack page")
         check(no_overflow(page), "attack evidence does not overflow on desktop")
         page.evaluate("window.scrollTo(0, 0)")
         page.screenshot(path=str(OUT / "attacks-desktop.png"), full_page=True)
-        page.goto(f"{base}/tenders/3", wait_until="networkidle")
+        page.goto(f"{base}/tenders/1", wait_until="networkidle")
         check_contrast(page, "tender page")
         page.goto(f"{base}/tenders/new", wait_until="networkidle")
         check_contrast(page, "create page")
@@ -323,11 +325,11 @@ def main() -> int:
         page.on("pageerror", lambda e: errors.append(f"pageerror(mobile): {e}"))
         for path, name in [
             ("/tenders", "tenders"),
-            ("/tenders/3", "tender-3"),
+            ("/tenders/1", "tender-1"),
             ("/tenders/new", "tenders-new"),
-            ("/tenders/3/debrief", "t11-debrief"),
-            ("/tenders/3/committee", "t11-committee"),
-            ("/tenders/3/award", "t11-award"),
+            ("/tenders/1/debrief", "t11-debrief"),
+            ("/tenders/1/committee", "t11-committee"),
+            ("/tenders/1/award", "t11-award"),
             ("/attacks", "attacks"),
         ]:
             page.goto(f"{base}{path}", wait_until="networkidle")

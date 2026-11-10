@@ -1,6 +1,7 @@
 import {
   CHAIN,
   DEMO_TENDER,
+  EARLIER_CONTRACT_ID,
   PRIOR_RUNS,
   explorerAccount,
   outlayerRequest,
@@ -102,6 +103,13 @@ export function Verify() {
       </div>
       <div className="evidence-links">
         <span>INSPECT RECORDED EXECUTIONS</span>
+        <a
+          href={outlayerRequest(DEMO_TENDER.outlayerRequest)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Final tender {DEMO_TENDER.id} <span>OutLayer #{DEMO_TENDER.outlayerRequest} ↗</span>
+        </a>
         {PRIOR_RUNS.filter((run) => run.request !== null).map((run) => (
           <a
             key={run.tender}
@@ -109,7 +117,7 @@ export function Verify() {
             target="_blank"
             rel="noreferrer"
           >
-            Tender {run.tender} <span>OutLayer #{run.request} ↗</span>
+            Earlier tender {run.tender} <span>OutLayer #{run.request} ↗</span>
           </a>
         ))}
       </div>
@@ -118,9 +126,8 @@ export function Verify() {
           For developers <span>+</span>
         </summary>
         <p>
-          Verifier command from the repository. The full verification CLI is
-          still under development; use the contract and recorded execution links
-          above to inspect the demo today.
+          Run the same ten public checks against the final demo tender. Earlier
+          executions above belong to the previous contract, {EARLIER_CONTRACT_ID}.
         </p>
         <CopyCommand command={VERIFY.command} />
       </details>

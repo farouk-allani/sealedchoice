@@ -1,5 +1,5 @@
 // Every number and hash the landing page shows comes from here, and every value here was
-// measured on testnet. See PROGRESS.md (log 2026-11-05) and docs/DECISIONS.md D-032.
+// measured on testnet. See PROGRESS.md (final demo 1, 2026-11-10) and D-038.
 //
 // Rule for this file: if a value is not on chain or in a recorded run, it does not go on the
 // page. No rounded-up numbers, no "up to", no placeholders that survive into a commit.
@@ -10,6 +10,9 @@ const EXPLORER: Record<"testnet" | "mainnet", string> = {
   testnet: "https://testnet.nearblocks.io",
   mainnet: "https://nearblocks.io",
 };
+
+/** Contract used for the three earlier model-variance measurements. */
+export const EARLIER_CONTRACT_ID = "tenders.sealedchoice.testnet";
 
 export const explorerTx = (hash: string): string => `${EXPLORER[NETWORK]}/txns/${hash}`;
 export const explorerAccount = (id: string): string => `${EXPLORER[NETWORK]}/address/${id}`;
@@ -22,15 +25,15 @@ export const short = (hash: string, head = 8, tail = 5): string =>
 
 export const CHAIN = {
   network: NETWORK,
-  tenderContract: "tenders.sealedchoice.testnet",
+  tenderContract: "tenders-v1.sealedchoice.testnet",
   tokenContract: "usdc.sealedchoice.testnet",
-  /** Deployed code hash of the tender contract (T07). */
-  codeHash: "9ZrrKTELGfATeTqEmJcY4aFHH3vEuSrHZFrbR6v83iXD",
+  /** Deployed code hash of the frozen T14 contract. */
+  codeHash: "3HNnjqgBrxMXhJnmBk2vxHax2iFDrFzp94vVAdXEtGuU",
   /**
-   * sha256 of the evaluator WASM pinned on the contract (D-030). The full value, not the
-   * elided `b5e34a07…e0811fb6` the docs print, and `short()` does the eliding at render time.
+   * sha256 of the frozen evaluator WASM pinned on the contract (D-038). The full value,
+   * with `short()` doing the eliding at render time.
    */
-  evaluatorBuild: "b5e34a07e647059ef89753b63aeea17bd1a7ccfae17db6ecc0a2190be0811fb6",
+  evaluatorBuild: "737b91e724b25facefce9d9e53655bd18e3a4070c857af54f88f0e7b5f18d470",
   /**
    * Where bundles are read from. The deployed app serves `/api/bundles/<sha256>` itself, so
    * in production this is its own origin. Overridable because a verifier page running
@@ -42,26 +45,27 @@ export const CHAIN = {
 } as const;
 
 /**
- * Tender 3: the complete story, created → sealed → closed → evaluated → awarded → paid.
+ * Final tender 1: created → sealed → closed → evaluated → awarded → paid.
  * Token amounts are raw units; tUSDC has 6 decimals.
  */
 export const DEMO_TENDER = {
-  id: 3,
+  id: 1,
   bids: 3,
   /** Attempt the single accepted evaluation landed on (max 3 allowed, I12). */
-  attempt: 1,
+  attempt: 2,
+  outlayerRequest: 15517,
   /** On-chain result size in bytes. */
   resultBytes: 309,
   /** Wall-clock time of the evaluation inside the TEE, of a 180 s ceiling. */
-  evalMs: 31_130,
+  evalMs: 35_095,
   /** Model calls, all signed provider_tee. */
   modelCalls: 6,
-  /** Evidence checks the e2e run makes against the tender's own evidence (D-032). */
-  evidenceChecks: 14,
-  /** Total gas across create + fund + three bids + close, in TGas. */
-  tgas: 60.43,
-  proposeAwardTx: "4d8fP5hpj8EB3wB1SwNzTW4Us6NAGPhiNvQsEQoTPVm2",
-  acceptAwardTx: "13rz11MxHzyGtJCKmPVstZZfBQJjvGxHS2JExAnGRhNE",
+  /** Public verifier checks, including hashing the frozen artifact. */
+  evidenceChecks: 10,
+  /** Total gas across create + fund + three bids + close + retry, in TGas. */
+  tgas: 81.839828442001,
+  proposeAwardTx: "F6GLGTEr578fMvXyaCVp6HXxTFncAWiETisudZC1cxMN",
+  acceptAwardTx: "8ZMMLktGoLx3zAiR3GSCYazdMutHYbFvueWc2zEqwPnG",
   paidToVendor: 12_000_000_000n,
   paidToBuyer: 3_000_000_000n,
   tokenDecimals: 6,
@@ -69,8 +73,7 @@ export const DEMO_TENDER = {
 } as const;
 
 /**
- * Totals in basis points from tender 3's accepted result. These are the real scores, including
- * the one that moved: on tender 3 the injection bid fell below the weak bid (D-032).
+ * Totals in basis points from final tender 1's accepted attempt 2.
  */
 export const DEMO_RANKING = [
   {
@@ -83,20 +86,20 @@ export const DEMO_RANKING = [
   },
   {
     rank: 2,
+    label: "Bid C",
+    note: "Bid text instructs the scorer to give it full marks",
+    totalBp: 5_200,
+    flagged: true,
+    flags: ["INJECTION_SUSPECTED"],
+    outcome: "flagged",
+  },
+  {
+    rank: 3,
     label: "Bid B",
     note: "Thin methodology, cheapest price",
     totalBp: 4_755,
     flagged: false,
     outcome: "ranked",
-  },
-  {
-    rank: 3,
-    label: "Bid C",
-    note: "Bid text instructs the scorer to give it full marks",
-    totalBp: 4_500,
-    flagged: true,
-    flags: ["INJECTION_SUSPECTED"],
-    outcome: "flagged",
   },
 ] as const;
 

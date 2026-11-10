@@ -15,7 +15,7 @@ import { EnvError, loadEnv } from "./lib/env.ts";
 
 const DEFAULTS = {
   testnet: {
-    contractId: "tenders.sealedchoice.testnet",
+    contractId: "tenders-v1.sealedchoice.testnet",
     rpc: "https://test.rpc.fastnear.com",
     explorer: "https://testnet.nearblocks.io",
   },

@@ -22,7 +22,7 @@ export const TOKEN_SYMBOL: string = DEMO_TENDER.tokenSymbol;
  */
 export const FEATURED_TENDER_ID: number = DEMO_TENDER.id;
 
-/** Tenders that exist on the deployed contract today, newest first (T07 and T08 runs). */
+/** Recorded tenders on the fresh final contract, newest first. */
 export const DEMO_TENDER_IDS: readonly number[] = [3, 2, 1];
 
 /**

@@ -14,6 +14,8 @@
  * module that drove the old CSS vault; the hero renders the Blender frames now, so the ids
  * live with the copy that uses them.
  */
+import { CHAIN, DEMO_TENDER } from "../config/evidence.ts";
+
 export type ActId =
   | "sealed"
   | "closed"
@@ -59,7 +61,7 @@ export const ACTS: ReadonlyArray<Act> = [
     facts: [
       { label: "Tender key", value: "published before bidding" },
       { label: "On chain", value: "ciphertext + sha256" },
-      { label: "Bids on tender 3", value: "3 sealed" },
+      { label: `Bids on tender ${DEMO_TENDER.id}`, value: `${DEMO_TENDER.bids} sealed` },
     ],
   },
   {
@@ -83,8 +85,8 @@ export const ACTS: ReadonlyArray<Act> = [
     kicker: "Opened",
     title: "The contract asks. Not a person.",
     body:
-      "The tender contract calls the evaluator it pinned at creation. The buyer cannot swap it, " +
-      "and neither can we. The run happens inside the TEE, at most three times, and exactly one " +
+      "The tender contract calls the evaluator it pinned at creation. The run happens inside " +
+      "the TEE, at most three times, and exactly one " +
       "result is ever accepted. That result has to echo the tender id, the frozen root, the " +
       "rubric hash and the attempt number, or the contract rejects it.",
     facts: [
@@ -100,7 +102,7 @@ export const ACTS: ReadonlyArray<Act> = [
     title: "Code scores the numbers. Models read the words. Code checks the models.",
     body:
       "Price, eligibility and the ranking are integer arithmetic in basis points: no floats and " +
-      "no model anywhere near them. Three NEAR AI Cloud models score the written criteria and " +
+      "no model anywhere near them. Two NEAR AI Cloud models score the written criteria and " +
       "never see a price. Every passage a model claims to quote is checked against the bid text, " +
       "and a bid whose text tries to instruct the scorer is flagged by code, whatever it scored.",
     facts: [
@@ -132,10 +134,10 @@ export const ACTS: ReadonlyArray<Act> = [
     title: "Then anyone can check the whole thing.",
     body:
       "The rubric, the sealed bids, the frozen root, the attestation, every signed model call and " +
-      "the final scores are all published. A verifier re-runs the arithmetic from those bytes and " +
-      "says where it disagrees. It does not have to trust this page, and neither do you.",
+      "the final totals are all published. Anyone can run ten public checks. Each bidder can " +
+      "also decrypt their own report and recompute their scores from the recorded model answers.",
     facts: [
-      { label: "Evidence checks", value: "14 of 14 pass", kind: "pass" },
+      { label: "Evidence checks", value: `${DEMO_TENDER.evidenceChecks} of ${DEMO_TENDER.evidenceChecks} pass`, kind: "pass" },
       { label: "Bundle", value: "public, no bid text" },
       { label: "Attestation", value: "matches the pinned build", kind: "pass" },
     ],
@@ -161,12 +163,11 @@ export const LIMITS = {
         "actually said, from the stored bytes, and recomputes everything code decided.",
     },
     {
-      title: "The TEE secret has an owner.",
+      title: "Contract and secret-owner keys remain active.",
       body:
-        "Whoever controls the evaluator's secret row could bind it to a different build and " +
-        "decrypt. That is a real hole, it is written down in the threat model, and the account " +
-        "that holds it is locked down after the demo tender. We would rather say it than let a " +
-        "reviewer find it.",
+        "The deployer can replace the contract, and the secret-row owner can rebind the master " +
+        "secret to another build and decrypt bids. Both accounts retain their keys in this demo. " +
+        "These operator powers are stated in the threat model; no account lock is claimed.",
     },
     {
       title: "A committee can still award badly.",
@@ -183,9 +184,9 @@ export const VERIFY = {
   kicker: "Check it",
   title: "Don't take this page's word for it.",
   lead:
-    "Three tenders have run end to end on NEAR testnet against the deployed contract, with a " +
-    "real TEE and real models. Everything below is live right now.",
-  command: "pnpm verify --tender 3 --network testnet",
+    "The final demo tender reached Paid on NEAR testnet with a real TEE and two real models. " +
+    "All ten public verification checks pass against its recorded evidence.",
+  command: `pnpm verify --tender ${DEMO_TENDER.id} --network testnet --contract ${CHAIN.tenderContract}`,
 } as const;
 
 export const NAV = [
