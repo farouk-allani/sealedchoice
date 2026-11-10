@@ -52,14 +52,14 @@ export const STATUS_PRESENTATION: Record<Status, StatusPresentation> = {
     detail: "The result is on chain. The committee decides the award.",
   },
   EvalFailed: {
-    label: "Evaluation failed",
+    label: "Evaluation needs a retry",
     tone: "danger",
-    detail: "Every allowed attempt failed. Bonds are returned and the escrow goes back to the buyer.",
+    detail: "An evaluation attempt failed. Bids stay frozen and funds remain held. Another attempt can be requested.",
   },
   Failed: {
     label: "Failed",
     tone: "danger",
-    detail: "The tender could not be set up and was abandoned.",
+    detail: "The tender ended without an accepted evaluation. The contract starts refunds of any remaining escrow, unsettled bonds and unused evaluation fees.",
   },
   Awarded: {
     label: "Awarded",
