@@ -272,15 +272,30 @@ def main() -> int:
         body = page.inner_text("body")
         check(DEMO_TENDER["winner"] in body, "the award page names the winner from the chain")
         check("Paid" in body, "the payout state comes from the chain")
+        check("Payment complete" in body and "12,000.00" in body, "paid award leads with the recorded payment and amount")
+        check("Accept by" not in body and "until" not in page.locator(".award-layout").inner_text(), "paid award does not show an outstanding acceptance deadline")
         check(
             "Only " + DEMO_TENDER["winner"] not in body,
             "a settled award does not still offer acceptance",
         )
         check(no_overflow(page), "the award page does not overflow sideways at 1440")
         page.screenshot(path=str(OUT / "t11-award-desktop.png"), full_page=True)
+        check_contrast(page, "award page")
+
+        page.goto(f"{base}/tenders/2/award", wait_until="networkidle")
+        body = page.inner_text("body")
+        check("9,000.00" in body and "vendor-b.sealedchoice.testnet" in body, "demo 2 keeps its actual winner and award amount")
+        check("Deviation from ranking" in body and "lower-priced 14-day proposal" in body, "paid deviation keeps the public rationale visible")
+        check("Accept by" not in body, "paid deviation has no pending acceptance instruction")
 
         print("the tender page links to all four")
         page.goto(f"{base}/tenders/1", wait_until="networkidle")
+        timeline = page.locator('.tender-lifecycle[data-layout="vertical"]')
+        check(timeline.locator('li[data-state="complete"]').count() == 7, "paid tender shows all seven progress steps complete")
+        check(timeline.locator('details[open]').count() == 1, "paid progress shows the final step detail by default")
+        timeline.get_by_text("Closed and evaluated", exact=True).click()
+        check("accepted attempt 2" in timeline.inner_text(), "expanding evaluation shows the real accepted attempt")
+        timeline.get_by_text("Closed and evaluated", exact=True).click()
         for name in ["Check this tender", "Your debrief", "Committee", "Award"]:
             check(
                 page.get_by_role("link", name=name, exact=True).count() >= 1,
@@ -294,10 +309,21 @@ def main() -> int:
         check(page.locator(".attack-records > li").count() == 10, "all ten measured attempts render")
         body = page.inner_text("body")
         attack_report = json.loads((Path(__file__).resolve().parents[2] / "apps/web/src/data/attacks.json").read_text(encoding="utf-8"))
+        for summary in page.locator('.attack-records summary').all():
+            summary.click()
+        body = page.inner_text("body")
         request_ids = [str(record["request_id"]) for record in attack_report["records"] if "request_id" in record]
         for expected in ["E_DUPLICATE_CIPHERTEXT", "E_NOT_WINNER", "E_RATIONALE_REQUIRED", "INJECTION_SUSPECTED", *request_ids]:
             check(expected in body, f"attack evidence includes {expected}")
         check(page.locator('.attack-records a[href*="/txns/"]').count() == 10, "each measured attempt links to its transaction")
+        for summary in page.locator('.attack-records summary').all():
+            summary.click()
+        page.get_by_role("button", name="Flagged for review").click()
+        check(page.locator('.attack-records > li').count() == 1 and "Inject instructions" in page.locator('.attack-records').inner_text(), "flag filter isolates the prompt-injection outcome")
+        page.get_by_role("button", name="Refused", exact=False).click()
+        check(page.locator('.attack-records > li').count() == 9, "refused filter shows the nine rejected calls")
+        page.get_by_role("button", name="All attempts").click()
+        check(page.locator('.attack-records > li').count() == 10, "all-attempts filter restores the complete record")
         buttons = page.get_by_role("button", name="Run again:")
         check(buttons.count() == 8 and all(button.is_disabled() for button in buttons.all()), "eight contract replays require a connected wallet")
         page.get_by_label("Testnet tender number").fill(str(attack_report["tender_id"]))
@@ -334,6 +360,8 @@ def main() -> int:
         ]:
             page.goto(f"{base}{path}", wait_until="networkidle")
             check(no_overflow(page), f"{path} does not overflow sideways at 390")
+            if path == "/tenders/1":
+                check(page.locator('.tender-lifecycle[data-layout="vertical"]').evaluate("el => getComputedStyle(el).gridTemplateColumns.split(' ').length === 1"), "phone progress keeps one vertical column")
             page.screenshot(path=str(OUT / f"{name}-mobile.png"), full_page=True)
 
         check(not errors, f"no page errors ({len(errors)} seen)")
@@ -347,6 +375,10 @@ def main() -> int:
         page.goto(f"{base}/attacks", wait_until="networkidle")
         check(page.locator(".attack-records > li").count() == 10, "recorded attack evidence works with JavaScript disabled")
         check(no_overflow(page), "attack evidence has no overflow without JavaScript")
+        page.locator('.attack-records summary').first.click()
+        check("Access denied" in page.locator('.attack-records').inner_text(), "technical evidence expands without JavaScript")
+        page.goto(f"{base}/tenders/1/award", wait_until="networkidle")
+        check("Payment complete" in page.inner_text("body"), "paid award renders without JavaScript")
         browser.close()
 
     passed = sum(1 for ok, _ in checks if ok)

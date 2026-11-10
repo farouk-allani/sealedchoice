@@ -1,43 +1,48 @@
 import Link from "next/link";
-import { ATTACKS, attackTransactionUrl, attackRequestUrl } from "../../config/attacks.ts";
+import { ATTACKS } from "../../config/attacks.ts";
+import { AttackRecords } from "../../components/app/attack-records.tsx";
 import { AttackReplay } from "../../components/app/attack-replay.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
+import { Icon } from "../../components/ui/icon.tsx";
 
 export const metadata = { title: "Recorded attack attempts" };
 
 export default function AttacksPage() {
-  return <>
-    <nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/tenders">Tenders</Link><span>Attack evidence</span></nav>
-    <div className="page-head"><span className="page-eyebrow">Recorded on testnet</span>
-      <h1>Try to break the process.</h1>
-      <p>{ATTACKS.records.length} measured attempts against a dedicated tender. Follow each transaction to inspect what was refused and which check enforced it.</p>
+  const flagged = ATTACKS.records.filter((record) => record.layer === "evaluator").length;
+  return (
+    <div className="attacks-page">
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <Link href="/tenders">Tenders</Link><Icon name="chevron" size={15} /><span aria-current="page">Attack evidence</span>
+      </nav>
+      <header className="page-head attack-intro">
+        <span className="page-eyebrow ui-reference">Recorded on {ATTACKS.network}</span>
+        <h1>Test the boundaries. Inspect the evidence.</h1>
+        <p>See what happened when we tried to read sealed bids, change the rules and redirect a payout. Every attempt links to its recorded transaction.</p>
+        <div className="page-head-actions">
+          <Link className="ui-button ui-button--primary" href={`/tenders/${ATTACKS.tender_id}/verify`}>Verify this tender <Icon name="arrow" size={17} /></Link>
+          <a className="ui-button ui-button--ghost" href="#attack-live-title">Run an attempt <Icon name="down" size={17} /></a>
+        </div>
+      </header>
+      <dl className="attack-summary ui-paper">
+        <div><dt>Recorded attempts</dt><dd>{ATTACKS.records.length}</dd></div>
+        <div><dt>Calls refused</dt><dd>{ATTACKS.records.length - flagged}<Icon name="shield" size={21} /></dd></div>
+        <div><dt>Flagged for review</dt><dd>{flagged}<Icon name="warning" size={21} /></dd></div>
+        <div className="attack-summary-record"><dt>Evidence source</dt><dd><Link className="inline-link" href={`/tenders/${ATTACKS.tender_id}`}>Tender #{ATTACKS.tender_id}<Icon name="arrow" size={16} /></Link><span>{ATTACKS.recorded_at.slice(0, 10)} UTC</span></dd></div>
+      </dl>
+      <div className="attack-caveat" role="note">
+        <Icon name="info" size={20} /><p><strong>A flag is a request for human review.</strong> Prompt injection was flagged, but the bid remained eligible. This run does not establish that every model resisted the instruction.</p>
+      </div>
+      <AttackRecords records={ATTACKS.records} />
+      <section className="panel ui-paper attack-limits" aria-labelledby="attack-limits-title">
+        <div className="award-section-label"><Icon name="info" size={18} /><span>Understand the limits</span></div>
+        <h2 id="attack-limits-title">What these results establish</h2>
+        <p>The caller, time, ciphertext, committee and winner checks refused these calls. An injection flag does not make a bid ineligible or lower its score. Model judgments can vary; the committee reviews the text before deciding.</p>
+        <details className="attack-evidence">
+          <summary>Deployment details and untested risks <Icon name="down" size={16} /></summary>
+          <p>These outcomes were recorded on <span className="mono">{ATTACKS.contract_id}</span>. Contract and secret-row owner keys remain active. Their holders can replace the contract or rebind the secret.</p>
+          <p>Attempt 2, a different evaluator build, is covered by earlier gate evidence and was not rerun here. These outcomes do not cover collusion, false claims, a biased rubric or compromised owner keys.</p>
+        </details>
+      </section>
+      <AttackReplay records={ATTACKS.records} />
     </div>
-    <dl className="stat-row ui-paper">
-      <div className="stat"><dt>Recorded attempts</dt><dd>{ATTACKS.records.length}</dd></div>
-      <div className="stat"><dt>Network</dt><dd>{ATTACKS.network}</dd></div>
-      <div className="stat"><dt>Tender</dt><dd><Link href={`/tenders/${ATTACKS.tender_id}`}>#{ATTACKS.tender_id}</Link></dd></div>
-      <div className="stat"><dt>Recorded</dt><dd>{ATTACKS.recorded_at.slice(0, 10)}</dd></div>
-    </dl>
-    <p className="attack-context">These are recorded outcomes on {ATTACKS.contract_id}. A prompt-injection flag asks the committee to review the text; it does not prove that every model resisted it. The contract and secret-row owner accounts remain unlocked pending the final deployment.</p>
-    <ol className="attack-records" aria-label="Recorded attack attempts">
-      {ATTACKS.records.map((record) => <li key={record.id} className="panel ui-paper" value={record.id}>
-        <div className="attack-record-heading"><span className="ui-reference">Attempt {String(record.id).padStart(2, "0")}</span>
-          <Badge tone={record.layer === "evaluator" ? "warning" : "success"}>{record.layer === "evaluator" ? "Flagged for review" : "Refused"}</Badge></div>
-        <h2>{record.title}</h2><p>{record.detail}</p>
-        <dl className="attack-facts"><div><dt>Observed outcome</dt><dd><code>{record.outcome}</code></dd></div>
-          <div><dt>Enforced by</dt><dd>{record.layer === "runtime" ? "NEAR contract runtime" : record.layer === "outlayer" ? "OutLayer secret access" : record.layer === "evaluator" ? "Evaluator code" : "Tender contract"}</dd></div>
-          <div><dt>Signed by</dt><dd className="mono">{record.signer}</dd></div></dl>
-        <div className="attack-links"><a className="inline-link" href={attackTransactionUrl(record.tx_hash)} target="_blank" rel="noreferrer">Inspect transaction <span className="mono">{record.tx_hash.slice(0, 8)}</span></a>
-          {record.request_id && (record.layer === "outlayer"
-            ? <span>OutLayer request {record.request_id}. Refusal in transaction receipts.</span>
-            : <a className="inline-link" href={attackRequestUrl(record.request_id)} target="_blank" rel="noreferrer">OutLayer request {record.request_id}</a>)}</div>
-      </li>)}
-    </ol>
-    <section className="panel ui-paper"><h2>What this run establishes</h2>
-      <p>The required caller, time, ciphertext, committee and winner checks rejected these calls. Model judgments can vary. An injection flag does not make a bid ineligible or lower its score. The committee must review the text before deciding.</p>
-      <p>Attempt 2, a different evaluator build, is covered by the earlier gate evidence and was not rerun here. These outcomes do not cover collusion, false claims, a biased rubric or compromised owner keys.</p>
-      <Link className="inline-link" href={`/tenders/${ATTACKS.tender_id}/verify`}>Check the tender evidence</Link>
-    </section>
-    <AttackReplay records={ATTACKS.records} />
-  </>;
+  );
 }
