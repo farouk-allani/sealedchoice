@@ -38,10 +38,12 @@ export default async function AwardPage({ params }: PageProps) {
   }
 
   return (
-    <div className="page">
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+    <div className="page award-page">
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
         <Link href="/tenders">Tenders</Link>
+        <Icon name="chevron" size={15} />
         <Link href={`/tenders/${id}`}>Tender {id}</Link>
+        <Icon name="chevron" size={15} />
         <span aria-current="page">Award</span>
       </nav>
 
@@ -49,21 +51,8 @@ export default async function AwardPage({ params }: PageProps) {
         <p className="page-eyebrow">
           <span className="ui-reference">Tender {id}</span>
         </p>
-        <h1>{tenderTitle(rubric, tenderId)}</h1>
-        <p className="page-lead">
-          The committee awarded; the winner says where the money goes. The escrow pays only the
-          account that was awarded, and only once.
-        </p>
-        <p className="page-actions">
-          <Link className="ui-button ui-button--quiet" href={`/tenders/${id}`}>
-            <Icon name="arrow" />
-            Back to the tender
-          </Link>
-          <Link className="ui-button ui-button--quiet" href={`/tenders/${id}/verify`}>
-            <Icon name="arrow" />
-            The public checks
-          </Link>
-        </p>
+        <h1>Award & payout</h1>
+        <p className="award-tender-title">{tenderTitle(rubric, tenderId)}</p>
       </header>
 
       <AwardPanel
@@ -77,6 +66,7 @@ export default async function AwardPage({ params }: PageProps) {
         approvedAtNs={award?.approved_at_ns ?? null}
         acceptByNs={award?.accept_by_ns ?? null}
         payoutState={award?.payout_state ?? "None"}
+        payoutAccount={award?.payout && "Near" in award.payout ? award.payout.Near.account : null}
         status={tender.status}
       />
     </div>

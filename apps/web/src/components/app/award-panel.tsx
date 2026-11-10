@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useRef, useState } from "react";
 import { CONTRACT_ID, NETWORK, TOKEN_DECIMALS, TOKEN_SYMBOL } from "../../config/demo.ts";
 import { TGAS, useWallet } from "../../lib/wallet/wallet-provider.tsx";
 import { formatUnits, formatUtc, hasPassed } from "../../lib/tender/format.ts";
 import { Button } from "../ui/button.tsx";
 import { TextField } from "../ui/field.tsx";
+import { Badge, type BadgeTone } from "../ui/badge.tsx";
+import { CopyButton } from "../ui/copy-button.tsx";
+import { Icon } from "../ui/icon.tsx";
 
 /**
  * The winner's side of an award: see it, choose where the money goes, accept.
@@ -29,27 +33,30 @@ export interface AwardPanelProps {
   acceptByNs: string | null;
   /** The shape `get_tender` returns for `payout_state`. */
   payoutState: unknown;
+  payoutAccount: string | null;
   status: string;
 }
 
-function payoutLabel(state: unknown): { label: string; detail: string } {
+function payoutLabel(state: unknown): { label: string; title: string; detail: string; tone: BadgeTone } {
   if (state === "Paid") {
-    return { label: "Paid", detail: "The escrow paid the winner, and any remainder went back to the buyer." };
+    return { label: "Paid", title: "Payment complete", detail: "The winner was paid from escrow. Any remaining budget was returned to the buyer. No further action is needed.", tone: "success" };
   }
   if (state === "PayoutRefunded") {
-    return { label: "Refunded", detail: "The escrow went back to the buyer." };
+    return { label: "Refunded", title: "Payment refunded", detail: "The escrow went back to the buyer.", tone: "neutral" };
   }
   if (typeof state === "object" && state !== null && "PayingOut" in state) {
-    return { label: "Paying out", detail: "The transfer has been sent and the contract is waiting for it to settle." };
+    return { label: "Paying out", title: "Payment in progress", detail: "The winner accepted. The transfer has been sent and is waiting to settle.", tone: "violet" };
   }
   if (typeof state === "object" && state !== null && "PayoutFailed" in state) {
     const reason = (state as { PayoutFailed: { reason: string } }).PayoutFailed.reason;
     return {
       label: "Payout failed",
+      title: "Payment needs attention",
       detail: `The transfer did not go through (${reason}). The escrow is untouched and anyone may retry it.`,
+      tone: "danger",
     };
   }
-  return { label: "Not started", detail: "Nothing has been sent yet." };
+  return { label: "Not started", title: "Awaiting acceptance", detail: "Once the committee has approved, the winner chooses a payout account and accepts the award.", tone: "neutral" };
 }
 
 export function AwardPanel(props: AwardPanelProps) {
@@ -58,14 +65,18 @@ export function AwardPanel(props: AwardPanelProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hash, setHash] = useState<string | null>(null);
+  const pending = useRef(false);
 
   const isWinner = wallet.accountId !== null && wallet.accountId === props.winner;
   const approved = props.approvedAtNs !== null;
   const lapsed = props.acceptByNs !== null && hasPassed(props.acceptByNs);
   const payout = payoutLabel(props.payoutState);
   const canAccept = isWinner && approved && !lapsed && props.status === "Awarded";
+  const awaitingAcceptance = approved && props.status === "Awarded" && !lapsed;
 
   async function accept() {
+    if (pending.current || hash !== null || !canAccept) return;
+    pending.current = true;
     setSending(true);
     setError(null);
     try {
@@ -85,106 +96,103 @@ export function AwardPanel(props: AwardPanelProps) {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      pending.current = false;
       setSending(false);
     }
   }
 
   if (props.winner === null) {
     return (
-      <section className="verify-panel" aria-labelledby="award-heading">
-        <h2 id="award-heading">Award</h2>
-        <p className="verify-lead">
-          Nothing has been awarded yet. The committee decides, and the decision and its reason are
-          recorded on chain when it does.
-        </p>
+      <section className="panel ui-paper award-empty" aria-labelledby="award-heading">
+        <Icon name="document" size={28} />
+        <h2 id="award-heading">No award yet</h2>
+        <p>The committee has not selected a winner. The decision, amount and payout will appear here once recorded.</p>
+        <Link className="ui-button ui-button--secondary" href={`/tenders/${props.tenderId}`}>View tender <Icon name="arrow" /></Link>
       </section>
     );
   }
 
   return (
-    <section className="verify-panel" aria-labelledby="award-heading">
-      <h2 id="award-heading">Award</h2>
+    <div className="award-layout">
+      <section className="panel ui-paper award-overview" aria-labelledby="award-heading">
+        <div className="award-status" data-tone={payout.tone}>
+          <span className="award-status-icon"><Icon name={payout.tone === "success" ? "check" : payout.tone === "danger" ? "warning" : "clock"} size={22} /></span>
+          <div>
+            <h2 id="award-heading">{!approved ? "Awaiting committee approval" : lapsed && props.status === "Awarded" ? "Acceptance window expired" : payout.title}</h2>
+            <p>{!approved ? "The proposed award still needs enough committee approvals before the winner can accept." : lapsed && props.status === "Awarded" ? "The winner did not accept before the deadline. The committee can select the next bid." : payout.detail}</p>
+          </div>
+        </div>
 
-      <dl className="debrief-summary">
-        <div>
-          <dt>Winner</dt>
-          <dd className="award-account">{props.winner}</dd>
-        </div>
-        <div>
-          <dt>Amount</dt>
-          <dd>
-            {formatUnits(props.amountMinor, TOKEN_DECIMALS)} {TOKEN_SYMBOL}
-          </dd>
-        </div>
-        <div>
-          <dt>Payout</dt>
-          <dd>{payout.label}</dd>
-        </div>
-      </dl>
-      <p className="verify-detail">{payout.detail}</p>
+        <dl className="award-amount">
+          <dt>Award amount</dt>
+          <dd>{formatUnits(props.amountMinor, TOKEN_DECIMALS)} <span>{TOKEN_SYMBOL}</span></dd>
+        </dl>
+        <dl className="award-parties">
+          <div>
+            <dt>Awarded to</dt>
+            <dd><a className="inline-link" href={`${EXPLORER}/address/${props.winner}`} target="_blank" rel="noreferrer noopener">{props.winner}<Icon name="external" size={16} /></a><CopyButton value={props.winner} label="Copy winner account" compact /></dd>
+          </div>
+          {props.payoutAccount !== null && <div><dt>Payout account</dt><dd><a className="inline-link" href={`${EXPLORER}/address/${props.payoutAccount}`} target="_blank" rel="noreferrer noopener">{props.payoutAccount}<Icon name="external" size={16} /></a></dd></div>}
+          <div><dt>Payout status</dt><dd><Badge tone={payout.tone}>{payout.label}</Badge></dd></div>
+        </dl>
 
-      <h3>How it was decided</h3>
-      <p className="verify-detail">
-        {props.approvals.length} of {props.approvalsRequired} committee approval(s)
-        {props.approvals.length > 0 ? `: ${props.approvals.join(", ")}` : ""}.{" "}
-        {approved
-          ? `Approved, and the winner has until ${props.acceptByNs === null ? "the deadline" : formatUtc(props.acceptByNs)} to accept.`
-          : "Not yet approved by enough members."}
-      </p>
-      {props.deviation ? (
-        <div className="verify-warning" role="note">
-          This award did not go to the top eligible bid. The committee gave this reason, and the
-          contract would not have taken the award without one: {props.rationale}
-        </div>
-      ) : props.rationale.trim() !== "" ? (
-        <p className="verify-detail">Committee note: {props.rationale}</p>
-      ) : null}
-
-      {lapsed && props.status === "Awarded" ? (
-        <div className="verify-warning" role="note">
-          The acceptance window has passed. The committee can award the next bid instead, and this
-          one cannot be awarded again.
-        </div>
-      ) : null}
+        {awaitingAcceptance && props.acceptByNs !== null && <p className="award-deadline"><Icon name="clock" size={17} /> Accept by {formatUtc(props.acceptByNs)}</p>}
 
       {hash !== null ? (
-        <p className="verify-note" role="status">
-          Accepted.{" "}
+        <div className="award-receipt" role="status">
+          <p>Acceptance recorded.{" "}
           <a href={`${EXPLORER}/txns/${hash}`} target="_blank" rel="noreferrer noopener">
-            {hash.slice(0, 10)}...
-          </a>{" "}
-          Reload to see the payout settle.
-        </p>
+            View transaction <Icon name="external" size={15} />
+          </a></p>
+          <Button variant="secondary" size="small" onClick={() => window.location.reload()}>Refresh payout status <Icon name="refresh" size={16} /></Button>
+        </div>
       ) : null}
 
       {canAccept ? (
-        <>
-          <h3>Accept and get paid</h3>
+        <section className="award-accept" aria-labelledby="accept-heading">
+          <h3 id="accept-heading">Accept and get paid</h3>
           <div className="committee-award">
             <TextField
               label="NEAR account to pay"
               value={account}
+              disabled={sending || hash !== null}
               placeholder={wallet.accountId ?? ""}
               hint="Leave blank to use the account you are connected with. It must be registered with the token contract."
               onChange={(e) => {
                 setAccount(e.target.value);
               }}
             />
-            <Button onClick={() => void accept()} loading={sending} disabled={sending}>
-              Accept {formatUnits(props.amountMinor, TOKEN_DECIMALS)} {TOKEN_SYMBOL}
+            <Button onClick={() => void accept()} loading={sending} disabled={sending || hash !== null}>
+              {sending ? "Waiting for wallet approval" : hash !== null ? "Acceptance sent" : `Accept ${formatUnits(props.amountMinor, TOKEN_DECIMALS)} ${TOKEN_SYMBOL}`}
             </Button>
-            {error !== null ? <p className="ui-field-error">{error}</p> : null}
-            <p className="verify-detail">
-              Paying out to another chain through NEAR Intents is not wired up here yet. Until it
-              is, this page offers the NEAR route only rather than a control that would not work.
-            </p>
+            {error !== null ? <p className="ui-field-error" role="alert">{error}</p> : null}
+            <p className="verify-detail">Payouts on this demo use a NEAR account.</p>
           </div>
-        </>
-      ) : props.status === "Awarded" && !isWinner ? (
-        <p className="verify-detail">
-          Only {props.winner} can accept this award. Connect that wallet to do it.
-        </p>
+        </section>
+      ) : awaitingAcceptance && !isWinner ? (
+        <div className="award-wallet-note"><Icon name="wallet" size={20} /><p>Only {props.winner} can accept this award. Connect that wallet to continue.</p></div>
       ) : null}
-    </section>
+        <div className="award-links">
+          <Link className="ui-button ui-button--primary" href={`/tenders/${props.tenderId}/verify`}>Verify public evidence <Icon name="arrow" size={17} /></Link>
+          <Link className="ui-button ui-button--ghost" href={`/tenders/${props.tenderId}`}>View tender</Link>
+        </div>
+      </section>
+
+      <section className="panel ui-paper award-decision" aria-labelledby="decision-heading">
+        <div className="award-section-label"><Icon name="document" size={18} /><span>Committee decision</span></div>
+        <h2 id="decision-heading">How it was decided</h2>
+        <dl className="award-decision-facts">
+          <div><dt>Approvals</dt><dd><strong>{props.approvals.length} of {props.approvalsRequired}</strong><span>{approved ? "Approval threshold met" : "More approvals needed"}</span></dd></div>
+          {props.approvals.length > 0 && <div><dt>Approved by</dt><dd>{props.approvals.map((member) => <span key={member}>{member}</span>)}</dd></div>}
+          {props.approvedAtNs !== null && <div><dt>Approved on</dt><dd>{formatUtc(props.approvedAtNs)}</dd></div>}
+        </dl>
+        <div className="award-rationale" data-deviation={props.deviation}>
+          <Badge tone={props.deviation ? "warning" : "neutral"} icon={props.deviation ? "warning" : "check"}>{props.deviation ? "Deviation from ranking" : "Follows the ranking"}</Badge>
+          <h3>{props.deviation ? "Why a different bid was selected" : "Committee note"}</h3>
+          {props.deviation && <p>The selected bid was not the top eligible bid. A written rationale is required and recorded on chain.</p>}
+          {props.rationale.trim() !== "" ? <blockquote>{props.rationale}</blockquote> : <p>No additional note was recorded.</p>}
+        </div>
+      </section>
+    </div>
   );
 }
