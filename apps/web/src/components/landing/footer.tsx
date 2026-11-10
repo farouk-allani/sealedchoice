@@ -2,6 +2,7 @@ import { BRAND } from "@tender/shared";
 import Link from "next/link";
 import { CHAIN, explorerAccount } from "../../config/evidence.ts";
 import { BrandMark } from "./nav.tsx";
+import { DOCS_URL } from "../../config/links.ts";
 
 export function Footer() {
   return (
@@ -34,6 +35,7 @@ export function Footer() {
             Contract ↗
           </a>
           <a href="#limits">Trust boundaries</a>
+          <a href={DOCS_URL}>Documentation</a>
           <a href="#top">
             Back to top <span aria-hidden="true">↑</span>
           </a>

@@ -1,0 +1,41 @@
+---
+title: Sealed tenders. A record you can check.
+slug: /
+description: Understand SealedChoice, try the recorded demo and verify the sealed procurement process on NEAR.
+---
+
+<div className="docs-kicker">SealedChoice documentation</div>
+
+SealedChoice helps a buyer select a supplier through encrypted bids, a rubric published before bidding, recorded evaluation and a human award. Payment comes from the tender's escrow on NEAR.
+
+<div className="docs-actions">
+  <a className="docs-action" href="/quickstart/">Try it in two minutes</a>
+  <a className="docs-action docs-action-secondary" href="https://sealedchoice.com/tenders">Open the application</a>
+</div>
+
+![The recorded tender, with its published rubric, lifecycle and evaluation results.](/img/overview.png)
+<p className="docs-caption">Recorded testnet tender 1. You can inspect the record without connecting a wallet.</p>
+
+## Start with the record
+
+The current demonstration contains three completed tenders on `tenders-v1.sealedchoice.testnet`. The first awards the highest-ranked eligible bid. The second records a committee decision to select a lower-ranked bid with a written reason. The third records ten manipulation attempts and their outcomes.
+
+This is a testnet prototype. tUSDC is a test token. The demo is a record of completed tenders, rather than a continuously open bidding competition. See [demo evidence](./evidence.md) for the transactions and [security and limits](./security.md) for the retained operator keys and trust assumptions.
+
+<div className="docs-grid">
+  <a className="docs-card" href="/guides/buyers/"><strong>For buyers</strong><span>Publish the criteria, assemble the committee and fund the budget.</span></a>
+  <a className="docs-card" href="/guides/bidders/"><strong>For suppliers</strong><span>Understand the rubric, encrypt a proposal and open your own debrief.</span></a>
+  <a className="docs-card" href="/guides/committee/"><strong>For committees</strong><span>Review the private report, record an award and inspect payment.</span></a>
+  <a className="docs-card" href="/technical/verification/"><strong>For reviewers</strong><span>Check the frozen bid set, evaluator artifact, model signatures and result.</span></a>
+</div>
+
+## The process
+
+1. **Publish:** the buyer fixes the rubric, deadline, committee, bond and evaluator reference when creating the tender.
+2. **Seal:** suppliers encrypt bids in their browsers to the tender's public key. The chain receives ciphertext.
+3. **Evaluate:** after the deadline, the contract freezes the bid set and requests the pinned evaluator in an OutLayer TEE. Code handles eligibility, prices, totals and ranking. Models assess the text criteria.
+4. **Decide and pay:** a human committee makes the award. The winner accepts, and the contract transfers the award from escrow.
+
+## Read deeper
+
+Learn the [architecture](./technical/architecture.md), inspect the [scoring rules](./technical/scoring.md), or [run the project locally](./developers.md). For common questions about wallet access, privacy and the recorded demos, see the [FAQ](./faq.md).

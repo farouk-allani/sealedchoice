@@ -297,7 +297,7 @@ function check4(c: Ctx, artifact: { sha256: string; bytes: number } | null): Che
     4,
     name,
     true,
-    `the ${artifact.bytes} bytes served at wasm_url hash to the pinned ${short(pinned)}. Reproducing that hash from ${tag ?? "the source tag"} is the README's build step`,
+    `the ${artifact.bytes} bytes served at wasm_url hash to the pinned ${short(pinned)}. This checks artifact identity; source reproducibility requires a separate build comparison`,
     links,
   );
 }

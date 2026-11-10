@@ -835,6 +835,9 @@ summary::-webkit-details-marker {
   gap: 100px;
   align-items: center;
 }
+.verify-docs-link {
+  margin-right: 12px;
+}
 .verify-copy > .eyebrow {
   display: none;
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BRAND } from "@tender/shared";
 import { CHAIN, explorerAccount } from "../../config/evidence.ts";
 import { BrandMark } from "../brand-mark.tsx";
+import { DOCS_URL } from "../../config/links.ts";
 
 export { BrandMark } from "../brand-mark.tsx";
 export function Nav() {
@@ -25,6 +26,9 @@ export function Nav() {
         </div>
       </div>
       <div className="nav-island nav-actions">
+        <a href={DOCS_URL} className="nav-verify">
+          Docs
+        </a>
         <a href="#verify" className="nav-verify">
           Verifier
         </a>
@@ -57,6 +61,7 @@ export function Nav() {
             ["Demo tender", "#result"],
             ["Limits", "#limits"],
             ["Verifier", "#verify"],
+            ["Documentation", DOCS_URL],
             ["Explorer", explorerAccount(CHAIN.tenderContract)],
           ].map(([label, href]) => (
             <a

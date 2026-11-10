@@ -11,6 +11,7 @@ import { Button } from "../ui/button.tsx";
 import { Icon } from "../ui/icon.tsx";
 import { useWallet } from "../../lib/wallet/wallet-provider.tsx";
 import { NETWORK } from "../../config/demo.ts";
+import { DOCS_URL } from "../../config/links.ts";
 import { shortAccount } from "../../lib/tender/format.ts";
 
 function WalletButton() {
@@ -100,6 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/attacks" aria-current={pathname === "/attacks" ? "page" : undefined}>
                 Attacks
               </Link>
+              <a href={DOCS_URL}>Docs</a>
             </nav>
           </div>
           <div className="app-header-right ui-paper">
@@ -121,6 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Icon name="lock" size={15} /> Sealed in your browser. Recorded on
           NEAR.
         </span>
+        <a href={DOCS_URL}>Read the documentation</a>
         <Link href="/#limits">
           Understand the limits <Icon name="external" size={14} />
         </Link>

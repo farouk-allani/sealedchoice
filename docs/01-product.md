@@ -2,7 +2,9 @@
 
 ## One sentence
 
-**SealedChoice runs sealed tenders on NEAR: suppliers' bids are encrypted to a TEE that nobody can open before the deadline, the contract then has them scored once against a rubric published in advance, a human committee awards on-chain, and the escrowed budget pays the winner.**
+**SealedChoice runs sealed tenders on NEAR: suppliers encrypt bids to a TEE key, the contract requests evaluation after closing against a rubric published in advance, a human committee awards on-chain, and escrow pays the winner.**
+
+Current demo (2026-11-10): three completed tenders on `tenders-v1.sealedchoice.testnet`, two models, one committee approver and NEAR testnet tUSDC payments. Cross-chain delivery is deferred. Contract and secret-owner keys remain retained, creating operator powers that can bypass the intended confidentiality flow. See `apps/docs/docs/security.md` and `07-threat-model.md`.
 
 ## The problem
 
@@ -26,19 +28,19 @@ Later: private companies' vendor selection, then public-sector pilots (much late
 1. **Buyer** creates a tender: rubric, deadline, bond size, committee, budget escrowed in USDC. The rubric hash is stored on-chain and cannot change.
 2. **Suppliers** bid. The bid (price, delivery time, methodology, track record) is encrypted in their browser to the tender's public key. Only ciphertext goes on-chain. Each bidder gets a receipt (tx hash + Merkle leaf).
 3. **Deadline**: anyone calls close. The contract freezes the bid set (Merkle root) and asks OutLayer to run the pinned evaluator inside a TEE.
-4. **Evaluation**: decrypt inside the TEE, check eligibility, compute price scores, have three models on NEAR AI Cloud score the text criteria with quotes, check and combine them in code, rank. One result goes on-chain. Details: `04-evaluator.md`.
+4. **Evaluation**: decrypt inside the TEE, check eligibility, compute price scores, have the rubric's two or three models on NEAR AI Cloud score the text criteria with quotes, check and combine them in code, rank. The demo uses two. One result is accepted on-chain; failed attempts can be retried up to three total. Details: `04-evaluator.md`.
 5. **Debriefs**: each bidder decrypts their own scores and can verify them. The committee decrypts the full report.
 6. **Award**: the committee awards on-chain. Deviation from the ranking requires a written rationale, stored on-chain.
-7. **Payout**: the winner accepts and names a payout destination; the contract pays from escrow (NEAR account directly, or another chain through NEAR Intents 1Click). Unused budget returns to the buyer, bonds return to bidders.
+7. **Payout**: the winner accepts and names a NEAR payout destination; the contract pays from escrow. Unused budget returns to the buyer; bond settlement follows the contract's rules. Optional NEAR Intents 1Click delivery is deferred.
 
 ## What we claim, and what we do not
 
 We claim (and the demo shows):
-- Nobody, including the buyer and us, can read a bid before the deadline (key generated in the TEE, released only to the pinned evaluator, only when the tender contract calls it, only after the deadline).
+- The configured evaluator/secret-release flow restricts bid opening to the contract-requested evaluation. Retained contract-account and secret-owner keys remain additional trust assumptions; this is not an unconditional early-access exclusion.
 - The rubric cannot change after creation.
 - No bid can be added, removed or swapped after close (Merkle root).
-- The evaluation is run once, by the contract, with the published code; only one result is accepted.
-- Every AI score is recorded, signed by NEAR AI's TEE, checked against the proposal text by code, and combined so a single model cannot swing it.
+- The contract accepts only one result. Failed execution attempts are recorded and capped at three. Artifact identity and source reproducibility are separate checks; frozen source tags remain local pending publication.
+- Model request/response hashes are signed, quote evidence is checked by code and valid criterion outputs use the lower median. Correlated model failures and score variability remain possible.
 - The award and any deviation from the ranking are public and justified.
 - Payment comes from escrow to the awarded supplier only.
 
@@ -52,10 +54,10 @@ We do not claim: that the rubric is fair, that suppliers' claims are true, that 
 | NEAR AI Cloud | Private inference in TEEs, signed responses, attestation reports |
 | Smart contract (Rust) | State machine, deadlines, immutability, one-result rule, escrow, award, bonds |
 | Yield/resume (via OutLayer) | Contract asks for off-chain compute and gets the result in a callback |
-| Function-call keys | Supplier agents can bid with a key restricted to `submit_bid` |
-| Named accounts / sub-accounts | `tenders.sealedchoice.near`, readable identities for buyers and committees |
-| NEAR Intents 1Click | Pays the winner on the chain and asset they choose |
-| Sputnik DAO / Trezu (optional) | A DAO can be the committee and award through a proposal |
+| Function-call keys | Contract capability for restricted supplier actions; not a demonstrated user flow |
+| Named accounts / sub-accounts | `tenders-v1.sealedchoice.testnet`, readable identities for buyers and committees |
+| NEAR Intents 1Click | Optional cross-chain delivery, deferred |
+| Sputnik DAO / Trezu | Potential future committee integration, not demonstrated |
 
 ## Prior art (be upfront in the README)
 
@@ -65,7 +67,7 @@ We do not claim: that the rubric is fair, that suppliers' claims are true, that 
 - **NEAR AI Agent Market**: agents bid for jobs; not sealed, not rubric-scored.
 - **OutLayer private DAO example**: encrypted votes, TEE tally, inclusion proofs. Our key-handling pattern comes from it.
 
-Our difference: a complete, working procurement flow on NEAR (sealed bids → attested hybrid evaluation with checked AI → human award → escrowed cross-chain payout) with the attacks shown failing.
+Our demonstrated combination: encrypted multi-criterion procurement, recorded hybrid evaluation, human award and NEAR testnet escrow payment. The attack records show nine refusals and one detected injection, which remained eligible. The linked prior-art comparisons are research background rather than independent benchmarks.
 
 ## Business after the hackathon
 

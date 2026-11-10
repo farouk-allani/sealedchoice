@@ -26,7 +26,7 @@ only on a FAIL.
 
 1. **Rubric**: `sha256(rubric_json) == rubric_hash`, and `rubric_json` is canonical (`JCS(parse(rubric_json)) == rubric_json`).
 2. **Rubric fixed before bidding**: the contract records `created_at_ns` (D-035), so this is a direct comparison
-   against the first `submitted_at_ns`. A creation time at or after the first bid is a real contradiction and
+   against the first `submitted_at_ns`. A creation time after the first bid is a real contradiction and
    **FAILS**: a bid cannot predate the tender it was sealed against. The rubric is immutable after creation (I1)
    and the contract exposes no setter.
 
@@ -42,13 +42,13 @@ only on a FAIL.
    example on the old contract, a 900 s window bid into after 55 s). Any tender made by the current contract takes
    the direct path above instead.
 3. **Bid set**: recompute every leaf from on-chain ciphertexts and the Merkle root; equal to `frozen.root` and to `result.root`. Count equals the number of active bids at close.
-4. **Evaluator identity**: the tender's pinned `wasm_sha256` equals the reproducible build of `source_tag` (instructions in README; the verifier links the GitHub tag and the hash). The OutLayer execution for this tender used that hash (link to the OutLayer record). The two sources are `get_tender` on chain and the attestation's `executed_wasm_sha256`; the bundle's own `evaluator.wasm_sha256` and `source_tag` are **what the contract passed in** (D-029) and are informational — compare them with those two, never treat them as the answer, or the check reduces to the bundle agreeing with itself. Measured at T05 (request 9549): `wasm_hash` and `executed_wasm_sha256` both equalled the published build.
+4. **Evaluator artifact identity**: download the artifact at the tender's pinned `wasm_url` and compare its raw SHA-256 with the on-chain `wasm_sha256`. This implemented public check does not rebuild `source_tag` or independently verify the OutLayer hardware quote. Inspect the execution record separately. The bundle's own evaluator fields are informational input echoes, not an independent source. Frozen source tags remain local pending source publication; the artifact and release-build evidence are listed in the README.
 5. **One result**: exactly one attempt `Accepted`; failures listed with reasons.
 6. **Bundle integrity**: `sha256(JCS(bundle)) == result.bundle`; `bundle.result` equals the compact result minus `bundle`; `bundle.bids_root == root`; `bundle.rubric_hash == rubric_hash`.
 7. **Model calls complete**: for every eligible bid, exactly one call per model in `rubric.models` (or a recorded error), with the model id as pinned.
-8. **Signatures**: each `signature` verifies (ECDSA, EIP-191 personal-sign over `text`, recovered address == `signing_address`); `text` contains the model id (for provider-TEE signatures) and the recorded `request_sha256:response_sha256`. Exact text format: verify at G3 and update this line.
+8. **Signatures**: each `signature` verifies (ECDSA, EIP-191 personal-sign over `text`, recovered address == `signing_address`); the exact provider-TEE text is `<model>:<request_sha256>:<response_sha256>`, checked against the recorded fields.
 9. **Attestation**: the signing addresses appear in the attestation reports in the bundle; the report nonce equals `sha256(bids_root || u32le(attempt))`, hex (`specs/test-vectors/evaluation-run.json`, D-024). Deep verification of the TDX/GPU quotes follows NEAR AI's documented verifier; link it, run it if practical.
-10. **Ranking consistency**: eligible entries sorted by total desc; ineligible flagged entries last; status consistent with flags.
+10. **Ranking consistency**: eligible entries sorted by total descending; ineligible flagged entries last; unique indices and the frozen-set entry count. This public check does not recompute private totals, validate price/index tie-breaks or establish status/flags consistency.
 
 ## Bidder checks (`/tenders/<id>/debrief`, in the browser)
 

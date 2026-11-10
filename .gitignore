@@ -18,6 +18,8 @@ node_modules/
 dist/
 out/
 coverage/
+apps/docs/build/
+apps/docs/.docusaurus/
 *.tsbuildinfo
 .vercel/
 .turbo/

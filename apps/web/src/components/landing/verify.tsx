@@ -9,6 +9,7 @@ import {
 } from "../../config/evidence.ts";
 import { VERIFY } from "../../content/landing.ts";
 import { CopyCommand } from "./copy-command.tsx";
+import { DOCS_URL } from "../../config/links.ts";
 
 const CHECKS = [
   "Bundle hash and schema",
@@ -36,6 +37,9 @@ export function Verify() {
             Inspect the contract, the evaluator and the recorded model calls.
             The result should stand up to more than a landing page.
           </p>
+          <a className="button button-light verify-docs-link" href={`${DOCS_URL}/quickstart/`}>
+            Read the documentation <span aria-hidden="true">↗</span>
+          </a>
           <a
             className="button button-light"
             href={explorerAccount(CHAIN.tenderContract)}

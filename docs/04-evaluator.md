@@ -9,7 +9,7 @@ The scoring logic is generic. What changes from one tender to the next is the **
 - what is being bought (title, scope), the currency, the budget cap, the maximum delivery time;
 - the criteria and their weights in basis points (sum = 10,000), for example price 40 %, methodology 35 %, track record 25 %;
 - for each text criterion: the question, and what a score of 0, 1, 2, 3, 4 and 5 means (the "anchors");
-- eligibility rules, the three AI models to use (exact model ids), the aggregation parameters, the tie-break order and the award policy.
+- eligibility rules, the two or three AI models to use (exact model ids; the deployed demo uses two), the aggregation parameters, the tie-break order and the award policy.
 
 The contract stores `rubric_hash = sha256(JCS(rubric))` at creation and has no method to change it. Bidders read the rubric before bidding. The evaluator refuses to run if the rubric it receives does not hash to the stored value.
 
@@ -27,10 +27,10 @@ Everything below runs in one OutLayer execution inside an Intel TDX TEE, started
 | 3 | Price score for every eligible bid | code (formula) | yes |
 | 4 | Text criteria: each of the rubric's models (2 or 3, D-028) scores each eligible bid, with quotes | **AI** | no (recorded) |
 | 5 | Check every AI score: quotes must exist in the proposal, else clamp | code | yes |
-| 6 | Combine the 3 scores per criterion: lower median | code | yes |
+| 6 | Combine the configured models' valid scores per criterion: lower median | code | yes |
 | 7 | Flags: injection patterns, disagreement, missing evidence, incomplete | code | yes |
 | 8 | Weighted total, ranking, tie-breaks, status | code | yes |
-| 9 | Build evidence bundle, encrypted debriefs and committee report, upload, print compact result | code | yes |
+| 9 | Build evidence bundle, encrypted debriefs and committee report, upload, print compact result | code | scoring is deterministic; encryption uses fresh randomness |
 | 10 | Award | **humans** (committee), on-chain, with rationale if they deviate | n/a |
 
 ### Stage 3 — price (pure formula)
@@ -39,7 +39,7 @@ Everything below runs in one OutLayer execution inside an Intel TDX TEE, started
 
 ### Stage 4 — what the AI does, and only that
 
-For each eligible bid, the evaluator calls three different models on NEAR AI Cloud (inside NEAR AI's own TEEs) with temperature 0 and the prompt in `specs/scoring-prompt.md`. Each model returns, per text criterion: an integer score 0–5 that must match one of the rubric's anchors, verbatim quotes from the proposal that justify it, what is missing, and a short rationale.
+For each eligible bid, the evaluator calls the rubric's two or three different models on NEAR AI Cloud (inside NEAR AI's own TEEs) with temperature 0 and the prompt in `specs/scoring-prompt.md`. The deployed demo uses two models (D-028). Each model returns, per text criterion: an integer score 0 to 5 that must match one of the rubric's anchors, verbatim quotes from the proposal that justify it, what is missing, and a short rationale.
 
 The AI never sees prices, never decides eligibility, never sees other bids, never computes totals and never ranks.
 
