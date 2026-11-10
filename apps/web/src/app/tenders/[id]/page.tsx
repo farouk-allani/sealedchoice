@@ -335,6 +335,15 @@ export default async function TenderPage({ params }: PageProps) {
   // The verify and debrief pages both read the accepted result, so they only mean something
   // once one exists.
   const hasResult = compact !== null;
+  const progress = lifecycleSteps({
+    status: tender.status,
+    deadline_ns: tender.deadline_ns,
+    bidCount: tender.active_slots.length,
+    attempts,
+    award: tender.award,
+    hasKey: tender.tender_pubkey !== null,
+    escrowed: tender.escrowed,
+  });
 
   return (
     <>
@@ -506,18 +515,14 @@ export default async function TenderPage({ params }: PageProps) {
 
         <div>
           <section className="panel ui-paper">
-            <h2>Progress</h2>
+            <div className="progress-heading">
+              <h2>Progress</h2>
+              <span>{progress.filter((step) => step.state === "complete").length} of {progress.length} complete</span>
+            </div>
+            <p className="progress-hint">Expand a step for details.</p>
             <Lifecycle
               layout="vertical"
-              steps={lifecycleSteps({
-                status: tender.status,
-                deadline_ns: tender.deadline_ns,
-                bidCount: tender.active_slots.length,
-                attempts,
-                award: tender.award,
-                hasKey: tender.tender_pubkey !== null,
-                escrowed: tender.escrowed,
-              })}
+              steps={progress}
             />
           </section>
 

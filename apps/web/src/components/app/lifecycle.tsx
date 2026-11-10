@@ -30,7 +30,17 @@ export function Lifecycle({
               <span>{index + 1}</span>
             )}
           </span>
-          <div>
+          {layout === "vertical" ? (
+            <details className="lifecycle-detail" open={step.state === "current" || (index === steps.length - 1 && steps.every((item) => item.state === "complete"))}>
+              <summary>
+                <strong>{step.label}</strong>
+                <span className="ui-sr-only">{step.state}</span>
+                <Icon name="down" size={15} />
+              </summary>
+              <p>{step.detail}</p>
+              {step.href && <a className="inline-link" href={step.href}>View record <Icon name="external" size={13} /></a>}
+            </details>
+          ) : <div>
             {step.href ? (
               <a href={step.href}>
                 {step.label}
@@ -41,7 +51,7 @@ export function Lifecycle({
             )}
             <span>{step.detail}</span>
             <span className="ui-sr-only">{step.state}</span>
-          </div>
+          </div>}
         </li>
       ))}
     </ol>

@@ -2066,6 +2066,28 @@
   font-weight: 500;
 }
 
+.progress-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.progress-heading h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+.progress-heading > span,
+.progress-hint {
+  color: var(--app-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+.progress-hint {
+  margin-bottom: 16px !important;
+}
 .award-account {
   font-size: 15px;
   word-break: break-all;
