@@ -40,9 +40,11 @@ export default async function VerifyPage({ params }: PageProps) {
 
   return (
     <div className="page">
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
         <Link href="/tenders">Tenders</Link>
+        <Icon name="chevron" size={15} />
         <Link href={`/tenders/${id}`}>Tender {id}</Link>
+        <Icon name="chevron" size={15} />
         <span aria-current="page">Verify</span>
       </nav>
 

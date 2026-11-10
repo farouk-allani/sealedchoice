@@ -1633,6 +1633,9 @@
 }
 
 @media (max-width: 380px) {
+  .app-brand > span {
+    display: none;
+  }
   .demo-feature img {
     display: none;
   }
