@@ -206,14 +206,14 @@ button {
   background: #d6d1e0;
   border-color: #d6d1e0;
 }
-.button-outline {
+/* Secondary hero action: separated by a solid surface value, never an outline (CLAUDE.md rule 3). */
+.button-surface {
   color: #f3f1f7;
-  border: 1px solid #aea5bb;
-  background: #0a091140;
+  background: #2a2334;
   min-width: 190px;
 }
-.button-outline:hover {
-  background: #201b29;
+.button-surface:hover {
+  background: #3a3147;
 }
 .hero-bottom {
   position: absolute;
@@ -1190,7 +1190,7 @@ summary::-webkit-details-marker {
     padding: 14px 16px;
     border-radius: 5px;
   }
-  .button-outline {
+  .button-surface {
     min-width: 132px;
   }
   .hero-bottom {

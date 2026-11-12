@@ -4,6 +4,7 @@ import Link from "next/link";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { CHAIN } from "../../config/evidence.ts";
+import { DOCS_URL } from "../../config/links.ts";
 import { BlenderVault } from "./blender-vault.tsx";
 
 export function Hero() {
@@ -55,8 +56,8 @@ export function Hero() {
             <Link href="/tenders" className="button button-light">
               Open app
             </Link>
-            <a href="#result" className="button button-outline">
-              Explore demo tender
+            <a href={DOCS_URL} className="button button-surface">
+              Read the docs
             </a>
           </div>
         </div>
