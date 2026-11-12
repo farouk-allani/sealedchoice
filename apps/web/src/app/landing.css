@@ -211,6 +211,8 @@ button {
   color: #f3f1f7;
   background: #2a2334;
   min-width: 190px;
+  /* one extra pixel each way: the light button beside it carries a 1px border */
+  padding-block: 17px;
 }
 .button-surface:hover {
   background: #3a3147;
@@ -1192,6 +1194,7 @@ summary::-webkit-details-marker {
   }
   .button-surface {
     min-width: 132px;
+    padding-block: 15px;
   }
   .hero-bottom {
     bottom: 35px;
