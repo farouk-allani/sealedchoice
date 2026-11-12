@@ -1,10 +1,37 @@
 # SealedChoice
 
-**Sealed tenders, verifiable awards.** SealedChoice helps a buyer choose a supplier on NEAR: suppliers encrypt bids in their browsers to an OutLayer TEE key; after the deadline, a pinned evaluator scores them against a rubric published before bidding; a human committee awards; escrow pays the winner. It targets small DAOs and ecosystem teams hiring digital service providers. Procurement otherwise asks suppliers to trust whoever holds their bids, scores them and arranges payment.
+**Sealed tenders on NEAR, with a verifiable award.** A buyer publishes the scoring rules before bidding. Suppliers encrypt their bids in the browser to a tender key derived inside an OutLayer TEE. After the deadline the tender contract has a pinned evaluator score the bids once. A human committee awards on-chain, and the escrowed budget pays the winner.
 
-[Open the app](https://sealedchoice.com/tenders) | [Documentation](https://docs.sealedchoice.com) | [Recorded attacks](https://sealedchoice.com/attacks)
+[Open the app](https://sealedchoice.com/tenders) | [Verify tender 1](https://sealedchoice.com/tenders/1/verify) | [Recorded attacks](https://sealedchoice.com/attacks) | [Documentation](https://docs.sealedchoice.com)
 
-The prototype uses **NEAR testnet and tUSDC**, with three completed static demo tenders. Cross-chain payout is deferred. Contract-account and secret-owner keys **remain retained**. Public source and frozen source tags are not yet published. See [limits](#limitations-and-next-steps).
+**Status:** a working prototype on **NEAR testnet with test tokens (tUSDC)**. Three tenders are complete, and two were awarded and paid through real wallet flows. No production buyer has used it. Contract-account and secret-owner keys **remain retained**, cross-chain payout is deferred, and frozen source tags are not yet published. See [limits](#limitations-and-next-steps).
+
+## The problem
+
+When an organisation picks a supplier through a tender, every supplier has to trust whoever holds the bids.
+
+- **Bids leak before the deadline.** Whoever can open them can tip off a preferred supplier.
+- **Rules change after the bids arrive.** Criteria and weights get adjusted once the buyer sees who bid.
+- **Scoring is opaque.** A losing bidder gets a letter, not their scores, and cannot check how they were computed.
+- **Payment is a separate, slow process**, more so across borders.
+
+This is where procurement corruption happens: the [OECD Foreign Bribery Report (2014)](https://doi.org/10.1787/9789264226616-en) found that 57% of the foreign bribery cases it examined involved bribes to obtain public procurement contracts. DAOs, grant programs and ecosystem teams run the same process at a smaller scale. Their treasury is on-chain, while the selection usually happens in forms, spreadsheets and private chats.
+
+## What SealedChoice does about it
+
+Each row is a mechanism in the code and a recorded result on testnet, not an intention.
+
+| Problem | What happens here | Recorded evidence |
+| --- | --- | --- |
+| Bids are read before the deadline | Bids are encrypted in the supplier's browser and the contract stores only ciphertext. The master secret is released only to the pinned evaluator build when the tender contract calls it, and the contract requests evaluation only after the deadline. | [Direct request denied](https://testnet.nearblocks.io/txns/HSuJU5SMZQiedf3FB1NMCWDtFpLs5YMoQpuSwmAuuVGn) before any guest code ran ([OutLayer 15559](https://outlayer.ai/requests/15559)); [early close refused](https://testnet.nearblocks.io/txns/9S3aYuJUW76mk913wy5wXo8XhFmzVxPfDxUnZN6LB58B) |
+| Rules change after bids arrive | The rubric hash, evaluator, committee, deadline and bond are fixed at creation. The contract has no method that changes them. | [Rubric change: MethodNotFound](https://testnet.nearblocks.io/txns/95r9z2AuNW33Q7iVDvxbHnzy2PGcUt35mvz84jCtsN25); the public verifier recomputes the rubric commitment |
+| Bids are added, removed or copied | Closing freezes the bid set under a Merkle root. A ciphertext that already exists is refused. | [Copied bid refused](https://testnet.nearblocks.io/txns/9xR5rfo8Ua7x8cjhAG72zBNMAwrFxXGA6sDaVgacAMEL) |
+| Scoring cannot be checked | Code computes eligibility, price scores, totals and ranking in integers. Models judge text criteria only, must quote the proposal, and code checks every quote. Each bidder can decrypt and recompute their own scores. | [Ten public checks on tender 1](https://sealedchoice.com/tenders/1/verify); [check boundaries](apps/docs/docs/technical/verification.md) |
+| A result is replaced | The contract accepts one result per tender through a private callback. Failed attempts are recorded and capped at three. | [Fake result refused](https://testnet.nearblocks.io/txns/J5pa7f8ykjMHmT2GPz7wdZqDAFTXGPDcPvTfkMFDWFcF); [second evaluation refused](https://testnet.nearblocks.io/txns/F5nAoEsWQHeNpsViRhkqaKjRE9w2ZZ6uLRa17gnpJPy8) |
+| The award quietly ignores the ranking | Only the committee can award. Choosing a lower-ranked bid requires a written rationale, stored on-chain. | [Award without rationale refused](https://testnet.nearblocks.io/txns/4N7pLkDmwhUHQXSjgNydi8x5fbippeoWB2axR6DaGcqh); [tender 2 deviation with its published reason](https://sealedchoice.com/tenders/2/award) |
+| Payment is separate and slow | The budget is escrowed before bidding. The winner's acceptance triggers payment from the contract and the remainder returns to the buyer. | [Tender 1 payment](https://testnet.nearblocks.io/txns/8ZMMLktGoLx3zAiR3GSCYazdMutHYbFvueWc2zEqwPnG): 12,000 tUSDC to the winner, 3,000 back to the buyer |
+
+The committee can still choose a lower-ranked bid. It cannot do so without publishing the reason. These results hold under the trust assumptions in [limits](#limitations-and-next-steps), including the retained operator keys.
 
 ## Try it in two minutes
 
@@ -65,6 +92,18 @@ The rubric, evaluator reference, committee, deadline and bond are fixed at creat
 | Payment | NEAR contract after winner acceptance | Escrow accounting and transfer result |
 
 AI receives only allowed text fields, not the structured price. It never computes the ranking or makes the award. A supplier can still disclose a price in its prose. Details: [scoring](apps/docs/docs/technical/scoring.md), [scoring implementation](evaluator/core/src/lib.rs), [request construction](evaluator/wasm/src/prompt.rs).
+
+## Why NEAR, and what a tender adds to it
+
+The design needs four things at the same time: a contract that can request off-chain computation and receive the result in a callback, a TEE that releases a secret only to one program called by one contract, model inference that returns signed request and response hashes, and readable accounts for buyers, suppliers and committees. On NEAR each of these is an existing service that this project calls. None of them is rebuilt here. Other stacks were not evaluated.
+
+What one tender puts on NEAR, measured on [tender 1](apps/docs/docs/evidence.md):
+
+- **Nine transactions:** create, fund, three bids, close, one retry, award, acceptance and payment.
+- **A NEAR account for every participant.** The buyer and each supplier sign with their own account, and the winner is paid to one.
+- **The budget in escrow as a NEP-141 token** from creation to payout: 15,000 tUSDC in the demo.
+- **Paid OutLayer executions** for key derivation and each evaluation attempt.
+- **Six signed NEAR AI Cloud calls** for three bids and two models.
 
 ## NEAR technologies used
 
@@ -145,6 +184,20 @@ Run `pnpm -r test` for TypeScript, `python specs/reference/reference.py --check`
 
 The local WSL sandbox requires a newer glibc than this host provides (2.39 required, 2.35 installed), so no local sandbox success is claimed. GitHub Actions currently fails before jobs start; no successful current CI run is claimed.
 
+## Who it is for, and who pays
+
+**First user:** a small DAO, grant program or ecosystem team hiring a digital service provider, for example a security review, an integration or a design job. One buyer, three to five proposals, one payout. This matches the recorded demo.
+
+**What each side gets:**
+
+- **Suppliers** can bid without trusting the buyer to keep the bid closed, and receive their own scores with the model quotes behind them.
+- **Buyers and committees** get a ranking with evidence, keep the final decision, and can show afterwards that the rules were published first and the award followed them or gave a reason.
+- **Token holders and the public** can run the same ten checks without a wallet.
+
+**Business model (planned, not built):** a flat fee per tender paid by the buyer, and a hosted plan for organisations that run many tenders. No percentage of the contract value, no token and no yield on escrowed funds. The contract charges no platform fee today. The only fee in the code is the evaluation deposit that pays for OutLayer execution: see [tender.rs](contracts/tender/src/tender.rs). Model inference for a five-bid evaluation was estimated at about $0.02 from NEAR AI Cloud's listed prices on 2026-11-04. That is an estimate, not a bill.
+
+**Not yet true:** nobody has paid for a tender, and no organisation outside the team has run one.
+
 ## Prior art
 
 Related work includes [Kemal Bicakci's TEE-based grant-evaluation architecture](https://arxiv.org/abs/2604.25200), [BlindProcure's encrypted lowest-offer selection](https://community.zama.org/t/blindprocure-onchain-procurement-without-price-leakage/4503), and [OutLayer's private DAO example](https://app.outlayer.ai/docs/examples). SealedChoice combines encrypted multi-criterion procurement, recorded model evidence, human awards and NEAR escrow payments. It does not claim to invent sealed bidding or attested inference, and these references are not an independent benchmark of other projects.
@@ -157,6 +210,23 @@ Related work includes [Kemal Bicakci's TEE-based grant-evaluation architecture](
 - **Prototype scope:** five active bids per tender, two-model demo, one committee approver, test tokens, completed static tenders, no demonstrated cross-chain payment or production buyer adoption.
 - **External trust:** TEE services, browser delivery, RPC and bundle availability remain dependencies. Collusion, false claims, a biased rubric and poor committee decisions remain possible.
 - **Release work:** public source/tag publication, a complete hardware-attestation verifier, external security review and production payment validation remain separate work.
+
+## Repository map
+
+| Path | Contents |
+| --- | --- |
+| [contracts/tender](contracts/tender) | NEAR contract: lifecycle, deadlines, escrow, award, payout, bonds, with the invariant tests |
+| [contracts/mock-outlayer](contracts/mock-outlayer) | Test double for sandbox tests |
+| [evaluator/core](evaluator/core) | Scoring library in integers, no I/O |
+| [evaluator/wasm](evaluator/wasm) | The program OutLayer runs inside the TEE |
+| [packages/crypto](packages/crypto) | Canonical JSON, Merkle tree, ECIES and reader keys |
+| [packages/verify](packages/verify) | The public checks, shared by the CLI and the verify page |
+| [packages/shared](packages/shared) | Types, limits and constants |
+| [apps/web](apps/web) | The application and the bundle store API |
+| [apps/docs](apps/docs) | Source of [docs.sealedchoice.com](https://docs.sealedchoice.com) |
+| [specs](specs) | Schemas, scoring prompt, executable reference and test vectors that Rust and TypeScript reproduce byte for byte |
+| [scripts](scripts) | Deployment, end-to-end run, attack runner and the verify CLI |
+| [docs](docs) | Design documents, including the [threat model](docs/07-threat-model.md) |
 
 ## License
 
