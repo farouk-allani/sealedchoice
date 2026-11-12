@@ -184,7 +184,7 @@ Run `pnpm -r test` for TypeScript, `python specs/reference/reference.py --check`
 | I14, I15 | Rubric parity and real curve-point keys | [Contract tests](contracts/tender/src/tests.rs), [evaluator tests](evaluator/core/src) |
 | Scoring and readers | Rust/TS/reference parity, signature failures and accepted-bundle commitment | [Shared vectors](specs/test-vectors), [verifier tests](packages/verify/src) |
 
-The local WSL sandbox requires a newer glibc than this host provides (2.39 required, 2.35 installed), so no local sandbox success is claimed. GitHub Actions currently fails before jobs start; no successful current CI run is claimed.
+The local WSL sandbox requires a newer glibc than this host provides (2.39 required, 2.35 installed), so no local sandbox success is claimed. GitHub Actions is turned off on this repository because a billing lock on the owner's GitHub account stops jobs from starting. The workflow in [.github/workflows/ci.yml](.github/workflows/ci.yml) lists the same checks as the commands above. No CI run is claimed; those checks were run locally.
 
 ## Who it is for, and who pays
 
