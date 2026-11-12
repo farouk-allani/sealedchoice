@@ -1,4 +1,14 @@
-# SealedChoice
+<p align="center">
+  <img src="apps/web/src/app/icon.svg" width="88" height="88" alt="SealedChoice logo">
+</p>
+
+<h1 align="center">SealedChoice</h1>
+
+<p align="center">
+  <a href="https://sealedchoice.com/tenders"><img src="https://img.shields.io/badge/live_app-sealedchoice.com-6544c2" alt="Live app: sealedchoice.com"></a>
+  <a href="https://testnet.nearblocks.io/address/tenders-v1.sealedchoice.testnet"><img src="https://img.shields.io/badge/network-NEAR_testnet-080810" alt="Network: NEAR testnet"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3d3d4a" alt="License: MIT"></a>
+</p>
 
 **Sealed tenders on NEAR, with a verifiable award.** A buyer publishes the scoring rules before bidding. Suppliers encrypt their bids in the browser to a tender key derived inside an OutLayer TEE. After the deadline the tender contract has a pinned evaluator score the bids once. A human committee awards on-chain, and the escrowed budget pays the winner.
 
