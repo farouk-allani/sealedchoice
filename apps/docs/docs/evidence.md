@@ -80,7 +80,7 @@ The direct request was refused before guest execution, with zero guest instructi
 
 The evaluator is available from the [immutable artifact commit](https://raw.githubusercontent.com/farouk-allani/sealedchoice-artifacts/392c47bc342dc818d0676f32d71ff63239ab1e0d/evaluator/evaluator-v1.0.0-737b91e7.wasm). The [contract account](https://testnet.nearblocks.io/address/tenders-v1.sealedchoice.testnet) reports deployed NEAR code hash `3HNnjqgBrxMXhJnmBk2vxHax2iFDrFzp94vVAdXEtGuU`.
 
-The release was compared with clean pinned-image builds. Frozen source references `contract-v1.0.0` and `evaluator-v1.0.0` remain local pending source publication. Do not confuse a successful artifact download/hash check with independently rebuilding that source. See [development and build boundaries](./developers.md#builds-and-frozen-artifacts).
+The release was compared with clean pinned-image builds. Frozen source references `contract-v1.0.0` and `evaluator-v1.0.0` are tags of the public repository, at commit `5bf098698df26d87967129bb48b3c54e54a60854`. Do not confuse a successful artifact download/hash check with independently rebuilding that source. See [development and build boundaries](./developers.md#builds-and-frozen-artifacts).
 
 The contract and secret-owner keys remain retained. See [deployment trust assumptions](./security.md#operator-powers-that-remain).
 

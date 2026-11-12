@@ -4,7 +4,7 @@
 
 [Open the app](https://sealedchoice.com/tenders) | [Verify tender 1](https://sealedchoice.com/tenders/1/verify) | [Recorded attacks](https://sealedchoice.com/attacks) | [Documentation](https://docs.sealedchoice.com)
 
-**Status:** a working prototype on **NEAR testnet with test tokens (tUSDC)**. Three tenders are complete, and two were awarded and paid through real wallet flows. No production buyer has used it. Contract-account and secret-owner keys **remain retained**, cross-chain payout is deferred, and frozen source tags are not yet published. See [limits](#limitations-and-next-steps).
+**Status:** a working prototype on **NEAR testnet with test tokens (tUSDC)**. Three tenders are complete, and two were awarded and paid through real wallet flows. No production buyer has used it. Contract-account and secret-owner keys **remain retained** and cross-chain payout is deferred. See [limits](#limitations-and-next-steps).
 
 ## The problem
 
@@ -49,9 +49,11 @@ The completed tenders cannot accept new bids. Private debrief and committee repo
 
 ## Run it locally
 
-Use the supplied source checkout. Prerequisites: Node.js **22.12+** (checked on **24.19.0**), pnpm **12.16.1**, and internet access for public chain evidence. No environment file, wallet or secret is needed for the read-only demo.
+Prerequisites: Node.js **22.12+** (checked on **24.19.0**), pnpm **12.16.1**, and internet access for public chain evidence. No environment file, wallet or secret is needed for the read-only demo.
 
 ```bash
+git clone https://github.com/farouk-allani/sealedchoice.git
+cd sealedchoice
 pnpm install --frozen-lockfile
 pnpm -r test
 pnpm -r lint
@@ -143,7 +145,7 @@ Frozen contract SHA-256: `21e94da15087a942debeaa547bf5e5caaec4a4dc0a669e07e7af0e
 
 Frozen evaluator SHA-256: `737b91e724b25facefce9d9e53655bd18e3a4070c857af54f88f0e7b5f18d470`, available at the [immutable artifact URL](https://raw.githubusercontent.com/farouk-allani/sealedchoice-artifacts/392c47bc342dc818d0676f32d71ff63239ab1e0d/evaluator/evaluator-v1.0.0-737b91e7.wasm).
 
-Frozen source tags remain local pending publication. Clean release builds were compared; public cold-source reproduction remains pending that publication. The [developer guide](apps/docs/docs/developers.md#builds-and-frozen-artifacts) distinguishes ordinary host builds from the frozen release context.
+Frozen source: the tags [`contract-v1.0.0`](https://github.com/farouk-allani/sealedchoice/tree/contract-v1.0.0) and [`evaluator-v1.0.0`](https://github.com/farouk-allani/sealedchoice/tree/evaluator-v1.0.0) point to commit `5bf098698df26d87967129bb48b3c54e54a60854`. The deployed contract's own source metadata links to that commit: call `contract_source_metadata` on the contract to read it. The tags keep the frozen export's original commits so that link resolves; `main` holds the same files, plus the later application and documentation work, on a separate line of history. Clean release builds were compared before publication. The team has not yet repeated a cold rebuild from the public commit. The [developer guide](apps/docs/docs/developers.md#builds-and-frozen-artifacts) distinguishes ordinary host builds from the frozen release context.
 
 ### Measured attack outcomes
 
@@ -198,6 +200,16 @@ The local WSL sandbox requires a newer glibc than this host provides (2.39 requi
 
 **Not yet true:** nobody has paid for a tender, and no organisation outside the team has run one.
 
+## Hackathon tracks
+
+Built at NEAR HACKATHON, November 2026. The tracks this project fits, with the gap stated for each:
+
+| Track | Why it fits | Gap |
+| --- | --- | --- |
+| Privacy & Private AI (`privacy`) | Bids stay confidential until evaluation. Decryption and scoring run inside an OutLayer TEE. Text judgments come from NEAR AI Cloud models that return signed request and response hashes. Private reports are encrypted to registered readers only. See [evaluator/wasm](evaluator/wasm/src/pipeline.rs) and [verification](apps/docs/docs/technical/verification.md). | Attestation fields are recorded and checked for consistency; the full hardware certificate chain is not verified. |
+| Autonomous Business (`business`) | Procurement where humans set the constraints first (rubric, deadline, committee, budget) and the contract enforces them through escrow, award rules and payout. See the [contract](contracts/tender/src/lib.rs). | Cross-chain payment through NEAR Intents is not implemented, and the award itself is a human decision by design. |
+| AI Security & Defense (`security`) | The models get a narrow job: they read proposal text, never see prices, never rank and never move funds. Code checks their quotes and flags suspected instruction injection. Ten adversarial attempts are recorded on testnet. See [request construction](evaluator/wasm/src/prompt.rs) and [attacks](https://sealedchoice.com/attacks). | One recorded detection does not establish general model resistance. Function-call keys are not a demonstrated flow. |
+
 ## Prior art
 
 Related work includes [Kemal Bicakci's TEE-based grant-evaluation architecture](https://arxiv.org/abs/2604.25200), [BlindProcure's encrypted lowest-offer selection](https://community.zama.org/t/blindprocure-onchain-procurement-without-price-leakage/4503), and [OutLayer's private DAO example](https://app.outlayer.ai/docs/examples). SealedChoice combines encrypted multi-criterion procurement, recorded model evidence, human awards and NEAR escrow payments. It does not claim to invent sealed bidding or attested inference, and these references are not an independent benchmark of other projects.
@@ -230,4 +242,4 @@ Related work includes [Kemal Bicakci's TEE-based grant-evaluation architecture](
 
 ## License
 
-The team has not selected a project license yet. Bundled third-party fonts and icons retain their own license files. The project license is a T16 release decision; no MIT grant is implied.
+MIT. See [LICENSE](LICENSE). Bundled third-party fonts and icons retain their own license files.

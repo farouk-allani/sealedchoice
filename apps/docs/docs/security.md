@@ -9,7 +9,7 @@ SealedChoice records a constrained procurement process. Its protection depends o
 
 The final demo is on NEAR **testnet**, with test tokens and static completed tenders. The contract account and the OutLayer secret-row owner's full-access keys **have been retained**. No key-deletion transaction is claimed.
 
-The published frozen contract and evaluator artifacts were compared in clean release builds. Frozen source tags remain local pending source publication. The private working repository is not a public source release. Artifact identity, source reproducibility and source publication are separate facts.
+The published frozen contract and evaluator artifacts were compared in clean release builds. Frozen source tags are published with the public repository. The private working repository is not a public source release. Artifact identity, source reproducibility and source publication are separate facts.
 
 ## Operator powers that remain
 

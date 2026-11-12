@@ -39,7 +39,7 @@ We claim (and the demo shows):
 - The configured evaluator/secret-release flow restricts bid opening to the contract-requested evaluation. Retained contract-account and secret-owner keys remain additional trust assumptions; this is not an unconditional early-access exclusion.
 - The rubric cannot change after creation.
 - No bid can be added, removed or swapped after close (Merkle root).
-- The contract accepts only one result. Failed execution attempts are recorded and capped at three. Artifact identity and source reproducibility are separate checks; frozen source tags remain local pending publication.
+- The contract accepts only one result. Failed execution attempts are recorded and capped at three. Artifact identity and source reproducibility are separate checks; frozen source tags are published with the public repository.
 - Model request/response hashes are signed, quote evidence is checked by code and valid criterion outputs use the lower median. Correlated model failures and score variability remain possible.
 - The award and any deviation from the ranking are public and justified.
 - Payment comes from escrow to the awarded supplier only.
