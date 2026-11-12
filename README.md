@@ -14,7 +14,7 @@
 
 [Open the app](https://sealedchoice.com/tenders) | [Verify tender 1](https://sealedchoice.com/tenders/1/verify) | [Recorded attacks](https://sealedchoice.com/attacks) | [Documentation](https://docs.sealedchoice.com)
 
-**Status:** a working prototype on **NEAR testnet with test tokens (tUSDC)**. Three tenders are complete, and two were awarded and paid through real wallet flows. No production buyer has used it. Contract-account and secret-owner keys **remain retained** and cross-chain payout is deferred. See [limits](#limitations-and-next-steps).
+**Status:** a working prototype on **NEAR testnet with test tokens (tUSDC)**. Three tenders are complete, and two were awarded and paid through real wallet flows. No production buyer has used it. The contract account has **no access keys**: its only full-access key was [deleted on 2026-11-12](https://testnet.nearblocks.io/txns/7DcmnScDaQLMJTcviw5u9FdjZhKK1snpREJ2nX5VT1NP), so nobody can replace its code or sign as it. The OutLayer secret owner keeps its key, and cross-chain payout is deferred. See [limits](#limitations-and-next-steps).
 
 ## The problem
 
@@ -41,7 +41,7 @@ Each row is a mechanism in the code and a recorded result on testnet, not an int
 | The award quietly ignores the ranking | Only the committee can award. Choosing a lower-ranked bid requires a written rationale, stored on-chain. | [Award without rationale refused](https://testnet.nearblocks.io/txns/4N7pLkDmwhUHQXSjgNydi8x5fbippeoWB2axR6DaGcqh); [tender 2 deviation with its published reason](https://sealedchoice.com/tenders/2/award) |
 | Payment is separate and slow | The budget is escrowed before bidding. The winner's acceptance triggers payment from the contract and the remainder returns to the buyer. | [Tender 1 payment](https://testnet.nearblocks.io/txns/8ZMMLktGoLx3zAiR3GSCYazdMutHYbFvueWc2zEqwPnG): 12,000 tUSDC to the winner, 3,000 back to the buyer |
 
-The committee can still choose a lower-ranked bid. It cannot do so without publishing the reason. These results hold under the trust assumptions in [limits](#limitations-and-next-steps), including the retained operator keys.
+The committee can still choose a lower-ranked bid. It cannot do so without publishing the reason. These results hold under the trust assumptions in [limits](#limitations-and-next-steps), including the secret owner's retained key.
 
 ## Try it in two minutes
 
@@ -226,7 +226,7 @@ Related work includes [Kemal Bicakci's TEE-based grant-evaluation architecture](
 
 ## Limitations and next steps
 
-- **Retained keys:** the contract's full-access key can replace code or sign as the contract; the secret-row owner can rebind access. Neither account has been locked. The privacy model includes trust in those retained powers.
+- **Contract locked, secret owner not:** `tenders-v1.sealedchoice.testnet` has had zero access keys since [this transaction](https://testnet.nearblocks.io/txns/7DcmnScDaQLMJTcviw5u9FdjZhKK1snpREJ2nX5VT1NP), so its code cannot be replaced and nobody can sign as the contract. Check it with the RPC `view_access_key_list` query or on the explorer. The OutLayer secret-row owner, `sealedchoice.testnet`, still holds its full-access key and could rebind the master secret to another build and caller. The privacy model includes trust in that account. The same account is the contract owner, whose only power is registering new evaluator builds for future tenders; existing tenders keep their pinned evaluator.
 - **Models vary:** identical earlier rubric/proposal runs produced A at 81.66/86.66/86.66 and C at 52.00/52.00/45.00. Ranking order changed below A. Verification recomputes recorded outputs rather than rerunning inference. [Measurements](apps/docs/docs/evidence.md#model-variability).
 - **Outcome privacy:** bidder identity, time, ciphertext length, rank, total, flags, award and payout are public. A bidder's price score may reveal the lowest eligible price. The committee sees every proposal.
 - **Prototype scope:** five active bids per tender, two-model demo, one committee approver, test tokens, completed static tenders, no demonstrated cross-chain payment or production buyer adoption.

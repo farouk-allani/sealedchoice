@@ -61,4 +61,4 @@ Before decryption, `packages/verify` checks the exact downloaded bundle bytes ag
 
 ## Trust assumptions
 
-The process depends on NEAR execution, OutLayer's TEE and secret-release rules, the pinned evaluator, NEAR AI's service and the delivered browser code. The store can withhold a bundle even though it cannot silently replace its accepted bytes. Retained contract and secret-owner keys create additional operator powers. See [security and limits](../security.md).
+The process depends on NEAR execution, OutLayer's TEE and secret-release rules, the pinned evaluator, NEAR AI's service and the delivered browser code. The store can withhold a bundle even though it cannot silently replace its accepted bytes. The contract account has no access keys; the secret-row owner keeps its key, an additional operator power. See [security and limits](../security.md).

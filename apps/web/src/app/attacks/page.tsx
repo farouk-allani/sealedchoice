@@ -38,7 +38,7 @@ export default function AttacksPage() {
         <p>The caller, time, ciphertext, committee and winner checks refused these calls. An injection flag does not make a bid ineligible or lower its score. Model judgments can vary; the committee reviews the text before deciding.</p>
         <details className="attack-evidence">
           <summary>Deployment details and untested risks <Icon name="down" size={16} /></summary>
-          <p>These outcomes were recorded on <span className="mono">{ATTACKS.contract_id}</span>. Contract and secret-row owner keys remain active. Their holders can replace the contract or rebind the secret.</p>
+          <p>These outcomes were recorded on <span className="mono">{ATTACKS.contract_id}</span>. The contract account has had no access keys since 2026-11-12, so its code cannot be replaced. The secret-row owner keeps its key and could rebind the secret.</p>
           <p>Attempt 2, a different evaluator build, is covered by earlier gate evidence and was not rerun here. These outcomes do not cover collusion, false claims, a biased rubric or compromised owner keys.</p>
         </details>
       </section>

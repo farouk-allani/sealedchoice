@@ -1,21 +1,21 @@
 ---
 title: Security, privacy and limits
-description: The protection boundaries, retained operator powers and limitations of the SealedChoice testnet prototype.
+description: The protection boundaries, remaining operator powers and limitations of the SealedChoice testnet prototype.
 ---
 
 SealedChoice records a constrained procurement process. Its protection depends on the deployed contract, evaluator and secret-release configuration, the TEE services and the browser code a participant uses.
 
 ## Current deployment status
 
-The final demo is on NEAR **testnet**, with test tokens and static completed tenders. The contract account and the OutLayer secret-row owner's full-access keys **have been retained**. No key-deletion transaction is claimed.
+The final demo is on NEAR **testnet**, with test tokens and static completed tenders. The contract account `tenders-v1.sealedchoice.testnet` has **no access keys**: its only full-access key was deleted on 2026-11-12 ([transaction](https://testnet.nearblocks.io/txns/7DcmnScDaQLMJTcviw5u9FdjZhKK1snpREJ2nX5VT1NP)). The OutLayer secret-row owner, `sealedchoice.testnet`, **keeps its full-access key**.
 
 The published frozen contract and evaluator artifacts were compared in clean release builds. Frozen source tags are published with the public repository. The private working repository is not a public source release. Artifact identity, source reproducibility and source publication are separate facts.
 
 ## Operator powers that remain
 
-An account with full-access keys can replace its contract code or sign calls as that account. A secret-row owner can change the secret's build binding and caller rule. Those powers could bypass the intended deadline or make a different build read bids.
+With no access keys, the contract account cannot have its code replaced, and nobody can sign a call as the contract, including an OutLayer request that the secret's caller rule would accept. The secret-row owner can still change the secret's build binding and caller rule. That power could make a different build, or a different caller, read bids.
 
-The tender's on-chain evaluator pin and public evidence help reviewers inspect the recorded process. They do not cryptographically remove those retained powers. Locking keys is a separate operational step that has not been performed in this demo.
+The tender's on-chain evaluator pin and public evidence help reviewers inspect the recorded process. They do not remove the secret owner's power. That account was not locked because it is the team's main account and also the contract owner, whose only contract power is registering evaluator builds for new tenders.
 
 ## Protection in the current code
 

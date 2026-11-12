@@ -4,7 +4,7 @@
 
 **SealedChoice runs sealed tenders on NEAR: suppliers encrypt bids to a TEE key, the contract requests evaluation after closing against a rubric published in advance, a human committee awards on-chain, and escrow pays the winner.**
 
-Current demo (2026-11-10): three completed tenders on `tenders-v1.sealedchoice.testnet`, two models, one committee approver and NEAR testnet tUSDC payments. Cross-chain delivery is deferred. Contract and secret-owner keys remain retained, creating operator powers that can bypass the intended confidentiality flow. See `apps/docs/docs/security.md` and `07-threat-model.md`.
+Current demo (2026-11-10): three completed tenders on `tenders-v1.sealedchoice.testnet`, two models, one committee approver and NEAR testnet tUSDC payments. Cross-chain delivery is deferred. The contract account has had no access keys since 2026-11-12 (tx `7DcmnScDaQLMJTcviw5u9FdjZhKK1snpREJ2nX5VT1NP`). The secret-row owner keeps its key, an operator power that could bypass the intended confidentiality flow. See `apps/docs/docs/security.md` and `07-threat-model.md`.
 
 ## The problem
 
@@ -36,7 +36,7 @@ Later: private companies' vendor selection, then public-sector pilots (much late
 ## What we claim, and what we do not
 
 We claim (and the demo shows):
-- The configured evaluator/secret-release flow restricts bid opening to the contract-requested evaluation. Retained contract-account and secret-owner keys remain additional trust assumptions; this is not an unconditional early-access exclusion.
+- The configured evaluator/secret-release flow restricts bid opening to the contract-requested evaluation. The secret-row owner's retained key remains an additional trust assumption; this is not an unconditional early-access exclusion.
 - The rubric cannot change after creation.
 - No bid can be added, removed or swapped after close (Merkle root).
 - The contract accepts only one result. Failed execution attempts are recorded and capped at three. Artifact identity and source reproducibility are separate checks; frozen source tags are published with the public repository.

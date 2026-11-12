@@ -64,4 +64,4 @@ Funding uses NEP-141 `ft_transfer_call`, with the contract enforcing the configu
 | I14 | Creation rejects rubrics the pinned evaluator cannot accept |
 | I15 | Reader and tender keys are valid secp256k1 points |
 
-The source tests exercise these constraints. They do not prevent an account retaining full-access keys from replacing deployed code. The demo retains those keys, as disclosed in [security](../security.md).
+The source tests exercise these constraints. Code cannot be replaced on the deployed account: it has had no access keys since 2026-11-12 ([transaction](https://testnet.nearblocks.io/txns/7DcmnScDaQLMJTcviw5u9FdjZhKK1snpREJ2nX5VT1NP)). The secret owner's remaining power is described in [security](../security.md).

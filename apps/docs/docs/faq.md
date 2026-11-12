@@ -33,7 +33,7 @@ Inference is not guaranteed to repeat exactly. Verification uses the recorded re
 
 ## Can the operator read bids early?
 
-The configured caller and build rules restrict normal secret access to the evaluator's intended flow. However, retained contract-account and secret-owner keys create powers to change that flow. Both are retained in this demo. Read [security and limits](./security.md).
+The configured caller and build rules restrict normal secret access to the evaluator's intended flow. The contract account has no access keys, so its code cannot be replaced and nobody can sign as it. The secret-row owner keeps its key and could rebind the secret to another build and caller, so that account remains a trust assumption. Read [security and limits](./security.md).
 
 ## Can I pay a winner on another chain?
 
@@ -45,4 +45,4 @@ Only the registered bidder or committee reader can derive the expected report ke
 
 ## What happens after the hackathon?
 
-Potential next steps include external security review, improved availability, reducing retained operator powers, production payment validation and testing procurement with an actual buyer. These are future work. The first target users are small DAOs and ecosystem teams purchasing digital services.
+Potential next steps include external security review, improved availability, locking or replacing the secret owner's remaining power, production payment validation and testing procurement with an actual buyer. These are future work. The first target users are small DAOs and ecosystem teams purchasing digital services.

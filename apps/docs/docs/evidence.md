@@ -82,7 +82,7 @@ The evaluator is available from the [immutable artifact commit](https://raw.gith
 
 The release was compared with clean pinned-image builds. Frozen source references `contract-v1.0.0` and `evaluator-v1.0.0` are tags of the public repository, at commit `5bf098698df26d87967129bb48b3c54e54a60854`. Do not confuse a successful artifact download/hash check with independently rebuilding that source. See [development and build boundaries](./developers.md#builds-and-frozen-artifacts).
 
-The contract and secret-owner keys remain retained. See [deployment trust assumptions](./security.md#operator-powers-that-remain).
+The contract account's only full-access key was deleted on 2026-11-12 ([transaction](https://testnet.nearblocks.io/txns/7DcmnScDaQLMJTcviw5u9FdjZhKK1snpREJ2nX5VT1NP)); the account has no access keys. The secret-row owner keeps its key. See [deployment trust assumptions](./security.md#operator-powers-that-remain).
 
 ## Model variability
 

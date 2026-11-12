@@ -163,11 +163,11 @@ export const LIMITS = {
         "actually said, from the stored bytes, and recomputes everything code decided.",
     },
     {
-      title: "Contract and secret-owner keys remain active.",
+      title: "The contract is locked. The secret owner is not.",
       body:
-        "The deployer can replace the contract, and the secret-row owner can rebind the master " +
-        "secret to another build and decrypt bids. Both accounts retain their keys in this demo. " +
-        "These operator powers are stated in the threat model; no account lock is claimed.",
+        "The contract account has had no access keys since 2026-11-12, so nobody can replace its " +
+        "code or sign as it. The secret-row owner keeps its key and could rebind the master secret " +
+        "to another build and decrypt bids. That remaining power is stated in the threat model.",
     },
     {
       title: "A committee can still award badly.",

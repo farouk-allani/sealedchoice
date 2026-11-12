@@ -43,7 +43,7 @@ The CLI exits non-zero for failures or a loading error. A skipped check alone do
 - Public hashes do not let an unrelated visitor read a model conversation or recalculate every private criterion score.
 - The public ranking check does not recompute private totals, enforce the price/index tie-breaks or establish that the result status matches its flags. Deeper score and tie-break checks require the private report.
 - A valid ranking does not establish that the rubric is appropriate, that supplier claims are true or that a model's judgment is good.
-- These checks do not remove the retained contract-key and secret-owner powers described in [security](../security.md).
+- These checks do not remove the secret owner's remaining power described in [security](../security.md).
 
 ## Private reader verification
 
